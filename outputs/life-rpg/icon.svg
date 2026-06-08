@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="生活系统">
+  <rect width="180" height="180" rx="40" fill="#F5F6F8"/>
+  <circle cx="90" cy="78" r="42" fill="#EAF8EF"/>
+  <path d="M73 79.5 85.5 92 109 65" fill="none" stroke="#34C759" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="45" y="126" width="90" height="12" rx="6" fill="#DDE4EC"/>
+</svg>

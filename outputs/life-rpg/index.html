@@ -1,0 +1,1789 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="生活系统">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#f5f6f8">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>生活操作系统</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --surface-soft: #eef2f6;
+      --text: #111827;
+      --muted: #667085;
+      --quiet: #98a2b3;
+      --line: #e6e9ee;
+      --blue: #0a84ff;
+      --green: #34c759;
+      --orange: #ff9f0a;
+      --red: #ff3b30;
+      --shadow: 0 10px 28px rgba(17, 24, 39, 0.07);
+      --radius: 8px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --nav-base-height: 70px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      min-height: 100svh;
+      min-height: 100dvh;
+      background: var(--bg);
+    }
+
+    body {
+      min-height: 100%;
+      min-height: 100svh;
+      min-height: 100dvh;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100svh;
+      min-height: 100dvh;
+      margin: 0 auto;
+      background: var(--bg);
+      overflow-x: hidden;
+    }
+
+    .screen {
+      min-height: 100svh;
+      min-height: 100dvh;
+      padding-top: 12px;
+      padding-right: max(14px, var(--safe-right));
+      padding-bottom: calc(var(--nav-base-height) + 22px + env(safe-area-inset-bottom));
+      padding-left: max(14px, var(--safe-left));
+    }
+
+    .view {
+      display: none;
+      animation: viewIn 0.22s ease both;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 2px 2px 12px;
+    }
+
+    .eyebrow {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 650;
+      line-height: 1.2;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 1.78rem;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: 1.08rem;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      font-size: 1rem;
+      line-height: 1.28;
+      letter-spacing: 0;
+    }
+
+    .icon-button {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--blue);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: transform 0.16s ease, opacity 0.16s ease;
+    }
+
+    .icon-plus {
+      position: relative;
+      width: 17px;
+      height: 17px;
+    }
+
+    .icon-plus::before,
+    .icon-plus::after {
+      content: "";
+      position: absolute;
+      inset: 7px 0 auto;
+      height: 3px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .icon-plus::after {
+      transform: rotate(90deg);
+    }
+
+    .streak-card,
+    .coin-card,
+    .card,
+    .stat-card,
+    .reset-card {
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-grid {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .streak-card {
+      padding: 16px;
+      min-height: 148px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .streak-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .streak-mark {
+      position: relative;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #fff4e2;
+      color: var(--orange);
+    }
+
+    .streak-mark::before {
+      content: "";
+      position: absolute;
+      left: 17px;
+      top: 10px;
+      width: 18px;
+      height: 28px;
+      border-radius: 12px 12px 14px 14px;
+      background: currentColor;
+      transform: rotate(28deg);
+    }
+
+    .streak-mark::after {
+      content: "";
+      position: absolute;
+      left: 22px;
+      top: 20px;
+      width: 10px;
+      height: 19px;
+      border-radius: 9px 9px 11px 11px;
+      background: #ffffff;
+      opacity: 0.75;
+      transform: rotate(25deg);
+    }
+
+    .streak-value {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .streak-value strong {
+      font-size: 3.45rem;
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    .streak-value span {
+      color: var(--muted);
+      font-size: 1.08rem;
+      font-weight: 760;
+    }
+
+    .streak-status {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      font-weight: 650;
+      line-height: 1.4;
+    }
+
+    .coin-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 13px 14px;
+    }
+
+    .coin-card strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 1.72rem;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .coin-token {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #eef8f1;
+      color: #1f8f46;
+      font-size: 1rem;
+      font-weight: 850;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 18px 2px 10px;
+    }
+
+    .section-heading span {
+      color: var(--quiet);
+      font-size: 0.82rem;
+      font-weight: 650;
+      text-align: right;
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .card {
+      padding: 14px;
+    }
+
+    .card-main {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .title-wrap {
+      min-width: 0;
+    }
+
+    .title-wrap p {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #f1f4f8;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 720;
+    }
+
+    .pill.green {
+      background: #eaf8ef;
+      color: #1d8f48;
+    }
+
+    .pill.blue {
+      background: #eaf4ff;
+      color: var(--blue);
+    }
+
+    .pill.orange {
+      background: #fff4e2;
+      color: #b46900;
+    }
+
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .button,
+    .ghost-button,
+    .danger-button,
+    .text-button {
+      min-height: 38px;
+      border: 0;
+      border-radius: var(--radius);
+      padding: 9px 13px;
+      font-size: 0.9rem;
+      font-weight: 760;
+      cursor: pointer;
+      transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
+    }
+
+    .button {
+      background: var(--blue);
+      color: #ffffff;
+    }
+
+    .button.green {
+      background: var(--green);
+    }
+
+    .button[disabled] {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    .ghost-button {
+      background: #edf2f7;
+      color: var(--blue);
+    }
+
+    .danger-button {
+      background: #fff1f0;
+      color: var(--red);
+    }
+
+    .text-button {
+      min-height: 34px;
+      padding: 7px 4px;
+      background: transparent;
+      color: var(--blue);
+    }
+
+    .button:active,
+    .ghost-button:active,
+    .danger-button:active,
+    .text-button:active,
+    .nav-button:active,
+    .icon-button:active {
+      transform: scale(0.97);
+    }
+
+    .empty-state {
+      padding: 22px 18px;
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--muted);
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .empty-state strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .empty-action {
+      margin-top: 14px;
+    }
+
+    .progress-block {
+      margin-top: 13px;
+    }
+
+    .progress-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 720;
+    }
+
+    .progress {
+      width: 100%;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e7edf4;
+    }
+
+    .progress-fill {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--green);
+      transition: width 0.24s ease;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-card {
+      min-height: 112px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .stat-label,
+    .field-label,
+    .muted-label {
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 680;
+    }
+
+    .stat-value {
+      font-size: 1.82rem;
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .reset-card {
+      margin-top: 18px;
+      padding: 16px;
+    }
+
+    .reset-card p {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .reset-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 3px;
+      width: 100%;
+      max-width: 480px;
+      min-height: calc(var(--nav-base-height) + env(safe-area-inset-bottom));
+      margin: 0 auto;
+      padding-top: 7px;
+      padding-right: max(8px, env(safe-area-inset-right));
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      padding-left: max(8px, env(safe-area-inset-left));
+      border-top: 1px solid rgba(229, 231, 235, 0.9);
+      background: rgba(250, 251, 252, 0.93);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .nav-button {
+      display: grid;
+      justify-items: center;
+      gap: 4px;
+      min-width: 0;
+      min-height: 48px;
+      border: 0;
+      border-radius: var(--radius);
+      padding: 7px 1px;
+      background: transparent;
+      color: var(--quiet);
+      font-size: 0.68rem;
+      font-weight: 760;
+      cursor: pointer;
+      transition: color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+    }
+
+    .nav-button.active {
+      color: var(--blue);
+      background: #eaf4ff;
+    }
+
+    .nav-icon {
+      position: relative;
+      display: block;
+      width: 22px;
+      height: 22px;
+      color: currentColor;
+    }
+
+    .nav-icon.today::before {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+    }
+
+    .nav-icon.today::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: 5px;
+      width: 2px;
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 4px 7px 0 currentColor;
+    }
+
+    .nav-icon.tasks::before {
+      content: "";
+      position: absolute;
+      inset: 4px 3px 3px;
+      border: 2px solid currentColor;
+      border-radius: 5px;
+    }
+
+    .nav-icon.tasks::after {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: 8px;
+      width: 8px;
+      height: 5px;
+      border-left: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+    }
+
+    .nav-icon.projects::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      right: 3px;
+      top: 5px;
+      height: 13px;
+      border: 2px solid currentColor;
+      border-radius: 5px;
+    }
+
+    .nav-icon.projects::after {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 2px;
+      width: 10px;
+      height: 5px;
+      border: 2px solid currentColor;
+      border-bottom: 0;
+      border-radius: 5px 5px 0 0;
+    }
+
+    .nav-icon.rewards::before {
+      content: "";
+      position: absolute;
+      inset: 6px 3px 4px;
+      border: 2px solid currentColor;
+      border-radius: 5px;
+    }
+
+    .nav-icon.rewards::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: 3px;
+      height: 6px;
+      border: 2px solid currentColor;
+      border-bottom: 0;
+      border-radius: 7px 7px 0 0;
+    }
+
+    .nav-icon.stats::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      bottom: 4px;
+      width: 4px;
+      height: 8px;
+      border-radius: 3px;
+      background: currentColor;
+      box-shadow: 7px -5px 0 currentColor, 14px -2px 0 currentColor;
+    }
+
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      align-items: end;
+      justify-items: center;
+      padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+      background: rgba(17, 24, 39, 0.28);
+      opacity: 1;
+      transition: opacity 0.18s ease;
+    }
+
+    .sheet-backdrop.hidden {
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .sheet {
+      width: min(100%, 448px);
+      max-height: min(82svh, 680px);
+      overflow: auto;
+      border-radius: 18px 18px 8px 8px;
+      background: var(--surface);
+      box-shadow: 0 18px 60px rgba(17, 24, 39, 0.22);
+      transform: translateY(0);
+      transition: transform 0.2s ease;
+    }
+
+    .sheet-backdrop.hidden .sheet {
+      transform: translateY(16px);
+    }
+
+    .sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 16px 8px;
+    }
+
+    .sheet-form {
+      display: grid;
+      gap: 14px;
+      padding: 8px 16px 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      background: #f9fafb;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+
+    .field textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .field input:focus,
+    .field textarea:focus {
+      border-color: rgba(10, 132, 255, 0.56);
+      background: var(--surface);
+      box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.12);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .sheet-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .delete-row {
+      padding-top: 4px;
+      border-top: 1px solid var(--line);
+    }
+
+    .delete-row.hidden {
+      display: none;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--nav-base-height) + 20px + env(safe-area-inset-bottom));
+      z-index: 60;
+      width: min(calc(100% - 32px), 420px);
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      background: rgba(17, 24, 39, 0.92);
+      color: #ffffff;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: 720;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 12px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @media (min-width: 760px) {
+      body {
+        padding: 28px 0;
+      }
+
+      .app {
+        min-height: calc(100svh - 56px);
+        min-height: calc(100dvh - 56px);
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: 0 24px 70px rgba(17, 24, 39, 0.12);
+      }
+
+      .screen {
+        min-height: calc(100svh - 56px);
+        min-height: calc(100dvh - 56px);
+      }
+    }
+
+    @media (max-width: 390px) {
+      .screen {
+        padding-top: 10px;
+        padding-right: max(12px, var(--safe-right));
+        padding-left: max(12px, var(--safe-left));
+      }
+
+      .header {
+        padding-bottom: 10px;
+      }
+
+      .streak-card {
+        min-height: 140px;
+        padding: 15px;
+      }
+
+      .streak-value strong {
+        font-size: 3.18rem;
+      }
+
+      .coin-card {
+        padding: 12px;
+      }
+
+      .nav-button {
+        font-size: 0.64rem;
+        padding-top: 6px;
+        padding-bottom: 5px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+
+    @keyframes viewIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main class="screen">
+      <section class="view active" data-view="today">
+        <header class="header">
+          <div>
+            <span class="eyebrow" id="todayDate">今天</span>
+            <h1>今天</h1>
+          </div>
+        </header>
+
+        <section class="hero-grid" aria-label="今日核心状态">
+          <div class="streak-card">
+            <div class="streak-top">
+              <span class="muted-label">当前连续</span>
+              <span class="streak-mark" aria-hidden="true"></span>
+            </div>
+            <div>
+              <div class="streak-value">
+                <strong id="homeStreak">0</strong>
+                <span>天</span>
+              </div>
+              <p class="streak-status" id="streakStatus">从今天开始。</p>
+            </div>
+          </div>
+
+          <div class="coin-card">
+            <div>
+              <span class="muted-label">当前金币</span>
+              <strong id="homeCoins">0</strong>
+            </div>
+            <span class="coin-token">金</span>
+          </div>
+        </section>
+
+        <div class="section-heading">
+          <h2>今日剩余任务</h2>
+          <span id="remainingCount">0 项</span>
+        </div>
+        <div class="list" id="todayTaskList"></div>
+      </section>
+
+      <section class="view" data-view="tasks">
+        <header class="header">
+          <div>
+            <span class="eyebrow">每日习惯</span>
+            <h1>任务</h1>
+          </div>
+          <button class="icon-button" data-open-task aria-label="新建每日任务">
+            <span class="icon-plus" aria-hidden="true"></span>
+          </button>
+        </header>
+
+        <div class="section-heading">
+          <h2>每日任务</h2>
+          <span id="taskCount">0 项</span>
+        </div>
+        <div class="list" id="taskList"></div>
+      </section>
+
+      <section class="view" data-view="projects">
+        <header class="header">
+          <div>
+            <span class="eyebrow">长期目标</span>
+            <h1>项目</h1>
+          </div>
+          <button class="icon-button" data-open-project aria-label="新建项目">
+            <span class="icon-plus" aria-hidden="true"></span>
+          </button>
+        </header>
+
+        <div class="section-heading">
+          <h2>项目</h2>
+          <span id="projectCount">0 项</span>
+        </div>
+        <div class="list" id="projectList"></div>
+      </section>
+
+      <section class="view" data-view="rewards">
+        <header class="header">
+          <div>
+            <span class="eyebrow">金币商店</span>
+            <h1>奖励</h1>
+          </div>
+          <button class="icon-button" data-open-reward aria-label="新建奖励">
+            <span class="icon-plus" aria-hidden="true"></span>
+          </button>
+        </header>
+
+        <div class="coin-card" style="margin-bottom: 22px;">
+          <div>
+            <span class="muted-label">可用金币</span>
+            <strong id="rewardCoins">0</strong>
+          </div>
+          <span class="coin-token">金</span>
+        </div>
+
+        <div class="section-heading">
+          <h2>奖励商店</h2>
+          <span id="rewardCount">0 项</span>
+        </div>
+        <div class="list" id="rewardList"></div>
+      </section>
+
+      <section class="view" data-view="stats">
+        <header class="header">
+          <div>
+            <span class="eyebrow">长期记录</span>
+            <h1>统计</h1>
+          </div>
+        </header>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">当前连续</span>
+            <strong class="stat-value" id="statCurrentStreak">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">最长连续</span>
+            <strong class="stat-value" id="statLongestStreak">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">完成任务</span>
+            <strong class="stat-value" id="statTasksCompleted">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">完成项目</span>
+            <strong class="stat-value" id="statProjectsCompleted">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">累计获得金币</span>
+            <strong class="stat-value" id="statCoinsEarned">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">累计花费金币</span>
+            <strong class="stat-value" id="statCoinsSpent">0</strong>
+          </div>
+        </div>
+
+        <section class="reset-card">
+          <div class="reset-row">
+            <div>
+              <h2>重置所有数据</h2>
+              <p>清空当前浏览器中的全部记录。</p>
+            </div>
+            <button class="danger-button" id="resetAllBtn">重置</button>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="主要导航">
+      <button class="nav-button active" data-nav="today">
+        <span class="nav-icon today" aria-hidden="true"></span>
+        <span>今天</span>
+      </button>
+      <button class="nav-button" data-nav="tasks">
+        <span class="nav-icon tasks" aria-hidden="true"></span>
+        <span>任务</span>
+      </button>
+      <button class="nav-button" data-nav="projects">
+        <span class="nav-icon projects" aria-hidden="true"></span>
+        <span>项目</span>
+      </button>
+      <button class="nav-button" data-nav="rewards">
+        <span class="nav-icon rewards" aria-hidden="true"></span>
+        <span>奖励</span>
+      </button>
+      <button class="nav-button" data-nav="stats">
+        <span class="nav-icon stats" aria-hidden="true"></span>
+        <span>统计</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="sheet-backdrop hidden" id="sheetBackdrop" aria-hidden="true">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-header">
+        <h2 id="sheetTitle">新建</h2>
+        <button class="text-button" type="button" id="closeSheetBtn">取消</button>
+      </div>
+      <form class="sheet-form" id="sheetForm"></form>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const STORAGE_KEY = "life-streak-os-v1";
+    const OLD_STORAGE_KEYS = ["life-rpg-system-v1", "life-os-ios-v1"];
+
+    const emptyState = {
+      coins: 0,
+      streak: 0,
+      longestStreak: 0,
+      lastTaskDate: null,
+      tasks: [],
+      projects: [],
+      rewards: [],
+      history: [],
+      totals: {
+        tasksCompleted: 0,
+        projectsCompleted: 0,
+        coinsEarned: 0,
+        coinsSpent: 0
+      }
+    };
+
+    let state = loadState();
+    let sheetMode = null;
+    let editingId = null;
+
+    const els = {
+      todayDate: document.getElementById("todayDate"),
+      homeStreak: document.getElementById("homeStreak"),
+      streakStatus: document.getElementById("streakStatus"),
+      homeCoins: document.getElementById("homeCoins"),
+      remainingCount: document.getElementById("remainingCount"),
+      todayTaskList: document.getElementById("todayTaskList"),
+      taskCount: document.getElementById("taskCount"),
+      taskList: document.getElementById("taskList"),
+      projectCount: document.getElementById("projectCount"),
+      projectList: document.getElementById("projectList"),
+      rewardCoins: document.getElementById("rewardCoins"),
+      rewardCount: document.getElementById("rewardCount"),
+      rewardList: document.getElementById("rewardList"),
+      statCurrentStreak: document.getElementById("statCurrentStreak"),
+      statLongestStreak: document.getElementById("statLongestStreak"),
+      statTasksCompleted: document.getElementById("statTasksCompleted"),
+      statProjectsCompleted: document.getElementById("statProjectsCompleted"),
+      statCoinsEarned: document.getElementById("statCoinsEarned"),
+      statCoinsSpent: document.getElementById("statCoinsSpent"),
+      resetAllBtn: document.getElementById("resetAllBtn"),
+      sheetBackdrop: document.getElementById("sheetBackdrop"),
+      sheetTitle: document.getElementById("sheetTitle"),
+      sheetForm: document.getElementById("sheetForm"),
+      closeSheetBtn: document.getElementById("closeSheetBtn"),
+      toast: document.getElementById("toast")
+    };
+
+    function cloneEmptyState() {
+      return JSON.parse(JSON.stringify(emptyState));
+    }
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (!saved) return cloneEmptyState();
+        return {
+          ...cloneEmptyState(),
+          ...saved,
+          totals: { ...cloneEmptyState().totals, ...(saved.totals || {}) },
+          tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
+          projects: Array.isArray(saved.projects) ? saved.projects : [],
+          rewards: Array.isArray(saved.rewards) ? saved.rewards : [],
+          history: Array.isArray(saved.history) ? saved.history : []
+        };
+      } catch {
+        return cloneEmptyState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function resetAllData() {
+      localStorage.removeItem(STORAGE_KEY);
+      OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      state = cloneEmptyState();
+      saveState();
+      render();
+      showToast("所有数据已重置");
+    }
+
+    function dateKey(date = new Date()) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function yesterdayKey() {
+      const date = new Date();
+      date.setDate(date.getDate() - 1);
+      return dateKey(date);
+    }
+
+    function formatDate(date = new Date()) {
+      return new Intl.DateTimeFormat("zh-CN", {
+        month: "long",
+        day: "numeric",
+        weekday: "long"
+      }).format(date);
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat("zh-CN").format(Number(value) || 0);
+    }
+
+    function createId(prefix) {
+      return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function parseAmount(value) {
+      const amount = Number(value);
+      if (!Number.isFinite(amount) || amount < 0) return 0;
+      return Math.round(amount);
+    }
+
+    function parseProgress(value) {
+      const amount = parseAmount(value);
+      return Math.max(0, Math.min(100, amount));
+    }
+
+    function currentStreak() {
+      if (!state.lastTaskDate) return 0;
+      const today = dateKey();
+      if (state.lastTaskDate === today || state.lastTaskDate === yesterdayKey()) {
+        return state.streak;
+      }
+      return 0;
+    }
+
+    function taskCompletedToday(taskId) {
+      const today = dateKey();
+      return state.history.some(item => (
+        item.type === "task_completed" &&
+        item.taskId === taskId &&
+        item.date === today
+      ));
+    }
+
+    function activeProjects() {
+      return state.projects.filter(project => !project.completedAt);
+    }
+
+    function completedProjects() {
+      return state.projects.filter(project => project.completedAt);
+    }
+
+    function updateStreakForTask() {
+      const today = dateKey();
+      if (state.lastTaskDate === today) return;
+      state.streak = state.lastTaskDate === yesterdayKey() ? state.streak + 1 : 1;
+      state.lastTaskDate = today;
+      state.longestStreak = Math.max(state.longestStreak, state.streak);
+    }
+
+    function openTaskSheet(taskId = null) {
+      sheetMode = "task";
+      editingId = taskId;
+      const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
+      els.sheetTitle.textContent = task ? "编辑每日任务" : "新建每日任务";
+      els.sheetForm.innerHTML = `
+        <label class="field">
+          <span class="field-label">任务名称</span>
+          <input name="name" type="text" maxlength="80" value="${escapeAttr(task?.name || "")}" placeholder="输入任务名称" required>
+        </label>
+        <label class="field">
+          <span class="field-label">金币奖励</span>
+          <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${task?.coins ?? ""}" placeholder="0">
+        </label>
+        <div class="sheet-actions">
+          <button class="ghost-button" type="button" data-close-sheet>取消</button>
+          <button class="button" type="submit">${task ? "保存" : "创建"}</button>
+        </div>
+        <div class="delete-row ${task ? "" : "hidden"}">
+          <button class="danger-button" type="button" data-delete-task="${task?.id || ""}">删除任务</button>
+        </div>
+      `;
+      openSheet();
+      els.sheetForm.querySelector("input[name='name']").focus();
+    }
+
+    function openProjectSheet(projectId = null) {
+      sheetMode = "project";
+      editingId = projectId;
+      const project = projectId ? state.projects.find(item => item.id === projectId) : null;
+      const progressLocked = Boolean(project?.completedAt);
+      els.sheetTitle.textContent = project ? "编辑项目" : "新建项目";
+      els.sheetForm.innerHTML = `
+        <label class="field">
+          <span class="field-label">项目名称</span>
+          <input name="name" type="text" maxlength="100" value="${escapeAttr(project?.name || "")}" placeholder="输入项目名称" required>
+        </label>
+        <label class="field">
+          <span class="field-label">描述</span>
+          <textarea name="description" maxlength="240" placeholder="可选">${escapeHtml(project?.description || "")}</textarea>
+        </label>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">进度</span>
+            <input name="progress" type="number" min="0" max="100" step="1" inputmode="numeric" value="${project?.progress ?? 0}" ${progressLocked ? "disabled" : ""}>
+          </label>
+          <label class="field">
+            <span class="field-label">完成金币</span>
+            <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${project?.coins ?? ""}" placeholder="0">
+          </label>
+        </div>
+        <div class="sheet-actions">
+          <button class="ghost-button" type="button" data-close-sheet>取消</button>
+          <button class="button" type="submit">${project ? "保存" : "创建"}</button>
+        </div>
+        <div class="delete-row ${project ? "" : "hidden"}">
+          <button class="danger-button" type="button" data-delete-project="${project?.id || ""}">删除项目</button>
+        </div>
+      `;
+      openSheet();
+      els.sheetForm.querySelector("input[name='name']").focus();
+    }
+
+    function openRewardSheet(rewardId = null) {
+      sheetMode = "reward";
+      editingId = rewardId;
+      const reward = rewardId ? state.rewards.find(item => item.id === rewardId) : null;
+      els.sheetTitle.textContent = reward ? "编辑奖励" : "新建奖励";
+      els.sheetForm.innerHTML = `
+        <label class="field">
+          <span class="field-label">奖励名称</span>
+          <input name="name" type="text" maxlength="80" value="${escapeAttr(reward?.name || "")}" placeholder="输入奖励名称" required>
+        </label>
+        <label class="field">
+          <span class="field-label">金币成本</span>
+          <input name="cost" type="number" min="0" step="1" inputmode="numeric" value="${reward?.cost ?? ""}" placeholder="0">
+        </label>
+        <div class="sheet-actions">
+          <button class="ghost-button" type="button" data-close-sheet>取消</button>
+          <button class="button" type="submit">${reward ? "保存" : "创建"}</button>
+        </div>
+        <div class="delete-row ${reward ? "" : "hidden"}">
+          <button class="danger-button" type="button" data-delete-reward="${reward?.id || ""}">删除奖励</button>
+        </div>
+      `;
+      openSheet();
+      els.sheetForm.querySelector("input[name='name']").focus();
+    }
+
+    function openSheet() {
+      els.sheetBackdrop.classList.remove("hidden");
+      els.sheetBackdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function closeSheet() {
+      els.sheetBackdrop.classList.add("hidden");
+      els.sheetBackdrop.setAttribute("aria-hidden", "true");
+      sheetMode = null;
+      editingId = null;
+      els.sheetForm.innerHTML = "";
+    }
+
+    function handleSheetSubmit(event) {
+      event.preventDefault();
+      const formData = new FormData(els.sheetForm);
+      if (sheetMode === "task") {
+        saveTask({
+          name: String(formData.get("name") || "").trim(),
+          coins: parseAmount(formData.get("coins"))
+        });
+      }
+      if (sheetMode === "project") {
+        const existingProject = editingId ? state.projects.find(project => project.id === editingId) : null;
+        saveProject({
+          name: String(formData.get("name") || "").trim(),
+          description: String(formData.get("description") || "").trim(),
+          progress: existingProject?.completedAt ? 100 : parseProgress(formData.get("progress")),
+          coins: parseAmount(formData.get("coins"))
+        });
+      }
+      if (sheetMode === "reward") {
+        saveReward({
+          name: String(formData.get("name") || "").trim(),
+          cost: parseAmount(formData.get("cost"))
+        });
+      }
+    }
+
+    function saveTask(taskData) {
+      if (!taskData.name) {
+        showToast("请输入任务名称");
+        return;
+      }
+      if (editingId) {
+        state.tasks = state.tasks.map(task => (
+          task.id === editingId
+            ? { ...task, ...taskData, updatedAt: new Date().toISOString() }
+            : task
+        ));
+        showToast("任务已更新");
+      } else {
+        state.tasks.push({
+          id: createId("task"),
+          ...taskData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        showToast("任务已创建");
+      }
+      saveState();
+      closeSheet();
+      render();
+    }
+
+    function saveProject(projectData) {
+      if (!projectData.name) {
+        showToast("请输入项目名称");
+        return;
+      }
+
+      if (editingId) {
+        const previous = state.projects.find(project => project.id === editingId);
+        state.projects = state.projects.map(project => {
+          if (project.id !== editingId) return project;
+          const updated = {
+            ...project,
+            ...projectData,
+            updatedAt: new Date().toISOString()
+          };
+          if (!previous?.completedAt && updated.progress >= 100) {
+            return completeProjectRecord(updated);
+          }
+          return updated;
+        });
+        showToast(previous?.completedAt ? "项目已更新" : projectData.progress >= 100 ? "项目已完成" : "项目已更新");
+      } else {
+        const project = {
+          id: createId("project"),
+          ...projectData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          completedAt: null
+        };
+        state.projects.push(project.progress >= 100 ? completeProjectRecord(project) : project);
+        showToast(project.progress >= 100 ? "项目已完成" : "项目已创建");
+      }
+
+      saveState();
+      closeSheet();
+      render();
+    }
+
+    function completeProjectRecord(project) {
+      const completedAt = new Date().toISOString();
+      const completed = {
+        ...project,
+        progress: 100,
+        completedAt
+      };
+      state.coins += completed.coins;
+      state.totals.coinsEarned += completed.coins;
+      state.totals.projectsCompleted += 1;
+      state.history.unshift({
+        id: createId("history"),
+        type: "project_completed",
+        projectId: completed.id,
+        name: completed.name,
+        coins: completed.coins,
+        date: dateKey(),
+        timestamp: completedAt
+      });
+      return completed;
+    }
+
+    function saveReward(rewardData) {
+      if (!rewardData.name) {
+        showToast("请输入奖励名称");
+        return;
+      }
+      if (editingId) {
+        state.rewards = state.rewards.map(reward => (
+          reward.id === editingId
+            ? { ...reward, ...rewardData, updatedAt: new Date().toISOString() }
+            : reward
+        ));
+        showToast("奖励已更新");
+      } else {
+        state.rewards.push({
+          id: createId("reward"),
+          ...rewardData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        showToast("奖励已创建");
+      }
+      saveState();
+      closeSheet();
+      render();
+    }
+
+    function deleteTask(taskId) {
+      state.tasks = state.tasks.filter(task => task.id !== taskId);
+      saveState();
+      closeSheet();
+      render();
+      showToast("任务已删除");
+    }
+
+    function deleteProject(projectId) {
+      state.projects = state.projects.filter(project => project.id !== projectId);
+      saveState();
+      closeSheet();
+      render();
+      showToast("项目已删除");
+    }
+
+    function deleteReward(rewardId) {
+      state.rewards = state.rewards.filter(reward => reward.id !== rewardId);
+      saveState();
+      closeSheet();
+      render();
+      showToast("奖励已删除");
+    }
+
+    function completeTask(taskId) {
+      const task = state.tasks.find(item => item.id === taskId);
+      if (!task || taskCompletedToday(taskId)) return;
+
+      state.coins += task.coins;
+      state.totals.coinsEarned += task.coins;
+      state.totals.tasksCompleted += 1;
+      updateStreakForTask();
+      state.history.unshift({
+        id: createId("history"),
+        type: "task_completed",
+        taskId: task.id,
+        name: task.name,
+        coins: task.coins,
+        date: dateKey(),
+        timestamp: new Date().toISOString()
+      });
+      saveState();
+      render();
+      showToast("连续已保持");
+    }
+
+    function redeemReward(rewardId) {
+      const reward = state.rewards.find(item => item.id === rewardId);
+      if (!reward) return;
+      if (state.coins < reward.cost) {
+        showToast("金币不足");
+        return;
+      }
+      state.coins -= reward.cost;
+      state.totals.coinsSpent += reward.cost;
+      state.history.unshift({
+        id: createId("history"),
+        type: "reward_redeemed",
+        rewardId: reward.id,
+        name: reward.name,
+        cost: reward.cost,
+        date: dateKey(),
+        timestamp: new Date().toISOString()
+      });
+      saveState();
+      render();
+      showToast("奖励已兑换");
+    }
+
+    function render() {
+      const streak = currentStreak();
+      const remainingTasks = state.tasks.filter(task => !taskCompletedToday(task.id));
+
+      els.todayDate.textContent = formatDate();
+      els.homeStreak.textContent = formatNumber(streak);
+      els.homeCoins.textContent = formatNumber(state.coins);
+      els.rewardCoins.textContent = formatNumber(state.coins);
+      els.remainingCount.textContent = `${remainingTasks.length} 项`;
+      els.taskCount.textContent = `${state.tasks.length} 项`;
+      els.projectCount.textContent = `${state.projects.length} 项`;
+      els.rewardCount.textContent = `${state.rewards.length} 项`;
+
+      if (!state.tasks.length) {
+        els.streakStatus.textContent = "从今天开始。";
+      } else if (remainingTasks.length === 0) {
+        els.streakStatus.textContent = "今天已保持。";
+      } else {
+        els.streakStatus.textContent = "完成一项即可保持。";
+      }
+
+      els.statCurrentStreak.textContent = formatNumber(streak);
+      els.statLongestStreak.textContent = formatNumber(state.longestStreak);
+      els.statTasksCompleted.textContent = formatNumber(state.totals.tasksCompleted);
+      els.statProjectsCompleted.textContent = formatNumber(state.totals.projectsCompleted);
+      els.statCoinsEarned.textContent = formatNumber(state.totals.coinsEarned);
+      els.statCoinsSpent.textContent = formatNumber(state.totals.coinsSpent);
+
+      renderTodayTasks(remainingTasks);
+      renderTasks();
+      renderProjects();
+      renderRewards();
+    }
+
+    function renderTodayTasks(remainingTasks) {
+      if (!state.tasks.length) {
+        els.todayTaskList.innerHTML = `
+          <div class="empty-state">
+            <strong>没有每日任务</strong>
+            <button class="button empty-action" data-open-task>新建每日任务</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (!remainingTasks.length) {
+        els.todayTaskList.innerHTML = `
+          <div class="empty-state">
+            <strong>今天已完成</strong>
+          </div>
+        `;
+        return;
+      }
+
+      els.todayTaskList.innerHTML = remainingTasks.map(task => `
+        <article class="card">
+          <div class="card-main">
+            <div class="title-wrap">
+              <h3>${escapeHtml(task.name)}</h3>
+              <div class="meta-row">
+                <span class="pill green">${formatNumber(task.coins)} 金币</span>
+              </div>
+            </div>
+            <button class="button green" data-complete-task="${task.id}">完成</button>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderTasks() {
+      if (!state.tasks.length) {
+        els.taskList.innerHTML = `
+          <div class="empty-state">
+            <strong>没有每日任务</strong>
+            <button class="button empty-action" data-open-task>新建每日任务</button>
+          </div>
+        `;
+        return;
+      }
+
+      els.taskList.innerHTML = state.tasks.map(task => {
+        const done = taskCompletedToday(task.id);
+        return `
+          <article class="card">
+            <div class="card-main">
+              <div class="title-wrap">
+                <h3>${escapeHtml(task.name)}</h3>
+                <div class="meta-row">
+                  <span class="pill green">${formatNumber(task.coins)} 金币</span>
+                  <span class="pill ${done ? "blue" : ""}">${done ? "今日已完成" : "今日未完成"}</span>
+                </div>
+              </div>
+              <button class="text-button" data-edit-task="${task.id}">编辑</button>
+            </div>
+            <div class="card-actions">
+              <button class="button green" data-complete-task="${task.id}" ${done ? "disabled" : ""}>${done ? "已完成" : "完成今天"}</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderProjects() {
+      if (!state.projects.length) {
+        els.projectList.innerHTML = `
+          <div class="empty-state">
+            <strong>没有项目</strong>
+            <button class="button empty-action" data-open-project>新建项目</button>
+          </div>
+        `;
+        return;
+      }
+
+      const sortedProjects = [...activeProjects(), ...completedProjects()];
+      els.projectList.innerHTML = sortedProjects.map(project => `
+        <article class="card">
+          <div class="card-main">
+            <div class="title-wrap">
+              <h3>${escapeHtml(project.name)}</h3>
+              ${project.description ? `<p>${escapeHtml(project.description)}</p>` : ""}
+            </div>
+            <button class="text-button" data-edit-project="${project.id}">编辑</button>
+          </div>
+          <div class="progress-block">
+            <div class="progress-top">
+              <span>${formatNumber(project.progress)}%</span>
+              <span>${project.completedAt ? "已完成" : "进行中"}</span>
+            </div>
+            <div class="progress">
+              <div class="progress-fill" style="width:${project.progress}%"></div>
+            </div>
+          </div>
+          <div class="meta-row">
+            <span class="pill green">${formatNumber(project.coins)} 金币</span>
+            ${project.completedAt ? `<span class="pill blue">已领取</span>` : `<span class="pill orange">100% 时领取</span>`}
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderRewards() {
+      if (!state.rewards.length) {
+        els.rewardList.innerHTML = `
+          <div class="empty-state">
+            <strong>奖励商店为空</strong>
+            <button class="button empty-action" data-open-reward>新建奖励</button>
+          </div>
+        `;
+        return;
+      }
+
+      els.rewardList.innerHTML = state.rewards.map(reward => {
+        const affordable = state.coins >= reward.cost;
+        return `
+          <article class="card">
+            <div class="card-main">
+              <div class="title-wrap">
+                <h3>${escapeHtml(reward.name)}</h3>
+                <div class="meta-row">
+                  <span class="pill green">${formatNumber(reward.cost)} 金币</span>
+                </div>
+              </div>
+              <button class="text-button" data-edit-reward="${reward.id}">编辑</button>
+            </div>
+            <div class="card-actions">
+              <button class="button" data-redeem-reward="${reward.id}" ${affordable ? "" : "disabled"}>${affordable ? "兑换" : "金币不足"}</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function switchView(view) {
+      document.querySelectorAll(".view").forEach(node => {
+        node.classList.toggle("active", node.dataset.view === view);
+      });
+      document.querySelectorAll(".nav-button").forEach(button => {
+        button.classList.toggle("active", button.dataset.nav === view);
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => {
+        els.toast.classList.remove("show");
+      }, 1800);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    document.addEventListener("click", event => {
+      const navButton = event.target.closest("[data-nav]");
+      const openTaskButton = event.target.closest("[data-open-task]");
+      const openProjectButton = event.target.closest("[data-open-project]");
+      const openRewardButton = event.target.closest("[data-open-reward]");
+      const editTaskButton = event.target.closest("[data-edit-task]");
+      const editProjectButton = event.target.closest("[data-edit-project]");
+      const editRewardButton = event.target.closest("[data-edit-reward]");
+      const completeTaskButton = event.target.closest("[data-complete-task]");
+      const redeemButton = event.target.closest("[data-redeem-reward]");
+      const closeButton = event.target.closest("[data-close-sheet]");
+      const deleteTaskButton = event.target.closest("[data-delete-task]");
+      const deleteProjectButton = event.target.closest("[data-delete-project]");
+      const deleteRewardButton = event.target.closest("[data-delete-reward]");
+
+      if (navButton) switchView(navButton.dataset.nav);
+      if (openTaskButton) openTaskSheet();
+      if (openProjectButton) openProjectSheet();
+      if (openRewardButton) openRewardSheet();
+      if (editTaskButton) openTaskSheet(editTaskButton.dataset.editTask);
+      if (editProjectButton) openProjectSheet(editProjectButton.dataset.editProject);
+      if (editRewardButton) openRewardSheet(editRewardButton.dataset.editReward);
+      if (completeTaskButton) completeTask(completeTaskButton.dataset.completeTask);
+      if (redeemButton) redeemReward(redeemButton.dataset.redeemReward);
+      if (closeButton) closeSheet();
+      if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
+      if (deleteProjectButton) deleteProject(deleteProjectButton.dataset.deleteProject);
+      if (deleteRewardButton) deleteReward(deleteRewardButton.dataset.deleteReward);
+    });
+
+    els.closeSheetBtn.addEventListener("click", closeSheet);
+    els.sheetBackdrop.addEventListener("click", event => {
+      if (event.target === els.sheetBackdrop) closeSheet();
+    });
+    els.sheetForm.addEventListener("submit", handleSheetSubmit);
+    els.resetAllBtn.addEventListener("click", () => {
+      const confirmed = confirm("确定要重置所有数据吗？此操作会清空当前浏览器中的全部记录。");
+      if (confirmed) resetAllData();
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !els.sheetBackdrop.classList.contains("hidden")) {
+        closeSheet();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
