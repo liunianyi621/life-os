@@ -5,29 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="生活系统">
+  <meta name="apple-mobile-web-app-title" content="自律系统">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#f5f6f8">
+  <meta name="theme-color" content="#f6f7f9">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <title>生活操作系统</title>
+  <title>自律系统</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #f5f6f8;
+      --bg: #f6f7f9;
       --surface: #ffffff;
-      --surface-soft: #eef2f6;
+      --surface-soft: #eef1f5;
       --text: #111827;
       --muted: #667085;
       --quiet: #98a2b3;
       --line: #e6e9ee;
       --blue: #0a84ff;
       --green: #34c759;
-      --orange: #ff9f0a;
       --red: #ff3b30;
-      --shadow: 0 10px 28px rgba(17, 24, 39, 0.07);
-      --radius: 8px;
+      --gold: #c88a18;
+      --gold-soft: rgba(201, 139, 24, 0.14);
+      --glass: rgba(255, 255, 255, 0.76);
+      --glass-strong: rgba(255, 255, 255, 0.9);
+      --glass-border: rgba(255, 255, 255, 0.72);
+      --shadow: 0 12px 32px rgba(17, 24, 39, 0.07);
+      --soft-shadow: 0 4px 14px rgba(17, 24, 39, 0.045);
+      --card-radius: 24px;
+      --control-radius: 16px;
+      --small-radius: 14px;
+      --pill-radius: 999px;
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --safe-left: env(safe-area-inset-left, 0px);
       --safe-right: env(safe-area-inset-right, 0px);
@@ -39,19 +47,13 @@
       box-sizing: border-box;
     }
 
-    html {
-      min-height: 100%;
-      min-height: 100svh;
-      min-height: 100dvh;
-      background: var(--bg);
-    }
-
+    html,
     body {
       min-height: 100%;
       min-height: 100svh;
       min-height: 100dvh;
       margin: 0;
-      background: var(--bg);
+      background: linear-gradient(180deg, #fbfcfe 0%, var(--bg) 100%);
       color: var(--text);
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
@@ -74,22 +76,21 @@
       min-height: 100svh;
       min-height: 100dvh;
       margin: 0 auto;
-      background: var(--bg);
-      overflow-x: hidden;
+      background: transparent;
     }
 
     .screen {
       min-height: 100svh;
       min-height: 100dvh;
       padding-top: 12px;
-      padding-right: max(14px, var(--safe-right));
+      padding-right: max(16px, var(--safe-right));
       padding-bottom: calc(var(--nav-base-height) + 22px + env(safe-area-inset-bottom));
-      padding-left: max(14px, var(--safe-left));
+      padding-left: max(16px, var(--safe-left));
     }
 
     .view {
       display: none;
-      animation: viewIn 0.22s ease both;
+      animation: viewIn 0.2s ease both;
     }
 
     .view.active {
@@ -146,9 +147,9 @@
       flex: 0 0 auto;
       border: 0;
       border-radius: 50%;
-      background: var(--surface);
+      background: rgba(255, 255, 255, 0.86);
       color: var(--blue);
-      box-shadow: var(--shadow);
+      box-shadow: var(--soft-shadow);
       cursor: pointer;
       transition: transform 0.16s ease, opacity 0.16s ease;
     }
@@ -173,124 +174,90 @@
       transform: rotate(90deg);
     }
 
-    .streak-card,
-    .coin-card,
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    /* Soft iOS-style glass surfaces */
+    .summary-card,
     .card,
     .stat-card,
     .reset-card {
-      border-radius: var(--radius);
-      background: var(--surface);
+      border-radius: var(--card-radius);
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
       box-shadow: var(--shadow);
+      backdrop-filter: blur(22px) saturate(150%);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
     }
 
-    .hero-grid {
-      display: grid;
-      gap: 10px;
-      margin-bottom: 18px;
-    }
-
-    .streak-card {
+    .summary-card {
+      min-height: 104px;
       padding: 16px;
-      min-height: 148px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
     }
 
-    .streak-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-    }
-
-    .streak-mark {
-      position: relative;
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      background: #fff4e2;
-      color: var(--orange);
-    }
-
-    .streak-mark::before {
-      content: "";
-      position: absolute;
-      left: 17px;
-      top: 10px;
-      width: 18px;
-      height: 28px;
-      border-radius: 12px 12px 14px 14px;
-      background: currentColor;
-      transform: rotate(28deg);
-    }
-
-    .streak-mark::after {
-      content: "";
-      position: absolute;
-      left: 22px;
-      top: 20px;
-      width: 10px;
-      height: 19px;
-      border-radius: 9px 9px 11px 11px;
-      background: #ffffff;
-      opacity: 0.75;
-      transform: rotate(25deg);
-    }
-
-    .streak-value {
+    .balance-strip {
       display: flex;
       align-items: baseline;
-      gap: 8px;
-      margin-top: 12px;
+      gap: 6px;
+      margin-bottom: 16px;
+      padding: 13px 15px;
+      border-radius: 20px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.68);
+      box-shadow: var(--soft-shadow);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
     }
 
-    .streak-value strong {
-      font-size: 3.45rem;
-      line-height: 0.92;
-      letter-spacing: 0;
-    }
-
-    .streak-value span {
+    .balance-strip span {
       color: var(--muted);
-      font-size: 1.08rem;
-      font-weight: 760;
+      font-size: 0.84rem;
+      font-weight: 700;
     }
 
-    .streak-status {
-      margin-top: 6px;
-      color: var(--muted);
-      font-size: 0.94rem;
-      font-weight: 650;
-      line-height: 1.4;
-    }
-
-    .coin-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 13px 14px;
-    }
-
-    .coin-card strong {
-      display: block;
-      margin-top: 4px;
-      font-size: 1.72rem;
+    .balance-strip strong {
+      color: var(--text);
+      font-size: 1.42rem;
       line-height: 1;
+      font-weight: 850;
+    }
+
+    .summary-label,
+    .field-label,
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 680;
+    }
+
+    .summary-value,
+    .stat-value {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .summary-value strong,
+    .stat-value {
+      display: inline-block;
+      font-size: 2.05rem;
+      line-height: 1;
+      font-weight: 850;
       letter-spacing: 0;
     }
 
-    .coin-token {
-      display: grid;
-      place-items: center;
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: #eef8f1;
-      color: #1f8f46;
-      font-size: 1rem;
-      font-weight: 850;
+    .summary-value span {
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 740;
     }
 
     .section-heading {
@@ -298,7 +265,7 @@
       align-items: flex-end;
       justify-content: space-between;
       gap: 12px;
-      margin: 18px 2px 10px;
+      margin: 16px 2px 10px;
     }
 
     .section-heading span {
@@ -314,7 +281,40 @@
     }
 
     .card {
-      padding: 14px;
+      padding: 15px;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .card.flash-red {
+      animation: flashRed 0.58s ease both;
+    }
+
+    .card.flash-green {
+      animation: flashGreen 0.58s ease both;
+    }
+
+    .card.task-exit-success {
+      animation: taskExitSuccess 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+
+    .card.task-exit-penalty {
+      animation: taskExitPenalty 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+
+    .card.reward-redeemed {
+      position: relative;
+      overflow: hidden;
+      animation: rewardPress 0.46s ease both;
+    }
+
+    .card.reward-redeemed::after {
+      content: "";
+      position: absolute;
+      inset: -25% -70%;
+      background: linear-gradient(105deg, transparent 36%, rgba(255, 222, 145, 0.54) 48%, transparent 60%);
+      transform: translateX(-55%);
+      animation: rewardShimmer 0.82s ease-out both;
+      pointer-events: none;
     }
 
     .card-main {
@@ -346,27 +346,32 @@
       display: inline-flex;
       align-items: center;
       min-height: 28px;
-      border-radius: 999px;
+      border-radius: var(--pill-radius);
       padding: 5px 10px;
-      background: #f1f4f8;
+      background: rgba(239, 242, 247, 0.86);
       color: var(--muted);
       font-size: 0.84rem;
       font-weight: 720;
     }
 
     .pill.green {
-      background: #eaf8ef;
-      color: #1d8f48;
+      background: rgba(52, 199, 89, 0.1);
+      color: #248a3d;
+    }
+
+    .pill.red {
+      background: rgba(255, 59, 48, 0.09);
+      color: #d92d20;
     }
 
     .pill.blue {
-      background: #eaf4ff;
+      background: rgba(10, 132, 255, 0.09);
       color: var(--blue);
     }
 
-    .pill.orange {
-      background: #fff4e2;
-      color: #b46900;
+    .coin-pill {
+      color: var(--text);
+      background: rgba(239, 242, 247, 0.92);
     }
 
     .card-actions {
@@ -383,7 +388,7 @@
     .text-button {
       min-height: 38px;
       border: 0;
-      border-radius: var(--radius);
+      border-radius: var(--control-radius);
       padding: 9px 13px;
       font-size: 0.9rem;
       font-weight: 760;
@@ -394,10 +399,25 @@
     .button {
       background: var(--blue);
       color: #ffffff;
+      box-shadow: 0 8px 18px rgba(10, 132, 255, 0.18);
     }
 
     .button.green {
-      background: var(--green);
+      background: rgba(52, 199, 89, 0.12);
+      color: #248a3d;
+      box-shadow: none;
+    }
+
+    .button.red {
+      background: rgba(255, 59, 48, 0.12);
+      color: #d92d20;
+      box-shadow: none;
+    }
+
+    .button.soft-red {
+      background: rgba(255, 59, 48, 0.09);
+      color: #d92d20;
+      box-shadow: none;
     }
 
     .button[disabled] {
@@ -406,13 +426,13 @@
     }
 
     .ghost-button {
-      background: #edf2f7;
+      background: rgba(237, 242, 247, 0.86);
       color: var(--blue);
     }
 
     .danger-button {
-      background: #fff1f0;
-      color: var(--red);
+      background: rgba(255, 59, 48, 0.09);
+      color: #d92d20;
     }
 
     .text-button {
@@ -433,8 +453,9 @@
 
     .empty-state {
       padding: 22px 18px;
-      border-radius: var(--radius);
-      background: var(--surface);
+      border-radius: var(--card-radius);
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
       color: var(--muted);
       text-align: center;
       box-shadow: var(--shadow);
@@ -451,64 +472,229 @@
       margin-top: 14px;
     }
 
-    .progress-block {
-      margin-top: 13px;
-    }
-
-    .progress-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 8px;
-      color: var(--muted);
-      font-size: 0.84rem;
-      font-weight: 720;
-    }
-
-    .progress {
-      width: 100%;
-      height: 8px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: #e7edf4;
-    }
-
-    .progress-fill {
-      width: 0;
-      height: 100%;
-      border-radius: inherit;
-      background: var(--green);
-      transition: width 0.24s ease;
+    .note-card p {
+      white-space: pre-wrap;
     }
 
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      margin: 18px 0 12px;
+      padding: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.68);
+      border-radius: var(--control-radius);
+      background: rgba(236, 240, 245, 0.74);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .segment-button {
+      min-height: 34px;
+      border: 0;
+      border-radius: 13px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 760;
+      cursor: pointer;
+    }
+
+    .segment-button.active {
+      background: var(--glass-strong);
+      color: var(--text);
+      box-shadow: 0 6px 16px rgba(17, 24, 39, 0.08);
+    }
+
+    .chart-card {
+      margin-bottom: 12px;
+      padding: 16px;
+    }
+
+    .chart-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .chart-title span {
+      color: var(--quiet);
+      font-size: 0.78rem;
+      font-weight: 680;
+    }
+
+    .chart-scroll {
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .heatmap {
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-rows: repeat(7, 1fr);
+      grid-auto-columns: var(--heat-cell, 16px);
+      gap: var(--heat-gap, 5px);
+      width: max-content;
+      min-width: var(--heat-width, 100%);
+      padding: 3px 0 2px;
+    }
+
+    .heat-day {
+      width: var(--heat-cell, 16px);
+      height: var(--heat-cell, 16px);
+      border: 1px solid rgba(255, 255, 255, 0.82);
+      border-radius: 5px;
+      background: #e7ebef;
+      box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.015);
+    }
+
+    .heat-day.level-excellent {
+      background: #176c3a;
+    }
+
+    .heat-day.level-good {
+      background: #91d7a5;
+    }
+
+    .heat-day.level-neutral {
+      background: #e3e7ec;
+    }
+
+    .heat-day.level-poor {
+      background: #f2a6a0;
+    }
+
+    .heat-day.level-terrible {
+      background: #b42318;
+    }
+
+    .heat-legend,
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 680;
+    }
+
+    .heat-legend span,
+    .chart-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .heat-legend i,
+    .chart-legend i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(152, 162, 179, 0.42);
+    }
+
+    .heat-legend i.excellent {
+      background: #176c3a;
+    }
+
+    .heat-legend i.good {
+      background: #91d7a5;
+    }
+
+    .heat-legend i.neutral {
+      background: #e3e7ec;
+    }
+
+    .heat-legend i.poor {
+      background: #f2a6a0;
+    }
+
+    .heat-legend i.terrible {
+      background: #b42318;
+    }
+
+    .chart-legend i.balance {
+      background: var(--blue);
+    }
+
+    .balance-chart {
+      min-width: var(--trend-width, 100%);
+    }
+
+    .balance-svg {
+      display: block;
+      width: 100%;
+      min-width: var(--trend-width, 100%);
+      height: 168px;
+      overflow: visible;
+    }
+
+    .balance-grid {
+      stroke: rgba(152, 162, 179, 0.22);
+      stroke-width: 1;
+    }
+
+    .balance-area {
+      fill: rgba(10, 132, 255, 0.08);
+    }
+
+    .balance-line {
+      fill: none;
+      stroke: var(--blue);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 5px 8px rgba(10, 132, 255, 0.12));
+    }
+
+    .balance-point {
+      fill: #ffffff;
+      stroke: var(--blue);
+      stroke-width: 2;
+    }
+
+    .balance-labels {
+      display: flex;
+      justify-content: space-between;
       gap: 10px;
+      min-width: var(--trend-width, 100%);
+      margin-top: 6px;
+      color: var(--quiet);
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+
+    .positive {
+      color: #1d8f48;
+      font-weight: 760;
+    }
+
+    .negative {
+      color: var(--red);
+      font-weight: 760;
     }
 
     .stat-card {
-      min-height: 112px;
+      min-height: 108px;
       padding: 16px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
     }
 
-    .stat-label,
-    .field-label,
-    .muted-label {
-      color: var(--muted);
-      font-size: 0.84rem;
-      font-weight: 680;
-    }
-
     .stat-value {
-      font-size: 1.82rem;
-      line-height: 1;
-      font-weight: 850;
-      letter-spacing: 0;
+      margin-top: 0;
+      display: block;
     }
 
     .reset-card {
@@ -547,10 +733,11 @@
       padding-right: max(8px, env(safe-area-inset-right));
       padding-bottom: calc(12px + env(safe-area-inset-bottom));
       padding-left: max(8px, env(safe-area-inset-left));
-      border-top: 1px solid rgba(229, 231, 235, 0.9);
-      background: rgba(250, 251, 252, 0.93);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
+      border-top: 1px solid rgba(255, 255, 255, 0.78);
+      background: rgba(250, 251, 253, 0.86);
+      box-shadow: 0 -10px 30px rgba(17, 24, 39, 0.06);
+      backdrop-filter: blur(24px) saturate(150%);
+      -webkit-backdrop-filter: blur(24px) saturate(150%);
     }
 
     .nav-button {
@@ -560,8 +747,8 @@
       min-width: 0;
       min-height: 48px;
       border: 0;
-      border-radius: var(--radius);
-      padding: 7px 1px;
+      border-radius: 18px;
+      padding: 6px 1px 5px;
       background: transparent;
       color: var(--quiet);
       font-size: 0.68rem;
@@ -572,7 +759,7 @@
 
     .nav-button.active {
       color: var(--blue);
-      background: #eaf4ff;
+      background: rgba(10, 132, 255, 0.09);
     }
 
     .nav-icon {
@@ -603,47 +790,44 @@
       box-shadow: 4px 7px 0 currentColor;
     }
 
-    .nav-icon.tasks::before {
+    .nav-icon.bad::before {
       content: "";
       position: absolute;
-      inset: 4px 3px 3px;
+      inset: 4px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+    }
+
+    .nav-icon.bad::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: 6px;
+      width: 2px;
+      height: 10px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 13px 0 currentColor;
+    }
+
+    .nav-icon.notes::before {
+      content: "";
+      position: absolute;
+      inset: 3px 4px;
       border: 2px solid currentColor;
       border-radius: 5px;
     }
 
-    .nav-icon.tasks::after {
+    .nav-icon.notes::after {
       content: "";
       position: absolute;
-      left: 7px;
+      left: 8px;
+      right: 8px;
       top: 8px;
-      width: 8px;
-      height: 5px;
-      border-left: 2px solid currentColor;
-      border-bottom: 2px solid currentColor;
-      transform: rotate(-45deg);
-    }
-
-    .nav-icon.projects::before {
-      content: "";
-      position: absolute;
-      left: 3px;
-      right: 3px;
-      top: 5px;
-      height: 13px;
-      border: 2px solid currentColor;
-      border-radius: 5px;
-    }
-
-    .nav-icon.projects::after {
-      content: "";
-      position: absolute;
-      left: 6px;
-      top: 2px;
-      width: 10px;
-      height: 5px;
-      border: 2px solid currentColor;
-      border-bottom: 0;
-      border-radius: 5px 5px 0 0;
+      height: 2px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 5px 0 currentColor;
     }
 
     .nav-icon.rewards::before {
@@ -700,8 +884,8 @@
       width: min(100%, 448px);
       max-height: min(82svh, 680px);
       overflow: auto;
-      border-radius: 18px 18px 8px 8px;
-      background: var(--surface);
+      border-radius: 24px 24px 12px 12px;
+      background: rgba(255, 255, 255, 0.94);
       box-shadow: 0 18px 60px rgba(17, 24, 39, 0.22);
       transform: translateY(0);
       transition: transform 0.2s ease;
@@ -735,7 +919,7 @@
       width: 100%;
       min-height: 46px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
+      border-radius: var(--control-radius);
       padding: 10px 12px;
       background: #f9fafb;
       color: var(--text);
@@ -744,7 +928,7 @@
     }
 
     .field textarea {
-      min-height: 92px;
+      min-height: 120px;
       resize: vertical;
       line-height: 1.45;
     }
@@ -754,12 +938,6 @@
       border-color: rgba(10, 132, 255, 0.56);
       background: var(--surface);
       box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.12);
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
     }
 
     .sheet-actions {
@@ -785,7 +963,7 @@
       z-index: 60;
       width: min(calc(100% - 32px), 420px);
       padding: 12px 14px;
-      border-radius: var(--radius);
+      border-radius: var(--control-radius);
       background: rgba(17, 24, 39, 0.92);
       color: #ffffff;
       text-align: center;
@@ -800,6 +978,56 @@
     .toast.show {
       opacity: 1;
       transform: translate(-50%, 0);
+    }
+
+    .floating-delta {
+      position: fixed;
+      z-index: 70;
+      color: var(--red);
+      font-weight: 850;
+      pointer-events: none;
+      animation: floatDelta 0.9s ease-out forwards;
+    }
+
+    .floating-delta.positive {
+      color: #248a3d;
+    }
+
+    .floating-delta.negative {
+      color: #d92d20;
+    }
+
+    .coin-pulse-positive {
+      animation: coinPulsePositive 0.56s ease both;
+    }
+
+    .coin-pulse-negative {
+      animation: coinPulseNegative 0.56s ease both;
+    }
+
+    .coin-pulse-gold {
+      animation: coinGoldGlow 0.72s ease both;
+    }
+
+    .reward-button-spend {
+      animation: rewardButtonPress 0.42s ease both;
+    }
+
+    .floating-reward-message {
+      position: fixed;
+      z-index: 70;
+      padding: 8px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(201, 139, 24, 0.22);
+      background: rgba(255, 250, 235, 0.92);
+      color: #8a5a00;
+      font-size: 0.78rem;
+      font-weight: 800;
+      box-shadow: 0 12px 24px rgba(201, 139, 24, 0.14);
+      pointer-events: none;
+      animation: rewardMessageFloat 1.08s ease-out forwards;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
     }
 
     @media (min-width: 760px) {
@@ -828,27 +1056,14 @@
         padding-left: max(12px, var(--safe-left));
       }
 
-      .header {
-        padding-bottom: 10px;
+      .summary-card {
+        min-height: 104px;
+        padding: 14px;
       }
 
-      .streak-card {
-        min-height: 140px;
-        padding: 15px;
-      }
-
-      .streak-value strong {
-        font-size: 3.18rem;
-      }
-
-      .coin-card {
-        padding: 12px;
-      }
-
-      .nav-button {
-        font-size: 0.64rem;
-        padding-top: 6px;
-        padding-bottom: 5px;
+      .summary-value strong,
+      .stat-value {
+        font-size: 1.86rem;
       }
     }
 
@@ -873,6 +1088,171 @@
         transform: translateY(0);
       }
     }
+
+    @keyframes flashRed {
+      0% {
+        transform: scale(1);
+        background: var(--glass);
+      }
+      45% {
+        transform: scale(0.992);
+        background: rgba(255, 59, 48, 0.1);
+      }
+      100% {
+        transform: scale(1);
+        background: var(--glass);
+      }
+    }
+
+    @keyframes flashGreen {
+      0% {
+        transform: scale(1);
+        background: var(--glass);
+      }
+      45% {
+        transform: scale(0.992);
+        background: rgba(52, 199, 89, 0.1);
+      }
+      100% {
+        transform: scale(1);
+        background: var(--glass);
+      }
+    }
+
+    @keyframes rewardPress {
+      0%,
+      100% {
+        transform: scale(1);
+      }
+      42% {
+        transform: scale(0.985);
+        border-color: rgba(201, 139, 24, 0.24);
+        background: rgba(255, 250, 235, 0.8);
+      }
+    }
+
+    @keyframes rewardShimmer {
+      from {
+        transform: translateX(-55%);
+      }
+      to {
+        transform: translateX(55%);
+      }
+    }
+
+    @keyframes rewardButtonPress {
+      0%,
+      100% {
+        transform: scale(1);
+      }
+      45% {
+        transform: scale(0.94);
+        background: var(--gold);
+        box-shadow: 0 8px 18px rgba(201, 139, 24, 0.2);
+      }
+    }
+
+    @keyframes coinGoldGlow {
+      0%,
+      100% {
+        transform: scale(1);
+        color: var(--text);
+      }
+      45% {
+        transform: scale(1.025);
+        color: #8a5a00;
+      }
+    }
+
+    @keyframes rewardMessageFloat {
+      from {
+        opacity: 0;
+        transform: translate(-50%, 8px) scale(0.98);
+      }
+      18% {
+        opacity: 1;
+      }
+      72% {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+        transform: translate(-50%, -30px) scale(1);
+      }
+    }
+
+    @keyframes taskExitSuccess {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      42% {
+        opacity: 1;
+        transform: translateY(-2px) scale(0.99);
+        background: rgba(52, 199, 89, 0.1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-12px) scale(0.975);
+      }
+    }
+
+    @keyframes taskExitPenalty {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      42% {
+        opacity: 1;
+        transform: translateY(1px) scale(0.99);
+        background: rgba(255, 59, 48, 0.1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.975);
+      }
+    }
+
+    @keyframes coinPulsePositive {
+      0%,
+      100% {
+        transform: scale(1);
+      }
+      45% {
+        transform: scale(1.035);
+        color: #248a3d;
+      }
+    }
+
+    @keyframes coinPulseNegative {
+      0%,
+      100% {
+        transform: translateX(0) scale(1);
+      }
+      25% {
+        transform: translateX(-2px) scale(1.02);
+      }
+      50% {
+        transform: translateX(2px) scale(1.02);
+      }
+      75% {
+        transform: translateX(-1px) scale(1.01);
+      }
+    }
+
+    @keyframes floatDelta {
+      from {
+        opacity: 0;
+        transform: translate(-50%, 8px);
+      }
+      18% {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+        transform: translate(-50%, -34px);
+      }
+    }
   </style>
 </head>
 <body>
@@ -882,81 +1262,83 @@
         <header class="header">
           <div>
             <span class="eyebrow" id="todayDate">今天</span>
-            <h1>今天</h1>
+            <h1>自律系统</h1>
           </div>
+          <button class="icon-button" data-open-task aria-label="新建任务">
+            <span class="icon-plus" aria-hidden="true"></span>
+          </button>
         </header>
 
-        <section class="hero-grid" aria-label="今日核心状态">
-          <div class="streak-card">
-            <div class="streak-top">
-              <span class="muted-label">当前连续</span>
-              <span class="streak-mark" aria-hidden="true"></span>
-            </div>
-            <div>
-              <div class="streak-value">
-                <strong id="homeStreak">0</strong>
-                <span>天</span>
-              </div>
-              <p class="streak-status" id="streakStatus">从今天开始。</p>
+        <section class="summary-grid" aria-label="今日概览">
+          <div class="summary-card">
+            <span class="summary-label">当前金币</span>
+            <div class="summary-value">
+              <strong id="homeCoins">0</strong>
+              <span>金币</span>
             </div>
           </div>
-
-          <div class="coin-card">
-            <div>
-              <span class="muted-label">当前金币</span>
-              <strong id="homeCoins">0</strong>
+          <div class="summary-card">
+            <span class="summary-label">当前连续</span>
+            <div class="summary-value">
+              <strong id="homeStreak">0</strong>
+              <span>天</span>
             </div>
-            <span class="coin-token">金</span>
           </div>
         </section>
 
         <div class="section-heading">
-          <h2>今日剩余任务</h2>
-          <span id="remainingCount">0 项</span>
+          <h2>今日任务</h2>
+          <span id="todayTaskCount">0 项</span>
         </div>
         <div class="list" id="todayTaskList"></div>
       </section>
 
-      <section class="view" data-view="tasks">
+      <section class="view" data-view="bad">
         <header class="header">
           <div>
-            <span class="eyebrow">每日习惯</span>
-            <h1>任务</h1>
+            <span class="eyebrow">点击即扣金币</span>
+            <h1>坏习惯</h1>
           </div>
-          <button class="icon-button" data-open-task aria-label="新建每日任务">
+          <button class="icon-button" data-open-bad aria-label="新建坏习惯">
             <span class="icon-plus" aria-hidden="true"></span>
           </button>
         </header>
 
+        <section class="balance-strip" aria-label="当前金币">
+          <span>当前金币</span>
+          <strong id="badCoins">0</strong>
+          <span>金币</span>
+        </section>
+
         <div class="section-heading">
-          <h2>每日任务</h2>
-          <span id="taskCount">0 项</span>
+          <h2>坏习惯</h2>
+          <span id="badHabitCount">0 项</span>
         </div>
-        <div class="list" id="taskList"></div>
+        <div class="list" id="badHabitList"></div>
       </section>
 
-      <section class="view" data-view="projects">
+      <section class="view" data-view="notes">
         <header class="header">
           <div>
-            <span class="eyebrow">长期目标</span>
-            <h1>项目</h1>
+            <span class="eyebrow">简单提醒</span>
+            <h1>笔记</h1>
           </div>
-          <button class="icon-button" data-open-project aria-label="新建项目">
+          <button class="icon-button" data-open-note aria-label="新建笔记">
             <span class="icon-plus" aria-hidden="true"></span>
           </button>
         </header>
 
         <div class="section-heading">
-          <h2>项目</h2>
-          <span id="projectCount">0 项</span>
+          <h2>笔记</h2>
+          <span id="noteCount">0 条</span>
         </div>
-        <div class="list" id="projectList"></div>
+        <div class="list" id="noteList"></div>
       </section>
 
       <section class="view" data-view="rewards">
         <header class="header">
           <div>
-            <span class="eyebrow">金币商店</span>
+            <span class="eyebrow">自定义兑换</span>
             <h1>奖励</h1>
           </div>
           <button class="icon-button" data-open-reward aria-label="新建奖励">
@@ -964,16 +1346,14 @@
           </button>
         </header>
 
-        <div class="coin-card" style="margin-bottom: 22px;">
-          <div>
-            <span class="muted-label">可用金币</span>
-            <strong id="rewardCoins">0</strong>
-          </div>
-          <span class="coin-token">金</span>
-        </div>
+        <section class="balance-strip" aria-label="当前金币">
+          <span>当前金币</span>
+          <strong id="rewardCoins">0</strong>
+          <span>金币</span>
+        </section>
 
         <div class="section-heading">
-          <h2>奖励商店</h2>
+          <h2>奖励</h2>
           <span id="rewardCount">0 项</span>
         </div>
         <div class="list" id="rewardList"></div>
@@ -982,7 +1362,7 @@
       <section class="view" data-view="stats">
         <header class="header">
           <div>
-            <span class="eyebrow">长期记录</span>
+            <span class="eyebrow">只看必要信息</span>
             <h1>统计</h1>
           </div>
         </header>
@@ -990,35 +1370,59 @@
         <div class="stats-grid">
           <div class="stat-card">
             <span class="stat-label">当前连续</span>
-            <strong class="stat-value" id="statCurrentStreak">0</strong>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">最长连续</span>
-            <strong class="stat-value" id="statLongestStreak">0</strong>
+            <strong class="stat-value" id="statStreak">0</strong>
           </div>
           <div class="stat-card">
             <span class="stat-label">完成任务</span>
-            <strong class="stat-value" id="statTasksCompleted">0</strong>
+            <strong class="stat-value" id="statCompleted">0</strong>
           </div>
           <div class="stat-card">
-            <span class="stat-label">完成项目</span>
-            <strong class="stat-value" id="statProjectsCompleted">0</strong>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">累计获得金币</span>
-            <strong class="stat-value" id="statCoinsEarned">0</strong>
+            <span class="stat-label">当前金库</span>
+            <strong class="stat-value" id="statCoins">0</strong>
           </div>
           <div class="stat-card">
             <span class="stat-label">累计花费金币</span>
-            <strong class="stat-value" id="statCoinsSpent">0</strong>
+            <strong class="stat-value" id="statSpent">0</strong>
           </div>
         </div>
+
+        <div class="segmented" aria-label="统计范围">
+          <button class="segment-button active" data-stats-range="week" type="button">最近一周</button>
+          <button class="segment-button" data-stats-range="month" type="button">最近一月</button>
+          <button class="segment-button" data-stats-range="year" type="button">最近一年</button>
+        </div>
+
+        <section class="card chart-card" aria-label="自律热力图">
+          <div class="chart-title">
+            <h2>自律热力图</h2>
+            <span>每天的净表现</span>
+          </div>
+          <div class="chart-scroll" id="heatmapChart"></div>
+          <div class="heat-legend" aria-hidden="true">
+            <span><i class="excellent"></i>优秀</span>
+            <span><i class="good"></i>良好</span>
+            <span><i class="neutral"></i>中性</span>
+            <span><i class="poor"></i>较差</span>
+            <span><i class="terrible"></i>糟糕</span>
+          </div>
+        </section>
+
+        <section class="card chart-card" aria-label="金币余额趋势">
+          <div class="chart-title">
+            <h2>金币余额趋势</h2>
+            <span>账户总余额</span>
+          </div>
+          <div class="chart-scroll" id="balanceChart"></div>
+          <div class="chart-legend" aria-hidden="true">
+            <span><i class="balance"></i>金币余额</span>
+          </div>
+        </section>
 
         <section class="reset-card">
           <div class="reset-row">
             <div>
               <h2>重置所有数据</h2>
-              <p>清空当前浏览器中的全部记录。</p>
+              <p>清空任务、坏习惯、笔记和金币记录。</p>
             </div>
             <button class="danger-button" id="resetAllBtn">重置</button>
           </div>
@@ -1031,13 +1435,13 @@
         <span class="nav-icon today" aria-hidden="true"></span>
         <span>今天</span>
       </button>
-      <button class="nav-button" data-nav="tasks">
-        <span class="nav-icon tasks" aria-hidden="true"></span>
-        <span>任务</span>
+      <button class="nav-button" data-nav="bad">
+        <span class="nav-icon bad" aria-hidden="true"></span>
+        <span>坏习惯</span>
       </button>
-      <button class="nav-button" data-nav="projects">
-        <span class="nav-icon projects" aria-hidden="true"></span>
-        <span>项目</span>
+      <button class="nav-button" data-nav="notes">
+        <span class="nav-icon notes" aria-hidden="true"></span>
+        <span>笔记</span>
       </button>
       <button class="nav-button" data-nav="rewards">
         <span class="nav-icon rewards" aria-hidden="true"></span>
@@ -1063,22 +1467,27 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const STORAGE_KEY = "life-streak-os-v1";
-    const OLD_STORAGE_KEYS = ["life-rpg-system-v1", "life-os-ios-v1"];
+    const STORAGE_KEY = "minimal-discipline-v1";
+    const OLD_STORAGE_KEYS = [
+      "life-rpg-system-v1",
+      "life-os-ios-v1",
+      "life-streak-os-v1"
+    ];
 
     const emptyState = {
       coins: 0,
       streak: 0,
-      longestStreak: 0,
-      lastTaskDate: null,
+      lastCompletedDate: null,
+      settledThroughDate: null,
       tasks: [],
-      projects: [],
+      completions: {},
+      taskResults: {},
+      badHabits: [],
+      notes: [],
       rewards: [],
       history: [],
       totals: {
-        tasksCompleted: 0,
-        projectsCompleted: 0,
-        coinsEarned: 0,
+        completedTasks: 0,
         coinsSpent: 0
       }
     };
@@ -1086,27 +1495,28 @@
     let state = loadState();
     let sheetMode = null;
     let editingId = null;
+    let currentStatsRange = "week";
 
     const els = {
       todayDate: document.getElementById("todayDate"),
-      homeStreak: document.getElementById("homeStreak"),
-      streakStatus: document.getElementById("streakStatus"),
       homeCoins: document.getElementById("homeCoins"),
-      remainingCount: document.getElementById("remainingCount"),
+      homeStreak: document.getElementById("homeStreak"),
+      todayTaskCount: document.getElementById("todayTaskCount"),
       todayTaskList: document.getElementById("todayTaskList"),
-      taskCount: document.getElementById("taskCount"),
-      taskList: document.getElementById("taskList"),
-      projectCount: document.getElementById("projectCount"),
-      projectList: document.getElementById("projectList"),
+      badCoins: document.getElementById("badCoins"),
+      badHabitCount: document.getElementById("badHabitCount"),
+      badHabitList: document.getElementById("badHabitList"),
+      noteCount: document.getElementById("noteCount"),
+      noteList: document.getElementById("noteList"),
       rewardCoins: document.getElementById("rewardCoins"),
       rewardCount: document.getElementById("rewardCount"),
       rewardList: document.getElementById("rewardList"),
-      statCurrentStreak: document.getElementById("statCurrentStreak"),
-      statLongestStreak: document.getElementById("statLongestStreak"),
-      statTasksCompleted: document.getElementById("statTasksCompleted"),
-      statProjectsCompleted: document.getElementById("statProjectsCompleted"),
-      statCoinsEarned: document.getElementById("statCoinsEarned"),
-      statCoinsSpent: document.getElementById("statCoinsSpent"),
+      statStreak: document.getElementById("statStreak"),
+      statCompleted: document.getElementById("statCompleted"),
+      statCoins: document.getElementById("statCoins"),
+      statSpent: document.getElementById("statSpent"),
+      heatmapChart: document.getElementById("heatmapChart"),
+      balanceChart: document.getElementById("balanceChart"),
       resetAllBtn: document.getElementById("resetAllBtn"),
       sheetBackdrop: document.getElementById("sheetBackdrop"),
       sheetTitle: document.getElementById("sheetTitle"),
@@ -1122,32 +1532,42 @@
     function loadState() {
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (!saved) return cloneEmptyState();
-        return {
+        const merged = saved ? {
           ...cloneEmptyState(),
           ...saved,
           totals: { ...cloneEmptyState().totals, ...(saved.totals || {}) },
           tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
-          projects: Array.isArray(saved.projects) ? saved.projects : [],
+          badHabits: Array.isArray(saved.badHabits) ? saved.badHabits : [],
+          notes: Array.isArray(saved.notes) ? saved.notes : [],
           rewards: Array.isArray(saved.rewards) ? saved.rewards : [],
-          history: Array.isArray(saved.history) ? saved.history : []
-        };
+          history: Array.isArray(saved.history) ? saved.history : [],
+          completions: saved.completions && typeof saved.completions === "object" ? saved.completions : {},
+          taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {}
+        } : cloneEmptyState();
+
+        if (!Object.keys(merged.taskResults).length && Object.keys(merged.completions).length) {
+          Object.entries(merged.completions).forEach(([day, tasks]) => {
+            merged.taskResults[day] = merged.taskResults[day] || {};
+            Object.keys(tasks || {}).forEach(taskId => {
+              merged.taskResults[day][taskId] = "completed";
+            });
+          });
+        }
+
+        if (!merged.settledThroughDate) {
+          merged.settledThroughDate = yesterdayKey();
+        }
+
+        return merged;
       } catch {
-        return cloneEmptyState();
+        const fresh = cloneEmptyState();
+        fresh.settledThroughDate = yesterdayKey();
+        return fresh;
       }
     }
 
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-
-    function resetAllData() {
-      localStorage.removeItem(STORAGE_KEY);
-      OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
-      state = cloneEmptyState();
-      saveState();
-      render();
-      showToast("所有数据已重置");
     }
 
     function dateKey(date = new Date()) {
@@ -1161,6 +1581,17 @@
       const date = new Date();
       date.setDate(date.getDate() - 1);
       return dateKey(date);
+    }
+
+    function addDays(key, amount) {
+      const [year, month, day] = key.split("-").map(Number);
+      const date = new Date(year, month - 1, day);
+      date.setDate(date.getDate() + amount);
+      return dateKey(date);
+    }
+
+    function isBefore(a, b) {
+      return a < b;
     }
 
     function formatDate(date = new Date()) {
@@ -1185,57 +1616,82 @@
       return Math.round(amount);
     }
 
-    function parseProgress(value) {
-      const amount = parseAmount(value);
-      return Math.max(0, Math.min(100, amount));
-    }
-
     function currentStreak() {
-      if (!state.lastTaskDate) return 0;
+      if (!state.lastCompletedDate) return 0;
       const today = dateKey();
-      if (state.lastTaskDate === today || state.lastTaskDate === yesterdayKey()) {
+      if (state.lastCompletedDate === today || state.lastCompletedDate === yesterdayKey()) {
         return state.streak;
       }
       return 0;
     }
 
-    function taskCompletedToday(taskId) {
+    function taskResultOnDate(taskId, day) {
+      return state.taskResults[day]?.[taskId] || null;
+    }
+
+    function taskResultToday(taskId) {
+      return taskResultOnDate(taskId, dateKey());
+    }
+
+    function taskExistsOnDate(task, day) {
+      return !task.createdDate || task.createdDate <= day;
+    }
+
+    function settleMissedDays() {
       const today = dateKey();
-      return state.history.some(item => (
-        item.type === "task_completed" &&
-        item.taskId === taskId &&
-        item.date === today
-      ));
+      let day = addDays(state.settledThroughDate || yesterdayKey(), 1);
+      let changed = false;
+
+      while (isBefore(day, today)) {
+        state.tasks.forEach(task => {
+          if (!taskExistsOnDate(task, day)) return;
+          const result = taskResultOnDate(task.id, day);
+          if (result) return;
+          const amount = parseAmount(task.coins);
+          state.coins -= amount;
+          state.totals.coinsSpent += amount;
+          state.taskResults[day] = state.taskResults[day] || {};
+          state.taskResults[day][task.id] = "missed";
+          state.history.unshift({
+            id: createId("history"),
+            type: "task_missed",
+            taskId: task.id,
+            name: task.name,
+            coins: amount,
+            date: day,
+            timestamp: new Date().toISOString()
+          });
+          changed = true;
+        });
+        state.settledThroughDate = day;
+        day = addDays(day, 1);
+      }
+
+      if (changed) saveState();
     }
 
-    function activeProjects() {
-      return state.projects.filter(project => !project.completedAt);
-    }
-
-    function completedProjects() {
-      return state.projects.filter(project => project.completedAt);
-    }
-
-    function updateStreakForTask() {
-      const today = dateKey();
-      if (state.lastTaskDate === today) return;
-      state.streak = state.lastTaskDate === yesterdayKey() ? state.streak + 1 : 1;
-      state.lastTaskDate = today;
-      state.longestStreak = Math.max(state.longestStreak, state.streak);
+    function resetAllData() {
+      localStorage.removeItem(STORAGE_KEY);
+      OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      state = cloneEmptyState();
+      state.settledThroughDate = yesterdayKey();
+      saveState();
+      render();
+      showToast("所有数据已重置");
     }
 
     function openTaskSheet(taskId = null) {
       sheetMode = "task";
       editingId = taskId;
       const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
-      els.sheetTitle.textContent = task ? "编辑每日任务" : "新建每日任务";
+      els.sheetTitle.textContent = task ? "编辑任务" : "新建任务";
       els.sheetForm.innerHTML = `
         <label class="field">
           <span class="field-label">任务名称</span>
           <input name="name" type="text" maxlength="80" value="${escapeAttr(task?.name || "")}" placeholder="输入任务名称" required>
         </label>
         <label class="field">
-          <span class="field-label">金币奖励</span>
+          <span class="field-label">金币金额</span>
           <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${task?.coins ?? ""}" placeholder="0">
         </label>
         <div class="sheet-actions">
@@ -1250,41 +1706,52 @@
       els.sheetForm.querySelector("input[name='name']").focus();
     }
 
-    function openProjectSheet(projectId = null) {
-      sheetMode = "project";
-      editingId = projectId;
-      const project = projectId ? state.projects.find(item => item.id === projectId) : null;
-      const progressLocked = Boolean(project?.completedAt);
-      els.sheetTitle.textContent = project ? "编辑项目" : "新建项目";
+    function openBadHabitSheet(habitId = null) {
+      sheetMode = "bad";
+      editingId = habitId;
+      const habit = habitId ? state.badHabits.find(item => item.id === habitId) : null;
+      els.sheetTitle.textContent = habit ? "编辑坏习惯" : "新建坏习惯";
       els.sheetForm.innerHTML = `
         <label class="field">
-          <span class="field-label">项目名称</span>
-          <input name="name" type="text" maxlength="100" value="${escapeAttr(project?.name || "")}" placeholder="输入项目名称" required>
+          <span class="field-label">习惯名称</span>
+          <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入坏习惯名称" required>
         </label>
         <label class="field">
-          <span class="field-label">描述</span>
-          <textarea name="description" maxlength="240" placeholder="可选">${escapeHtml(project?.description || "")}</textarea>
+          <span class="field-label">金币惩罚</span>
+          <input name="penalty" type="number" min="0" step="1" inputmode="numeric" value="${habit?.penalty ?? ""}" placeholder="0">
         </label>
-        <div class="form-grid">
-          <label class="field">
-            <span class="field-label">进度</span>
-            <input name="progress" type="number" min="0" max="100" step="1" inputmode="numeric" value="${project?.progress ?? 0}" ${progressLocked ? "disabled" : ""}>
-          </label>
-          <label class="field">
-            <span class="field-label">完成金币</span>
-            <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${project?.coins ?? ""}" placeholder="0">
-          </label>
-        </div>
         <div class="sheet-actions">
           <button class="ghost-button" type="button" data-close-sheet>取消</button>
-          <button class="button" type="submit">${project ? "保存" : "创建"}</button>
+          <button class="button" type="submit">${habit ? "保存" : "创建"}</button>
         </div>
-        <div class="delete-row ${project ? "" : "hidden"}">
-          <button class="danger-button" type="button" data-delete-project="${project?.id || ""}">删除项目</button>
+        <div class="delete-row ${habit ? "" : "hidden"}">
+          <button class="danger-button" type="button" data-delete-bad="${habit?.id || ""}">删除坏习惯</button>
         </div>
       `;
       openSheet();
       els.sheetForm.querySelector("input[name='name']").focus();
+    }
+
+    function openNoteSheet(noteId = null) {
+      sheetMode = "note";
+      editingId = noteId;
+      const note = noteId ? state.notes.find(item => item.id === noteId) : null;
+      els.sheetTitle.textContent = note ? "编辑笔记" : "新建笔记";
+      els.sheetForm.innerHTML = `
+        <label class="field">
+          <span class="field-label">笔记内容</span>
+          <textarea name="text" maxlength="500" placeholder="输入提醒内容" required>${escapeHtml(note?.text || "")}</textarea>
+        </label>
+        <div class="sheet-actions">
+          <button class="ghost-button" type="button" data-close-sheet>取消</button>
+          <button class="button" type="submit">${note ? "保存" : "创建"}</button>
+        </div>
+        <div class="delete-row ${note ? "" : "hidden"}">
+          <button class="danger-button" type="button" data-delete-note="${note?.id || ""}">删除笔记</button>
+        </div>
+      `;
+      openSheet();
+      els.sheetForm.querySelector("textarea[name='text']").focus();
     }
 
     function openRewardSheet(rewardId = null) {
@@ -1335,13 +1802,15 @@
           coins: parseAmount(formData.get("coins"))
         });
       }
-      if (sheetMode === "project") {
-        const existingProject = editingId ? state.projects.find(project => project.id === editingId) : null;
-        saveProject({
+      if (sheetMode === "bad") {
+        saveBadHabit({
           name: String(formData.get("name") || "").trim(),
-          description: String(formData.get("description") || "").trim(),
-          progress: existingProject?.completedAt ? 100 : parseProgress(formData.get("progress")),
-          coins: parseAmount(formData.get("coins"))
+          penalty: parseAmount(formData.get("penalty"))
+        });
+      }
+      if (sheetMode === "note") {
+        saveNote({
+          text: String(formData.get("text") || "").trim()
         });
       }
       if (sheetMode === "reward") {
@@ -1365,9 +1834,11 @@
         ));
         showToast("任务已更新");
       } else {
+        const today = dateKey();
         state.tasks.push({
           id: createId("task"),
           ...taskData,
+          createdDate: today,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
@@ -1378,64 +1849,56 @@
       render();
     }
 
-    function saveProject(projectData) {
-      if (!projectData.name) {
-        showToast("请输入项目名称");
+    function saveBadHabit(habitData) {
+      if (!habitData.name) {
+        showToast("请输入习惯名称");
         return;
       }
-
       if (editingId) {
-        const previous = state.projects.find(project => project.id === editingId);
-        state.projects = state.projects.map(project => {
-          if (project.id !== editingId) return project;
-          const updated = {
-            ...project,
-            ...projectData,
-            updatedAt: new Date().toISOString()
-          };
-          if (!previous?.completedAt && updated.progress >= 100) {
-            return completeProjectRecord(updated);
-          }
-          return updated;
-        });
-        showToast(previous?.completedAt ? "项目已更新" : projectData.progress >= 100 ? "项目已完成" : "项目已更新");
+        state.badHabits = state.badHabits.map(habit => (
+          habit.id === editingId
+            ? { ...habit, ...habitData, updatedAt: new Date().toISOString() }
+            : habit
+        ));
+        showToast("坏习惯已更新");
       } else {
-        const project = {
-          id: createId("project"),
-          ...projectData,
+        state.badHabits.push({
+          id: createId("bad"),
+          ...habitData,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          completedAt: null
-        };
-        state.projects.push(project.progress >= 100 ? completeProjectRecord(project) : project);
-        showToast(project.progress >= 100 ? "项目已完成" : "项目已创建");
+          updatedAt: new Date().toISOString()
+        });
+        showToast("坏习惯已创建");
       }
-
       saveState();
       closeSheet();
       render();
     }
 
-    function completeProjectRecord(project) {
-      const completedAt = new Date().toISOString();
-      const completed = {
-        ...project,
-        progress: 100,
-        completedAt
-      };
-      state.coins += completed.coins;
-      state.totals.coinsEarned += completed.coins;
-      state.totals.projectsCompleted += 1;
-      state.history.unshift({
-        id: createId("history"),
-        type: "project_completed",
-        projectId: completed.id,
-        name: completed.name,
-        coins: completed.coins,
-        date: dateKey(),
-        timestamp: completedAt
-      });
-      return completed;
+    function saveNote(noteData) {
+      if (!noteData.text) {
+        showToast("请输入笔记内容");
+        return;
+      }
+      if (editingId) {
+        state.notes = state.notes.map(note => (
+          note.id === editingId
+            ? { ...note, ...noteData, updatedAt: new Date().toISOString() }
+            : note
+        ));
+        showToast("笔记已更新");
+      } else {
+        state.notes.unshift({
+          id: createId("note"),
+          ...noteData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        showToast("笔记已创建");
+      }
+      saveState();
+      closeSheet();
+      render();
     }
 
     function saveReward(rewardData) {
@@ -1464,6 +1927,190 @@
       render();
     }
 
+    function activeTasksToday() {
+      return state.tasks.filter(task => !taskResultToday(task.id));
+    }
+
+    function setCoinReadouts(value) {
+      const formatted = formatNumber(value);
+      [els.homeCoins, els.badCoins, els.rewardCoins, els.statCoins].forEach(target => {
+        if (target) target.textContent = formatted;
+      });
+    }
+
+    function animateCoinBalance(from, to, duration = 720) {
+      const targets = [els.homeCoins, els.badCoins, els.rewardCoins, els.statCoins].filter(Boolean);
+      targets.forEach(target => {
+        target.classList.remove("coin-pulse-positive", "coin-pulse-negative", "coin-pulse-gold");
+        void target.offsetWidth;
+        target.classList.add("coin-pulse-gold");
+      });
+
+      const now = window.performance?.now ? () => window.performance.now() : () => Date.now();
+      const frame = window.requestAnimationFrame
+        ? callback => window.requestAnimationFrame(callback)
+        : callback => setTimeout(() => callback(now()), 16);
+      const start = now();
+      const change = to - from;
+      const tick = timestamp => {
+        const progress = Math.min(1, (timestamp - start) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setCoinReadouts(Math.round(from + change * eased));
+        if (progress < 1) frame(tick);
+        else setCoinReadouts(to);
+      };
+      frame(tick);
+    }
+
+    function updatePrimaryReadouts() {
+      const streak = currentStreak();
+      const activeCount = activeTasksToday().length;
+      setCoinReadouts(state.coins);
+      els.homeStreak.textContent = formatNumber(streak);
+      els.todayTaskCount.textContent = `${activeCount} 项`;
+      els.statStreak.textContent = formatNumber(streak);
+      els.statCompleted.textContent = formatNumber(state.totals.completedTasks);
+      els.statCoins.textContent = formatNumber(state.coins);
+      els.statSpent.textContent = formatNumber(state.totals.coinsSpent);
+    }
+
+    function scheduleRender(delay = 320) {
+      clearTimeout(scheduleRender.timer);
+      scheduleRender.timer = setTimeout(render, delay);
+    }
+
+    function prepareActionCard(card) {
+      if (!card) return;
+      card.querySelectorAll("button").forEach(button => {
+        button.disabled = true;
+      });
+    }
+
+    function completeTask(taskId, sourceEl = null) {
+      const task = state.tasks.find(item => item.id === taskId);
+      if (!task || taskResultToday(taskId)) return;
+
+      const today = dateKey();
+      const amount = parseAmount(task.coins);
+      state.completions[today] = state.completions[today] || {};
+      state.completions[today][taskId] = true;
+      state.taskResults[today] = state.taskResults[today] || {};
+      state.taskResults[today][taskId] = "completed";
+      state.coins += amount;
+      state.totals.completedTasks += 1;
+      updateStreakForCompletion(today);
+      state.history.unshift({
+        id: createId("history"),
+        type: "task_completed",
+        taskId: task.id,
+        name: task.name,
+        coins: amount,
+        date: today,
+        timestamp: new Date().toISOString()
+      });
+      saveState();
+      updatePrimaryReadouts();
+      prepareActionCard(sourceEl);
+      if (sourceEl) sourceEl.classList.add("task-exit-success");
+      showCoinFeedback(amount, "positive", sourceEl, { flash: false });
+      scheduleRender(sourceEl ? 380 : 0);
+      showToast("任务已完成");
+    }
+
+    function failTask(taskId, sourceEl = null) {
+      const task = state.tasks.find(item => item.id === taskId);
+      if (!task || taskResultToday(taskId)) return;
+
+      const today = dateKey();
+      const amount = parseAmount(task.coins);
+      state.taskResults[today] = state.taskResults[today] || {};
+      state.taskResults[today][taskId] = "failed";
+      state.coins -= amount;
+      state.totals.coinsSpent += amount;
+      state.history.unshift({
+        id: createId("history"),
+        type: "task_failed",
+        taskId: task.id,
+        name: task.name,
+        coins: amount,
+        date: today,
+        timestamp: new Date().toISOString()
+      });
+      saveState();
+      updatePrimaryReadouts();
+      prepareActionCard(sourceEl);
+      if (sourceEl) sourceEl.classList.add("task-exit-penalty");
+      showCoinFeedback(amount, "negative", sourceEl, { flash: false });
+      scheduleRender(sourceEl ? 380 : 0);
+      showToast("已扣除金币");
+    }
+
+    function updateStreakForCompletion(today) {
+      if (state.lastCompletedDate === today) return;
+      state.streak = state.lastCompletedDate === yesterdayKey() ? state.streak + 1 : 1;
+      state.lastCompletedDate = today;
+    }
+
+    function triggerBadHabit(habitId, sourceEl = null) {
+      const habit = state.badHabits.find(item => item.id === habitId);
+      if (!habit) return;
+      const amount = parseAmount(habit.penalty);
+      state.coins -= amount;
+      state.totals.coinsSpent += amount;
+      state.history.unshift({
+        id: createId("history"),
+        type: "bad_habit",
+        habitId: habit.id,
+        name: habit.name,
+        coins: amount,
+        date: dateKey(),
+        timestamp: new Date().toISOString()
+      });
+      saveState();
+      updatePrimaryReadouts();
+      showCoinFeedback(amount, "negative", sourceEl);
+      scheduleRender(240);
+      showToast(`已扣除 ${formatNumber(amount)} 金币`);
+    }
+
+    function redeemReward(rewardId, sourceEl = null, buttonEl = null) {
+      const reward = state.rewards.find(item => item.id === rewardId);
+      if (!reward) return;
+      const amount = parseAmount(reward.cost);
+      if (state.coins < amount) {
+        showToast("金币不足");
+        return;
+      }
+      const previousCoins = state.coins;
+      state.coins -= amount;
+      state.totals.coinsSpent += amount;
+      state.history.unshift({
+        id: createId("history"),
+        type: "reward_redeemed",
+        rewardId: reward.id,
+        name: reward.name,
+        cost: amount,
+        date: dateKey(),
+        timestamp: new Date().toISOString()
+      });
+      saveState();
+      els.statSpent.textContent = formatNumber(state.totals.coinsSpent);
+      if (sourceEl) {
+        prepareActionCard(sourceEl);
+        sourceEl.classList.remove("reward-redeemed");
+        void sourceEl.offsetWidth;
+        sourceEl.classList.add("reward-redeemed");
+      }
+      if (buttonEl) {
+        buttonEl.classList.remove("reward-button-spend");
+        void buttonEl.offsetWidth;
+        buttonEl.classList.add("reward-button-spend");
+      }
+      animateCoinBalance(previousCoins, state.coins);
+      showRewardRedeemedFeedback(sourceEl);
+      scheduleRender(840);
+    }
+
     function deleteTask(taskId) {
       state.tasks = state.tasks.filter(task => task.id !== taskId);
       saveState();
@@ -1472,12 +2119,20 @@
       showToast("任务已删除");
     }
 
-    function deleteProject(projectId) {
-      state.projects = state.projects.filter(project => project.id !== projectId);
+    function deleteBadHabit(habitId) {
+      state.badHabits = state.badHabits.filter(habit => habit.id !== habitId);
       saveState();
       closeSheet();
       render();
-      showToast("项目已删除");
+      showToast("坏习惯已删除");
+    }
+
+    function deleteNote(noteId) {
+      state.notes = state.notes.filter(note => note.id !== noteId);
+      saveState();
+      closeSheet();
+      render();
+      showToast("笔记已删除");
     }
 
     function deleteReward(rewardId) {
@@ -1488,186 +2143,115 @@
       showToast("奖励已删除");
     }
 
-    function completeTask(taskId) {
-      const task = state.tasks.find(item => item.id === taskId);
-      if (!task || taskCompletedToday(taskId)) return;
-
-      state.coins += task.coins;
-      state.totals.coinsEarned += task.coins;
-      state.totals.tasksCompleted += 1;
-      updateStreakForTask();
-      state.history.unshift({
-        id: createId("history"),
-        type: "task_completed",
-        taskId: task.id,
-        name: task.name,
-        coins: task.coins,
-        date: dateKey(),
-        timestamp: new Date().toISOString()
-      });
-      saveState();
-      render();
-      showToast("连续已保持");
-    }
-
-    function redeemReward(rewardId) {
-      const reward = state.rewards.find(item => item.id === rewardId);
-      if (!reward) return;
-      if (state.coins < reward.cost) {
-        showToast("金币不足");
-        return;
-      }
-      state.coins -= reward.cost;
-      state.totals.coinsSpent += reward.cost;
-      state.history.unshift({
-        id: createId("history"),
-        type: "reward_redeemed",
-        rewardId: reward.id,
-        name: reward.name,
-        cost: reward.cost,
-        date: dateKey(),
-        timestamp: new Date().toISOString()
-      });
-      saveState();
-      render();
-      showToast("奖励已兑换");
-    }
-
     function render() {
-      const streak = currentStreak();
-      const remainingTasks = state.tasks.filter(task => !taskCompletedToday(task.id));
+      settleMissedDays();
+      const activeCount = activeTasksToday().length;
 
       els.todayDate.textContent = formatDate();
-      els.homeStreak.textContent = formatNumber(streak);
-      els.homeCoins.textContent = formatNumber(state.coins);
-      els.rewardCoins.textContent = formatNumber(state.coins);
-      els.remainingCount.textContent = `${remainingTasks.length} 项`;
-      els.taskCount.textContent = `${state.tasks.length} 项`;
-      els.projectCount.textContent = `${state.projects.length} 项`;
+      updatePrimaryReadouts();
+      els.todayTaskCount.textContent = `${activeCount} 项`;
+      els.badHabitCount.textContent = `${state.badHabits.length} 项`;
+      els.noteCount.textContent = `${state.notes.length} 条`;
       els.rewardCount.textContent = `${state.rewards.length} 项`;
 
-      if (!state.tasks.length) {
-        els.streakStatus.textContent = "从今天开始。";
-      } else if (remainingTasks.length === 0) {
-        els.streakStatus.textContent = "今天已保持。";
-      } else {
-        els.streakStatus.textContent = "完成一项即可保持。";
-      }
-
-      els.statCurrentStreak.textContent = formatNumber(streak);
-      els.statLongestStreak.textContent = formatNumber(state.longestStreak);
-      els.statTasksCompleted.textContent = formatNumber(state.totals.tasksCompleted);
-      els.statProjectsCompleted.textContent = formatNumber(state.totals.projectsCompleted);
-      els.statCoinsEarned.textContent = formatNumber(state.totals.coinsEarned);
-      els.statCoinsSpent.textContent = formatNumber(state.totals.coinsSpent);
-
-      renderTodayTasks(remainingTasks);
       renderTasks();
-      renderProjects();
+      renderBadHabits();
+      renderNotes();
       renderRewards();
-    }
-
-    function renderTodayTasks(remainingTasks) {
-      if (!state.tasks.length) {
-        els.todayTaskList.innerHTML = `
-          <div class="empty-state">
-            <strong>没有每日任务</strong>
-            <button class="button empty-action" data-open-task>新建每日任务</button>
-          </div>
-        `;
-        return;
-      }
-
-      if (!remainingTasks.length) {
-        els.todayTaskList.innerHTML = `
-          <div class="empty-state">
-            <strong>今天已完成</strong>
-          </div>
-        `;
-        return;
-      }
-
-      els.todayTaskList.innerHTML = remainingTasks.map(task => `
-        <article class="card">
-          <div class="card-main">
-            <div class="title-wrap">
-              <h3>${escapeHtml(task.name)}</h3>
-              <div class="meta-row">
-                <span class="pill green">${formatNumber(task.coins)} 金币</span>
-              </div>
-            </div>
-            <button class="button green" data-complete-task="${task.id}">完成</button>
-          </div>
-        </article>
-      `).join("");
+      renderStatsVisuals();
     }
 
     function renderTasks() {
       if (!state.tasks.length) {
-        els.taskList.innerHTML = `
+        els.todayTaskList.innerHTML = `
           <div class="empty-state">
-            <strong>没有每日任务</strong>
-            <button class="button empty-action" data-open-task>新建每日任务</button>
+            <strong>今天没有任务</strong>
+            <p>添加一个你今天必须完成的任务。</p>
+            <button class="button empty-action" data-open-task>新建任务</button>
           </div>
         `;
         return;
       }
 
-      els.taskList.innerHTML = state.tasks.map(task => {
-        const done = taskCompletedToday(task.id);
-        return `
-          <article class="card">
+      const activeTasks = activeTasksToday();
+      if (!activeTasks.length) {
+        els.todayTaskList.innerHTML = `
+          <div class="empty-state">
+            <strong>今日任务已清空</strong>
+            <p>今天的选择已经记录。明天会重新开始。</p>
+          </div>
+        `;
+        return;
+      }
+
+      els.todayTaskList.innerHTML = activeTasks.map(task => `
+          <article class="card" data-task-card="${task.id}">
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(task.name)}</h3>
                 <div class="meta-row">
-                  <span class="pill green">${formatNumber(task.coins)} 金币</span>
-                  <span class="pill ${done ? "blue" : ""}">${done ? "今日已完成" : "今日未完成"}</span>
+                  <span class="pill coin-pill">${formatNumber(parseAmount(task.coins))} 金币</span>
                 </div>
               </div>
               <button class="text-button" data-edit-task="${task.id}">编辑</button>
             </div>
             <div class="card-actions">
-              <button class="button green" data-complete-task="${task.id}" ${done ? "disabled" : ""}>${done ? "已完成" : "完成今天"}</button>
+              <button class="button green" data-complete-task="${task.id}">完成</button>
+              <button class="button soft-red" data-fail-task="${task.id}">失败</button>
             </div>
           </article>
-        `;
-      }).join("");
+      `).join("");
     }
 
-    function renderProjects() {
-      if (!state.projects.length) {
-        els.projectList.innerHTML = `
+    function renderBadHabits() {
+      if (!state.badHabits.length) {
+        els.badHabitList.innerHTML = `
           <div class="empty-state">
-            <strong>没有项目</strong>
-            <button class="button empty-action" data-open-project>新建项目</button>
+            <strong>没有坏习惯</strong>
+            <p>添加一个需要立刻付出代价的行为。</p>
+            <button class="button empty-action" data-open-bad>新建坏习惯</button>
           </div>
         `;
         return;
       }
 
-      const sortedProjects = [...activeProjects(), ...completedProjects()];
-      els.projectList.innerHTML = sortedProjects.map(project => `
-        <article class="card">
+      els.badHabitList.innerHTML = state.badHabits.map(habit => `
+        <article class="card" data-habit-card="${habit.id}">
           <div class="card-main">
             <div class="title-wrap">
-              <h3>${escapeHtml(project.name)}</h3>
-              ${project.description ? `<p>${escapeHtml(project.description)}</p>` : ""}
-            </div>
-            <button class="text-button" data-edit-project="${project.id}">编辑</button>
+                <h3>${escapeHtml(habit.name)}</h3>
+                <div class="meta-row">
+                <span class="pill coin-pill">${formatNumber(parseAmount(habit.penalty))} 金币</span>
+                </div>
+              </div>
+            <button class="text-button" data-edit-bad="${habit.id}">编辑</button>
           </div>
-          <div class="progress-block">
-            <div class="progress-top">
-              <span>${formatNumber(project.progress)}%</span>
-              <span>${project.completedAt ? "已完成" : "进行中"}</span>
-            </div>
-            <div class="progress">
-              <div class="progress-fill" style="width:${project.progress}%"></div>
-            </div>
+          <div class="card-actions">
+            <button class="button red" data-trigger-bad="${habit.id}">扣除</button>
           </div>
-          <div class="meta-row">
-            <span class="pill green">${formatNumber(project.coins)} 金币</span>
-            ${project.completedAt ? `<span class="pill blue">已领取</span>` : `<span class="pill orange">100% 时领取</span>`}
+        </article>
+      `).join("");
+    }
+
+    function renderNotes() {
+      if (!state.notes.length) {
+        els.noteList.innerHTML = `
+          <div class="empty-state">
+            <strong>没有笔记</strong>
+            <p>写下一个简单提醒。</p>
+            <button class="button empty-action" data-open-note>新建笔记</button>
+          </div>
+        `;
+        return;
+      }
+
+      els.noteList.innerHTML = state.notes.map(note => `
+        <article class="card note-card">
+          <div class="card-main">
+            <div class="title-wrap">
+              <p>${escapeHtml(note.text)}</p>
+            </div>
+            <button class="text-button" data-edit-note="${note.id}">编辑</button>
           </div>
         </article>
       `).join("");
@@ -1677,7 +2261,8 @@
       if (!state.rewards.length) {
         els.rewardList.innerHTML = `
           <div class="empty-state">
-            <strong>奖励商店为空</strong>
+            <strong>没有奖励</strong>
+            <p>添加一个可以用金币兑换的奖励。</p>
             <button class="button empty-action" data-open-reward>新建奖励</button>
           </div>
         `;
@@ -1685,14 +2270,15 @@
       }
 
       els.rewardList.innerHTML = state.rewards.map(reward => {
-        const affordable = state.coins >= reward.cost;
+        const cost = parseAmount(reward.cost);
+        const affordable = state.coins >= cost;
         return `
-          <article class="card">
+          <article class="card" data-reward-card="${reward.id}">
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(reward.name)}</h3>
                 <div class="meta-row">
-                  <span class="pill green">${formatNumber(reward.cost)} 金币</span>
+                  <span class="pill coin-pill">${formatNumber(cost)} 金币</span>
                 </div>
               </div>
               <button class="text-button" data-edit-reward="${reward.id}">编辑</button>
@@ -1703,6 +2289,194 @@
           </article>
         `;
       }).join("");
+    }
+
+    function renderStatsVisuals() {
+      const rows = buildStatsRows(currentStatsRange);
+      renderHeatmap(rows);
+      renderBalanceTrend(rows);
+    }
+
+    function buildStatsRows(range) {
+      const periods = lastDays(range === "year" ? 365 : range === "month" ? 30 : 7);
+      const rows = periods.map(period => ({
+        key: period.key,
+        label: period.label,
+        completed: 0,
+        failed: 0,
+        badHabits: 0,
+        earned: 0,
+        deducted: 0,
+        net: 0,
+        score: 0,
+        balance: 0
+      }));
+      const byKey = new Map(rows.map(row => [row.key, row]));
+
+      state.history.forEach(item => {
+        const key = item.date;
+        const row = byKey.get(key);
+        if (!row) return;
+
+        if (item.type === "task_completed") {
+          row.completed += 1;
+          row.earned += parseAmount(item.coins);
+        }
+        if (item.type === "task_failed" || item.type === "task_missed") {
+          row.failed += 1;
+          row.deducted += parseAmount(item.coins);
+        }
+        if (item.type === "bad_habit") {
+          row.badHabits += 1;
+          row.deducted += parseAmount(item.coins);
+        }
+        if (item.type === "reward_redeemed") {
+          row.deducted += parseAmount(item.cost);
+        }
+      });
+
+      rows.forEach(row => {
+        row.net = row.earned - row.deducted;
+        row.score = row.completed - row.failed - row.badHabits;
+      });
+
+      const periodDelta = rows.reduce((sum, row) => sum + row.net, 0);
+      let balance = state.coins - periodDelta;
+      rows.forEach(row => {
+        balance += row.net;
+        row.balance = balance;
+      });
+      return rows;
+    }
+
+    function heatmapMetrics(range, rows) {
+      const columns = Math.ceil(rows.length / 7);
+      const cell = range === "year" ? 13 : range === "month" ? 18 : 22;
+      const gap = range === "year" ? 4 : 5;
+      return {
+        columns,
+        cell,
+        gap,
+        width: `${columns * cell + Math.max(0, columns - 1) * gap}px`
+      };
+    }
+
+    function heatLevel(score) {
+      if (score >= 3) return "excellent";
+      if (score > 0) return "good";
+      if (score === 0) return "neutral";
+      if (score <= -3) return "terrible";
+      return "poor";
+    }
+
+    function renderHeatmap(rows) {
+      const metrics = heatmapMetrics(currentStatsRange, rows);
+      els.heatmapChart.innerHTML = `
+        <div class="heatmap" style="--heat-cell: ${metrics.cell}px; --heat-gap: ${metrics.gap}px; --heat-width: ${metrics.width};">
+          ${rows.map(row => {
+            const level = heatLevel(row.score);
+            const title = `${row.label}：完成 ${row.completed}，失败 ${row.failed}，坏习惯 ${row.badHabits}，评分 ${row.score}`;
+            return `<span class="heat-day level-${level}" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"></span>`;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    function trendWidth(rows) {
+      if (rows.length <= 7) return 320;
+      if (rows.length <= 30) return 620;
+      return 1240;
+    }
+
+    function renderBalanceTrend(rows) {
+      const width = trendWidth(rows);
+      const height = 168;
+      const padX = 14;
+      const padY = 18;
+      const values = rows.map(row => row.balance);
+      const min = Math.min(...values, 0);
+      const max = Math.max(...values, 0);
+      const spread = Math.max(1, max - min);
+      const xStep = rows.length > 1 ? (width - padX * 2) / (rows.length - 1) : 0;
+      const points = rows.map((row, index) => {
+        const x = padX + index * xStep;
+        const y = height - padY - ((row.balance - min) / spread) * (height - padY * 2);
+        return { x, y, row };
+      });
+      const linePath = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+      const lastPoint = points[points.length - 1];
+      const lastRow = rows[rows.length - 1];
+      const areaPath = `${linePath} L ${lastPoint.x.toFixed(1)} ${height - padY} L ${points[0].x.toFixed(1)} ${height - padY} Z`;
+      const start = points[0];
+      const end = lastPoint;
+      const zeroY = height - padY - ((0 - min) / spread) * (height - padY * 2);
+      els.balanceChart.innerHTML = `
+        <div class="balance-chart" style="--trend-width: ${width}px;">
+          <svg class="balance-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="金币余额趋势">
+            <line class="balance-grid" x1="${padX}" y1="${zeroY.toFixed(1)}" x2="${width - padX}" y2="${zeroY.toFixed(1)}"></line>
+            <path class="balance-area" d="${areaPath}"></path>
+            <path class="balance-line" d="${linePath}"></path>
+            <circle class="balance-point" cx="${start.x.toFixed(1)}" cy="${start.y.toFixed(1)}" r="4"></circle>
+            <circle class="balance-point" cx="${end.x.toFixed(1)}" cy="${end.y.toFixed(1)}" r="4"></circle>
+          </svg>
+          <div class="balance-labels">
+            <span>${escapeHtml(rows[0].label)}</span>
+            <span>${formatNumber(rows[0].balance)} → ${formatNumber(lastRow.balance)} 金币</span>
+            <span>${escapeHtml(lastRow.label)}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function lastDays(count) {
+      const days = [];
+      const formatter = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" });
+      for (let index = count - 1; index >= 0; index -= 1) {
+        const date = new Date();
+        date.setDate(date.getDate() - index);
+        days.push({
+          key: dateKey(date),
+          label: formatter.format(date)
+        });
+      }
+      return days;
+    }
+
+    function showRewardRedeemedFeedback(sourceEl = null) {
+      const rect = sourceEl ? sourceEl.getBoundingClientRect() : els.rewardCoins.getBoundingClientRect();
+      const message = document.createElement("span");
+      message.className = "floating-reward-message";
+      message.textContent = "Reward redeemed";
+      message.style.left = `${rect.left + rect.width / 2}px`;
+      message.style.top = `${rect.top + 12}px`;
+      document.body.appendChild(message);
+      message.addEventListener("animationend", () => message.remove(), { once: true });
+    }
+
+    function showCoinFeedback(amount, tone = "negative", sourceEl = null, options = {}) {
+      const pulseClass = tone === "positive" ? "coin-pulse-positive" : "coin-pulse-negative";
+      [els.homeCoins, els.badCoins, els.rewardCoins, els.statCoins].forEach(target => {
+        if (!target) return;
+        target.classList.remove("coin-pulse-positive", "coin-pulse-negative");
+        void target.offsetWidth;
+        target.classList.add(pulseClass);
+      });
+
+      if (sourceEl && options.flash !== false) {
+        const flashClass = tone === "positive" ? "flash-green" : "flash-red";
+        sourceEl.classList.remove("flash-green", "flash-red");
+        void sourceEl.offsetWidth;
+        sourceEl.classList.add(flashClass);
+      }
+
+      const rect = sourceEl ? sourceEl.getBoundingClientRect() : els.homeCoins.getBoundingClientRect();
+      const delta = document.createElement("span");
+      delta.className = `floating-delta ${tone}`;
+      delta.textContent = `${tone === "positive" ? "+" : "-"}${formatNumber(amount)}`;
+      delta.style.left = `${rect.left + rect.width / 2}px`;
+      delta.style.top = `${rect.top + 14}px`;
+      document.body.appendChild(delta);
+      delta.addEventListener("animationend", () => delta.remove(), { once: true });
     }
 
     function switchView(view) {
@@ -1740,30 +2514,60 @@
     document.addEventListener("click", event => {
       const navButton = event.target.closest("[data-nav]");
       const openTaskButton = event.target.closest("[data-open-task]");
-      const openProjectButton = event.target.closest("[data-open-project]");
+      const openBadButton = event.target.closest("[data-open-bad]");
+      const openNoteButton = event.target.closest("[data-open-note]");
       const openRewardButton = event.target.closest("[data-open-reward]");
       const editTaskButton = event.target.closest("[data-edit-task]");
-      const editProjectButton = event.target.closest("[data-edit-project]");
+      const editBadButton = event.target.closest("[data-edit-bad]");
+      const editNoteButton = event.target.closest("[data-edit-note]");
       const editRewardButton = event.target.closest("[data-edit-reward]");
       const completeTaskButton = event.target.closest("[data-complete-task]");
-      const redeemButton = event.target.closest("[data-redeem-reward]");
+      const failTaskButton = event.target.closest("[data-fail-task]");
+      const triggerBadButton = event.target.closest("[data-trigger-bad]");
+      const redeemRewardButton = event.target.closest("[data-redeem-reward]");
+      const statsRangeButton = event.target.closest("[data-stats-range]");
       const closeButton = event.target.closest("[data-close-sheet]");
       const deleteTaskButton = event.target.closest("[data-delete-task]");
-      const deleteProjectButton = event.target.closest("[data-delete-project]");
+      const deleteBadButton = event.target.closest("[data-delete-bad]");
+      const deleteNoteButton = event.target.closest("[data-delete-note]");
       const deleteRewardButton = event.target.closest("[data-delete-reward]");
 
       if (navButton) switchView(navButton.dataset.nav);
       if (openTaskButton) openTaskSheet();
-      if (openProjectButton) openProjectSheet();
+      if (openBadButton) openBadHabitSheet();
+      if (openNoteButton) openNoteSheet();
       if (openRewardButton) openRewardSheet();
       if (editTaskButton) openTaskSheet(editTaskButton.dataset.editTask);
-      if (editProjectButton) openProjectSheet(editProjectButton.dataset.editProject);
+      if (editBadButton) openBadHabitSheet(editBadButton.dataset.editBad);
+      if (editNoteButton) openNoteSheet(editNoteButton.dataset.editNote);
       if (editRewardButton) openRewardSheet(editRewardButton.dataset.editReward);
-      if (completeTaskButton) completeTask(completeTaskButton.dataset.completeTask);
-      if (redeemButton) redeemReward(redeemButton.dataset.redeemReward);
+      if (completeTaskButton) {
+        completeTask(completeTaskButton.dataset.completeTask, completeTaskButton.closest("[data-task-card]"));
+      }
+      if (failTaskButton) {
+        failTask(failTaskButton.dataset.failTask, failTaskButton.closest("[data-task-card]"));
+      }
+      if (triggerBadButton) {
+        triggerBadHabit(triggerBadButton.dataset.triggerBad, triggerBadButton.closest("[data-habit-card]"));
+      }
+      if (redeemRewardButton) {
+        redeemReward(
+          redeemRewardButton.dataset.redeemReward,
+          redeemRewardButton.closest("[data-reward-card]"),
+          redeemRewardButton
+        );
+      }
+      if (statsRangeButton) {
+        currentStatsRange = statsRangeButton.dataset.statsRange;
+        document.querySelectorAll("[data-stats-range]").forEach(button => {
+          button.classList.toggle("active", button === statsRangeButton);
+        });
+        renderStatsVisuals();
+      }
       if (closeButton) closeSheet();
       if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
-      if (deleteProjectButton) deleteProject(deleteProjectButton.dataset.deleteProject);
+      if (deleteBadButton) deleteBadHabit(deleteBadButton.dataset.deleteBad);
+      if (deleteNoteButton) deleteNote(deleteNoteButton.dataset.deleteNote);
       if (deleteRewardButton) deleteReward(deleteRewardButton.dataset.deleteReward);
     });
 
