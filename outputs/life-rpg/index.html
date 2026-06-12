@@ -624,7 +624,7 @@
     }
 
     .chart-legend i.balance {
-      background: var(--blue);
+      background: #d92d20;
     }
 
     .balance-chart {
@@ -645,21 +645,21 @@
     }
 
     .balance-area {
-      fill: rgba(10, 132, 255, 0.08);
+      fill: rgba(255, 59, 48, 0.07);
     }
 
     .balance-line {
       fill: none;
-      stroke: var(--blue);
+      stroke: #d92d20;
       stroke-width: 3;
       stroke-linecap: round;
       stroke-linejoin: round;
-      filter: drop-shadow(0 5px 8px rgba(10, 132, 255, 0.12));
+      filter: drop-shadow(0 5px 8px rgba(255, 59, 48, 0.12));
     }
 
     .balance-point {
       fill: #ffffff;
-      stroke: var(--blue);
+      stroke: #d92d20;
       stroke-width: 2;
     }
 
@@ -1407,14 +1407,14 @@
           </div>
         </section>
 
-        <section class="card chart-card" aria-label="金币余额趋势">
+        <section class="card chart-card" aria-label="坏习惯趋势">
           <div class="chart-title">
-            <h2>金币余额趋势</h2>
-            <span>账户总余额</span>
+            <h2>坏习惯趋势</h2>
+            <span>触发次数</span>
           </div>
-          <div class="chart-scroll" id="balanceChart"></div>
+          <div class="chart-scroll" id="badHabitTrendChart"></div>
           <div class="chart-legend" aria-hidden="true">
-            <span><i class="balance"></i>金币余额</span>
+            <span><i class="balance"></i>坏习惯</span>
           </div>
         </section>
 
@@ -1516,7 +1516,7 @@
       statCoins: document.getElementById("statCoins"),
       statSpent: document.getElementById("statSpent"),
       heatmapChart: document.getElementById("heatmapChart"),
-      balanceChart: document.getElementById("balanceChart"),
+      badHabitTrendChart: document.getElementById("badHabitTrendChart"),
       resetAllBtn: document.getElementById("resetAllBtn"),
       sheetBackdrop: document.getElementById("sheetBackdrop"),
       sheetTitle: document.getElementById("sheetTitle"),
@@ -1583,17 +1583,6 @@
       return dateKey(date);
     }
 
-    function addDays(key, amount) {
-      const [year, month, day] = key.split("-").map(Number);
-      const date = new Date(year, month - 1, day);
-      date.setDate(date.getDate() + amount);
-      return dateKey(date);
-    }
-
-    function isBefore(a, b) {
-      return a < b;
-    }
-
     function formatDate(date = new Date()) {
       return new Intl.DateTimeFormat("zh-CN", {
         month: "long",
@@ -1633,41 +1622,11 @@
       return taskResultOnDate(taskId, dateKey());
     }
 
-    function taskExistsOnDate(task, day) {
-      return !task.createdDate || task.createdDate <= day;
-    }
-
-    function settleMissedDays() {
-      const today = dateKey();
-      let day = addDays(state.settledThroughDate || yesterdayKey(), 1);
-      let changed = false;
-
-      while (isBefore(day, today)) {
-        state.tasks.forEach(task => {
-          if (!taskExistsOnDate(task, day)) return;
-          const result = taskResultOnDate(task.id, day);
-          if (result) return;
-          const amount = parseAmount(task.coins);
-          state.coins -= amount;
-          state.totals.coinsSpent += amount;
-          state.taskResults[day] = state.taskResults[day] || {};
-          state.taskResults[day][task.id] = "missed";
-          state.history.unshift({
-            id: createId("history"),
-            type: "task_missed",
-            taskId: task.id,
-            name: task.name,
-            coins: amount,
-            date: day,
-            timestamp: new Date().toISOString()
-          });
-          changed = true;
-        });
-        state.settledThroughDate = day;
-        day = addDays(day, 1);
-      }
-
-      if (changed) saveState();
+    function taskDate(task) {
+      if (task.date) return task.date;
+      if (task.createdDate) return task.createdDate;
+      if (task.createdAt) return String(task.createdAt).slice(0, 10);
+      return "";
     }
 
     function resetAllData() {
@@ -1838,6 +1797,7 @@
         state.tasks.push({
           id: createId("task"),
           ...taskData,
+          date: today,
           createdDate: today,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -1927,8 +1887,13 @@
       render();
     }
 
+    function todayTasks() {
+      const today = dateKey();
+      return state.tasks.filter(task => taskDate(task) === today);
+    }
+
     function activeTasksToday() {
-      return state.tasks.filter(task => !taskResultToday(task.id));
+      return todayTasks().filter(task => !taskResultToday(task.id));
     }
 
     function setCoinReadouts(value) {
@@ -1987,7 +1952,7 @@
     }
 
     function completeTask(taskId, sourceEl = null) {
-      const task = state.tasks.find(item => item.id === taskId);
+      const task = todayTasks().find(item => item.id === taskId);
       if (!task || taskResultToday(taskId)) return;
 
       const today = dateKey();
@@ -2018,11 +1983,11 @@
     }
 
     function failTask(taskId, sourceEl = null) {
-      const task = state.tasks.find(item => item.id === taskId);
+      const task = todayTasks().find(item => item.id === taskId);
       if (!task || taskResultToday(taskId)) return;
 
       const today = dateKey();
-      const amount = parseAmount(task.coins);
+      const amount = parseAmount(task.coins) * 5;
       state.taskResults[today] = state.taskResults[today] || {};
       state.taskResults[today][taskId] = "failed";
       state.coins -= amount;
@@ -2144,7 +2109,6 @@
     }
 
     function render() {
-      settleMissedDays();
       const activeCount = activeTasksToday().length;
 
       els.todayDate.textContent = formatDate();
@@ -2162,7 +2126,8 @@
     }
 
     function renderTasks() {
-      if (!state.tasks.length) {
+      const tasksForToday = todayTasks();
+      if (!tasksForToday.length) {
         els.todayTaskList.innerHTML = `
           <div class="empty-state">
             <strong>今天没有任务</strong>
@@ -2173,7 +2138,7 @@
         return;
       }
 
-      const activeTasks = activeTasksToday();
+      const activeTasks = tasksForToday.filter(task => !taskResultToday(task.id));
       if (!activeTasks.length) {
         els.todayTaskList.innerHTML = `
           <div class="empty-state">
@@ -2294,7 +2259,7 @@
     function renderStatsVisuals() {
       const rows = buildStatsRows(currentStatsRange);
       renderHeatmap(rows);
-      renderBalanceTrend(rows);
+      renderBadHabitTrend(rows);
     }
 
     function buildStatsRows(range) {
@@ -2308,8 +2273,7 @@
         earned: 0,
         deducted: 0,
         net: 0,
-        score: 0,
-        balance: 0
+        score: 0
       }));
       const byKey = new Map(rows.map(row => [row.key, row]));
 
@@ -2340,12 +2304,6 @@
         row.score = row.completed - row.failed - row.badHabits;
       });
 
-      const periodDelta = rows.reduce((sum, row) => sum + row.net, 0);
-      let balance = state.coins - periodDelta;
-      rows.forEach(row => {
-        balance += row.net;
-        row.balance = balance;
-      });
       return rows;
     }
 
@@ -2388,19 +2346,19 @@
       return 1240;
     }
 
-    function renderBalanceTrend(rows) {
+    function renderBadHabitTrend(rows) {
       const width = trendWidth(rows);
       const height = 168;
       const padX = 14;
       const padY = 18;
-      const values = rows.map(row => row.balance);
+      const values = rows.map(row => row.badHabits);
       const min = Math.min(...values, 0);
       const max = Math.max(...values, 0);
       const spread = Math.max(1, max - min);
       const xStep = rows.length > 1 ? (width - padX * 2) / (rows.length - 1) : 0;
       const points = rows.map((row, index) => {
         const x = padX + index * xStep;
-        const y = height - padY - ((row.balance - min) / spread) * (height - padY * 2);
+        const y = height - padY - ((row.badHabits - min) / spread) * (height - padY * 2);
         return { x, y, row };
       });
       const linePath = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
@@ -2410,9 +2368,9 @@
       const start = points[0];
       const end = lastPoint;
       const zeroY = height - padY - ((0 - min) / spread) * (height - padY * 2);
-      els.balanceChart.innerHTML = `
+      els.badHabitTrendChart.innerHTML = `
         <div class="balance-chart" style="--trend-width: ${width}px;">
-          <svg class="balance-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="金币余额趋势">
+          <svg class="balance-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="坏习惯趋势">
             <line class="balance-grid" x1="${padX}" y1="${zeroY.toFixed(1)}" x2="${width - padX}" y2="${zeroY.toFixed(1)}"></line>
             <path class="balance-area" d="${areaPath}"></path>
             <path class="balance-line" d="${linePath}"></path>
@@ -2421,7 +2379,7 @@
           </svg>
           <div class="balance-labels">
             <span>${escapeHtml(rows[0].label)}</span>
-            <span>${formatNumber(rows[0].balance)} → ${formatNumber(lastRow.balance)} 金币</span>
+            <span>${formatNumber(rows[0].badHabits)} → ${formatNumber(lastRow.badHabits)} 次</span>
             <span>${escapeHtml(lastRow.label)}</span>
           </div>
         </div>
