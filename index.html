@@ -940,6 +940,91 @@
       box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.12);
     }
 
+    .time-picker {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(249, 250, 251, 0.82);
+    }
+
+    .time-picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .time-picker-value {
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 820;
+    }
+
+    .time-clear {
+      min-height: 30px;
+      border: 0;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(237, 242, 247, 0.92);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 760;
+    }
+
+    .time-wheels {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+      min-height: 148px;
+    }
+
+    .time-separator {
+      color: var(--quiet);
+      font-size: 1.4rem;
+      font-weight: 850;
+    }
+
+    .time-wheel {
+      height: 148px;
+      overflow-y: auto;
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(249, 250, 251, 0.96), rgba(249, 250, 251, 0) 34%),
+        linear-gradient(0deg, rgba(249, 250, 251, 0.96), rgba(249, 250, 251, 0) 34%),
+        rgba(255, 255, 255, 0.62);
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .time-wheel::before,
+    .time-wheel::after {
+      content: "";
+      display: block;
+      height: 50px;
+    }
+
+    .time-option {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 44px;
+      border: 0;
+      scroll-snap-align: center;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1.14rem;
+      font-weight: 760;
+    }
+
+    .time-option.selected {
+      color: var(--text);
+      font-size: 1.32rem;
+      font-weight: 880;
+    }
+
     .sheet-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1384,6 +1469,10 @@
             <span class="stat-label">累计花费金币</span>
             <strong class="stat-value" id="statSpent">0</strong>
           </div>
+          <div class="stat-card">
+            <span class="stat-label">累计惩罚金币</span>
+            <strong class="stat-value" id="statPenalty">0</strong>
+          </div>
         </div>
 
         <div class="segmented" aria-label="统计范围">
@@ -1488,7 +1577,8 @@
       history: [],
       totals: {
         completedTasks: 0,
-        coinsSpent: 0
+        coinsSpent: 0,
+        coinsPenalty: 0
       }
     };
 
@@ -1515,6 +1605,7 @@
       statCompleted: document.getElementById("statCompleted"),
       statCoins: document.getElementById("statCoins"),
       statSpent: document.getElementById("statSpent"),
+      statPenalty: document.getElementById("statPenalty"),
       heatmapChart: document.getElementById("heatmapChart"),
       badHabitTrendChart: document.getElementById("badHabitTrendChart"),
       resetAllBtn: document.getElementById("resetAllBtn"),
@@ -1639,10 +1730,110 @@
       showToast("所有数据已重置");
     }
 
+    function parseTimeValue(value) {
+      const match = String(value || "").match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+      return match ? { hour: match[1], minute: match[2] } : null;
+    }
+
+    function timeOptionButtons(type, selected, count) {
+      return Array.from({ length: count }, (_, index) => {
+        const value = String(index).padStart(2, "0");
+        const selectedClass = value === selected ? " selected" : "";
+        return `<button class="time-option${selectedClass}" type="button" data-time-${type}="${value}">${value}</button>`;
+      }).join("");
+    }
+
+    function initTimePicker(initialValue = "") {
+      const picker = els.sheetForm.querySelector("[data-time-picker]");
+      if (!picker) return;
+
+      const hiddenInput = picker.querySelector("input[name='time']");
+      const valueLabel = picker.querySelector("[data-time-value]");
+      const hourWheel = picker.querySelector("[data-time-wheel='hour']");
+      const minuteWheel = picker.querySelector("[data-time-wheel='minute']");
+      const initial = parseTimeValue(initialValue);
+
+      function setTime(hour, minute) {
+        picker.dataset.hour = hour;
+        picker.dataset.minute = minute;
+        hiddenInput.value = `${hour}:${minute}`;
+        valueLabel.textContent = hiddenInput.value;
+        picker.querySelectorAll(".time-option").forEach(option => {
+          option.classList.toggle("selected", option.dataset.timeHour === hour || option.dataset.timeMinute === minute);
+        });
+      }
+
+      function clearTime() {
+        delete picker.dataset.hour;
+        delete picker.dataset.minute;
+        hiddenInput.value = "";
+        valueLabel.textContent = "未设置";
+        picker.querySelectorAll(".time-option").forEach(option => option.classList.remove("selected"));
+      }
+
+      if (initial) {
+        setTime(initial.hour, initial.minute);
+        setTimeout(() => {
+          hourWheel.querySelector(`[data-time-hour="${initial.hour}"]`)?.scrollIntoView({ block: "center" });
+          minuteWheel.querySelector(`[data-time-minute="${initial.minute}"]`)?.scrollIntoView({ block: "center" });
+        }, 0);
+      } else {
+        clearTime();
+      }
+
+      picker.addEventListener("click", event => {
+        const hourButton = event.target.closest("[data-time-hour]");
+        const minuteButton = event.target.closest("[data-time-minute]");
+        const clearButton = event.target.closest("[data-clear-time]");
+
+        if (clearButton) {
+          clearTime();
+          return;
+        }
+
+        if (hourButton || minuteButton) {
+          const current = new Date();
+          const hour = hourButton?.dataset.timeHour || picker.dataset.hour || String(current.getHours()).padStart(2, "0");
+          const minute = minuteButton?.dataset.timeMinute || picker.dataset.minute || "00";
+          setTime(hour, minute);
+        }
+      });
+
+      function attachWheelScroll(wheel, type) {
+        let scrollTimer;
+        wheel.addEventListener("scroll", () => {
+          clearTimeout(scrollTimer);
+          scrollTimer = setTimeout(() => {
+            const wheelRect = wheel.getBoundingClientRect();
+            const center = wheelRect.top + wheelRect.height / 2;
+            const options = Array.from(wheel.querySelectorAll(".time-option"));
+            const nearest = options.reduce((closest, option) => {
+              const rect = option.getBoundingClientRect();
+              const distance = Math.abs(rect.top + rect.height / 2 - center);
+              return !closest || distance < closest.distance ? { option, distance } : closest;
+            }, null)?.option;
+            if (!nearest) return;
+            const current = new Date();
+            const hour = type === "hour"
+              ? nearest.dataset.timeHour
+              : picker.dataset.hour || String(current.getHours()).padStart(2, "0");
+            const minute = type === "minute"
+              ? nearest.dataset.timeMinute
+              : picker.dataset.minute || "00";
+            setTime(hour, minute);
+          }, 120);
+        });
+      }
+
+      attachWheelScroll(hourWheel, "hour");
+      attachWheelScroll(minuteWheel, "minute");
+    }
+
     function openTaskSheet(taskId = null) {
       sheetMode = "task";
       editingId = taskId;
       const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
+      const taskTime = parseTimeValue(task?.time) || {};
       els.sheetTitle.textContent = task ? "编辑任务" : "新建任务";
       els.sheetForm.innerHTML = `
         <label class="field">
@@ -1653,6 +1844,25 @@
           <span class="field-label">金币金额</span>
           <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${task?.coins ?? ""}" placeholder="0">
         </label>
+        <div class="field">
+          <span class="field-label">时间（可选）</span>
+          <div class="time-picker" data-time-picker>
+            <input name="time" type="hidden" value="${escapeAttr(task?.time || "")}">
+            <div class="time-picker-header">
+              <span class="time-picker-value" data-time-value>${escapeHtml(task?.time || "未设置")}</span>
+              <button class="time-clear" type="button" data-clear-time>不设置</button>
+            </div>
+            <div class="time-wheels" aria-label="选择时间">
+              <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
+                ${timeOptionButtons("hour", taskTime.hour, 24)}
+              </div>
+              <span class="time-separator">:</span>
+              <div class="time-wheel" data-time-wheel="minute" aria-label="分钟">
+                ${timeOptionButtons("minute", taskTime.minute, 60)}
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="sheet-actions">
           <button class="ghost-button" type="button" data-close-sheet>取消</button>
           <button class="button" type="submit">${task ? "保存" : "创建"}</button>
@@ -1662,6 +1872,7 @@
         </div>
       `;
       openSheet();
+      initTimePicker(task?.time || "");
       els.sheetForm.querySelector("input[name='name']").focus();
     }
 
@@ -1758,7 +1969,8 @@
       if (sheetMode === "task") {
         saveTask({
           name: String(formData.get("name") || "").trim(),
-          coins: parseAmount(formData.get("coins"))
+          coins: parseAmount(formData.get("coins")),
+          time: String(formData.get("time") || "").trim()
         });
       }
       if (sheetMode === "bad") {
@@ -1896,6 +2108,33 @@
       return todayTasks().filter(task => !taskResultToday(task.id));
     }
 
+    function summaryTotals() {
+      if (!state.history.length) {
+        return {
+          completedTasks: state.totals.completedTasks || 0,
+          coinsSpent: state.totals.coinsSpent || 0,
+          coinsPenalty: state.totals.coinsPenalty || 0
+        };
+      }
+
+      return state.history.reduce((totals, item) => {
+        if (item.type === "task_completed") {
+          totals.completedTasks += 1;
+        }
+        if (item.type === "reward_redeemed") {
+          totals.coinsSpent += parseAmount(item.cost);
+        }
+        if (item.type === "task_failed" || item.type === "task_missed" || item.type === "bad_habit") {
+          totals.coinsPenalty += parseAmount(item.coins);
+        }
+        return totals;
+      }, {
+        completedTasks: 0,
+        coinsSpent: 0,
+        coinsPenalty: 0
+      });
+    }
+
     function setCoinReadouts(value) {
       const formatted = formatNumber(value);
       [els.homeCoins, els.badCoins, els.rewardCoins, els.statCoins].forEach(target => {
@@ -1930,13 +2169,15 @@
     function updatePrimaryReadouts() {
       const streak = currentStreak();
       const activeCount = activeTasksToday().length;
+      const totals = summaryTotals();
       setCoinReadouts(state.coins);
       els.homeStreak.textContent = formatNumber(streak);
       els.todayTaskCount.textContent = `${activeCount} 项`;
       els.statStreak.textContent = formatNumber(streak);
-      els.statCompleted.textContent = formatNumber(state.totals.completedTasks);
+      els.statCompleted.textContent = formatNumber(totals.completedTasks);
       els.statCoins.textContent = formatNumber(state.coins);
-      els.statSpent.textContent = formatNumber(state.totals.coinsSpent);
+      els.statSpent.textContent = formatNumber(totals.coinsSpent);
+      els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
     }
 
     function scheduleRender(delay = 320) {
@@ -1991,7 +2232,7 @@
       state.taskResults[today] = state.taskResults[today] || {};
       state.taskResults[today][taskId] = "failed";
       state.coins -= amount;
-      state.totals.coinsSpent += amount;
+      state.totals.coinsPenalty += amount;
       state.history.unshift({
         id: createId("history"),
         type: "task_failed",
@@ -2021,7 +2262,7 @@
       if (!habit) return;
       const amount = parseAmount(habit.penalty);
       state.coins -= amount;
-      state.totals.coinsSpent += amount;
+      state.totals.coinsPenalty += amount;
       state.history.unshift({
         id: createId("history"),
         type: "bad_habit",
@@ -2059,7 +2300,9 @@
         timestamp: new Date().toISOString()
       });
       saveState();
-      els.statSpent.textContent = formatNumber(state.totals.coinsSpent);
+      const totals = summaryTotals();
+      els.statSpent.textContent = formatNumber(totals.coinsSpent);
+      els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
       if (sourceEl) {
         prepareActionCard(sourceEl);
         sourceEl.classList.remove("reward-redeemed");
@@ -2155,6 +2398,7 @@
               <div class="title-wrap">
                 <h3>${escapeHtml(task.name)}</h3>
                 <div class="meta-row">
+                  ${task.time ? `<span class="pill blue">${escapeHtml(task.time)}</span>` : ""}
                   <span class="pill coin-pill">${formatNumber(parseAmount(task.coins))} 金币</span>
                 </div>
               </div>
