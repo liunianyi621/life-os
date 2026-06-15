@@ -275,6 +275,19 @@
       text-align: right;
     }
 
+    .section-heading-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .section-heading-actions .text-button {
+      min-height: 28px;
+      padding: 4px 0;
+      font-size: 0.82rem;
+    }
+
     .list {
       display: grid;
       gap: 10px;
@@ -299,6 +312,11 @@
 
     .card.task-exit-penalty {
       animation: taskExitPenalty 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+
+    .card.habit-completed {
+      border-color: rgba(52, 199, 89, 0.2);
+      background: rgba(246, 255, 248, 0.82);
     }
 
     .card.reward-redeemed {
@@ -608,6 +626,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
+      margin-bottom: 20px;
     }
 
     .segmented {
@@ -840,6 +859,18 @@
       background: #d92d20;
     }
 
+    .chart-legend i.good {
+      background: #248a3d;
+    }
+
+    .chart-legend i.bad {
+      background: #d92d20;
+    }
+
+    .trend-range {
+      margin: 0 0 12px;
+    }
+
     .balance-chart {
       min-width: var(--trend-width, 100%);
     }
@@ -863,17 +894,32 @@
 
     .balance-line {
       fill: none;
-      stroke: #d92d20;
       stroke-width: 3;
       stroke-linecap: round;
       stroke-linejoin: round;
+    }
+
+    .balance-line.bad {
+      stroke: #d92d20;
       filter: drop-shadow(0 5px 8px rgba(255, 59, 48, 0.12));
+    }
+
+    .balance-line.good {
+      stroke: #248a3d;
+      filter: drop-shadow(0 5px 8px rgba(52, 199, 89, 0.12));
     }
 
     .balance-point {
       fill: #ffffff;
-      stroke: #d92d20;
       stroke-width: 2;
+    }
+
+    .balance-point.bad {
+      stroke: #d92d20;
+    }
+
+    .balance-point.good {
+      stroke: #248a3d;
     }
 
     .balance-labels {
@@ -936,7 +982,7 @@
       right: 0;
       z-index: 20;
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 3px;
       width: 100%;
       max-width: 480px;
@@ -1255,35 +1301,54 @@
 
     .time-wheels {
       display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(64px, 0.76fr);
       align-items: center;
-      gap: 8px;
-      min-height: 148px;
+      gap: 6px;
+      min-height: 164px;
+      position: relative;
+      padding: 4px 2px;
     }
 
-    .time-separator {
-      color: var(--quiet);
-      font-size: 1.4rem;
-      font-weight: 850;
+    .time-wheels::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 0;
+      left: 0;
+      height: 44px;
+      border-radius: 15px;
+      background: rgba(235, 239, 245, 0.86);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), inset 0 -1px 0 rgba(17, 24, 39, 0.04);
+      transform: translateY(-50%);
+      pointer-events: none;
     }
 
     .time-wheel {
-      height: 148px;
+      position: relative;
+      z-index: 1;
+      height: 164px;
       overflow-y: auto;
       border-radius: 18px;
-      background:
-        linear-gradient(180deg, rgba(249, 250, 251, 0.96), rgba(249, 250, 251, 0) 34%),
-        linear-gradient(0deg, rgba(249, 250, 251, 0.96), rgba(249, 250, 251, 0) 34%),
-        rgba(255, 255, 255, 0.62);
+      background: rgba(255, 255, 255, 0.46);
+      mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 76%, transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 76%, transparent 100%);
+      overscroll-behavior: contain;
+      scroll-behavior: smooth;
       scroll-snap-type: y mandatory;
+      touch-action: pan-y;
       -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .time-wheel::-webkit-scrollbar {
+      display: none;
     }
 
     .time-wheel::before,
     .time-wheel::after {
       content: "";
       display: block;
-      height: 50px;
+      height: 60px;
     }
 
     .time-option {
@@ -1297,12 +1362,16 @@
       color: var(--muted);
       font-size: 1.14rem;
       font-weight: 760;
+      line-height: 1;
+      opacity: 0.54;
+      transition: color 0.14s ease, font-size 0.14s ease, font-weight 0.14s ease, opacity 0.14s ease;
     }
 
     .time-option.selected {
       color: var(--text);
       font-size: 1.32rem;
       font-weight: 880;
+      opacity: 1;
     }
 
     .sheet-actions {
@@ -1777,6 +1846,15 @@
         </section>
 
         <div class="section-heading">
+          <h2>习惯</h2>
+          <div class="section-heading-actions">
+            <span id="habitCount">0 项</span>
+            <button class="text-button" type="button" data-open-habit>新建</button>
+          </div>
+        </div>
+        <div class="list" id="habitList"></div>
+
+        <div class="section-heading">
           <h2>今日任务</h2>
           <span id="todayTaskCount">0 项</span>
         </div>
@@ -1897,27 +1975,9 @@
             <strong class="stat-value" id="statStreak">0</strong>
           </div>
           <div class="stat-card">
-            <span class="stat-label">完成任务</span>
-            <strong class="stat-value" id="statCompleted">0</strong>
-          </div>
-          <div class="stat-card">
             <span class="stat-label">当前金库</span>
             <strong class="stat-value" id="statCoins">0</strong>
           </div>
-          <div class="stat-card">
-            <span class="stat-label">累计花费金币</span>
-            <strong class="stat-value" id="statSpent">0</strong>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">累计惩罚金币</span>
-            <strong class="stat-value" id="statPenalty">0</strong>
-          </div>
-        </div>
-
-        <div class="segmented" aria-label="统计范围">
-          <button class="segment-button active" data-stats-range="week" type="button">最近一周</button>
-          <button class="segment-button" data-stats-range="month" type="button">最近一月</button>
-          <button class="segment-button" data-stats-range="year" type="button">最近一年</button>
         </div>
 
         <section class="card chart-card" aria-label="自律热力图">
@@ -1938,14 +1998,20 @@
           </div>
         </section>
 
-        <section class="card chart-card" aria-label="坏习惯趋势">
+        <section class="card chart-card" aria-label="习惯趋势">
           <div class="chart-title">
-            <h2>坏习惯趋势</h2>
-            <span>触发次数</span>
+            <h2>习惯趋势</h2>
+            <span>次数</span>
           </div>
-          <div class="chart-scroll" id="badHabitTrendChart"></div>
+          <div class="segmented trend-range" aria-label="统计范围">
+            <button class="segment-button active" data-stats-range="week" type="button">最近一周</button>
+            <button class="segment-button" data-stats-range="month" type="button">最近一月</button>
+            <button class="segment-button" data-stats-range="year" type="button">最近一年</button>
+          </div>
+          <div class="chart-scroll" id="habitTrendChart"></div>
           <div class="chart-legend" aria-hidden="true">
-            <span><i class="balance"></i>坏习惯</span>
+            <span><i class="good"></i>完成</span>
+            <span><i class="bad"></i>坏习惯</span>
           </div>
         </section>
 
@@ -1953,7 +2019,7 @@
           <div class="reset-row">
             <div>
               <h2>重置所有数据</h2>
-              <p>清空任务、坏习惯、笔记和金币记录。</p>
+              <p>清空任务、习惯、坏习惯、笔记和金币记录。</p>
             </div>
             <button class="danger-button" id="resetAllBtn">重置</button>
           </div>
@@ -1969,10 +2035,6 @@
       <button class="nav-button" data-nav="bad">
         <span class="nav-icon bad" aria-hidden="true"></span>
         <span>坏习惯</span>
-      </button>
-      <button class="nav-button" data-nav="notes">
-        <span class="nav-icon notes" aria-hidden="true"></span>
-        <span>笔记</span>
       </button>
       <button class="nav-button" data-nav="review">
         <span class="nav-icon review" aria-hidden="true"></span>
@@ -2040,6 +2102,8 @@
       tasks: [],
       completions: {},
       taskResults: {},
+      habits: [],
+      habitCompletions: {},
       badHabits: [],
       notes: [],
       rewards: [],
@@ -2064,6 +2128,8 @@
       todayDate: document.getElementById("todayDate"),
       homeCoins: document.getElementById("homeCoins"),
       homeStreak: document.getElementById("homeStreak"),
+      habitCount: document.getElementById("habitCount"),
+      habitList: document.getElementById("habitList"),
       todayTaskCount: document.getElementById("todayTaskCount"),
       todayTaskList: document.getElementById("todayTaskList"),
       badCoins: document.getElementById("badCoins"),
@@ -2089,7 +2155,7 @@
       statPenalty: document.getElementById("statPenalty"),
       heatmapMonthLabel: document.getElementById("heatmapMonthLabel"),
       heatmapChart: document.getElementById("heatmapChart"),
-      badHabitTrendChart: document.getElementById("badHabitTrendChart"),
+      habitTrendChart: document.getElementById("habitTrendChart"),
       resetAllBtn: document.getElementById("resetAllBtn"),
       sheetBackdrop: document.getElementById("sheetBackdrop"),
       sheetTitle: document.getElementById("sheetTitle"),
@@ -2119,13 +2185,15 @@
           ...saved,
           totals: { ...cloneEmptyState().totals, ...(saved.totals || {}) },
           tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
+          habits: Array.isArray(saved.habits) ? saved.habits : [],
           badHabits: Array.isArray(saved.badHabits) ? saved.badHabits : [],
           notes: Array.isArray(saved.notes) ? saved.notes : [],
           rewards: Array.isArray(saved.rewards) ? saved.rewards : [],
           dailyReviews: saved.dailyReviews && typeof saved.dailyReviews === "object" ? saved.dailyReviews : {},
           history: Array.isArray(saved.history) ? saved.history : [],
           completions: saved.completions && typeof saved.completions === "object" ? saved.completions : {},
-          taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {}
+          taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {},
+          habitCompletions: saved.habitCompletions && typeof saved.habitCompletions === "object" ? saved.habitCompletions : {}
         } : cloneEmptyState();
 
         if (!Object.keys(merged.taskResults).length && Object.keys(merged.completions).length) {
@@ -2261,14 +2329,59 @@
     }
 
     function parseTimeValue(value) {
-      const match = String(value || "").match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-      return match ? { hour: match[1], minute: match[2] } : null;
+      const raw = String(value || "").trim();
+      const twelveHour = raw.match(/^(\d{1,2}):([0-5]\d)\s*([AP]M)$/i);
+      if (twelveHour) {
+        const hour = Number(twelveHour[1]);
+        if (hour >= 1 && hour <= 12) {
+          return {
+            hour: String(hour),
+            minute: twelveHour[2],
+            period: twelveHour[3].toUpperCase()
+          };
+        }
+      }
+
+      const twentyFourHour = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+      if (twentyFourHour) {
+        return timePartsFrom24Hour(Number(twentyFourHour[1]), twentyFourHour[2]);
+      }
+
+      return null;
     }
 
-    function timeOptionButtons(type, selected, count) {
-      return Array.from({ length: count }, (_, index) => {
-        const value = String(index).padStart(2, "0");
-        const selectedClass = value === selected ? " selected" : "";
+    function timePartsFrom24Hour(hour24, minute = "00") {
+      const normalizedHour = ((Number(hour24) % 24) + 24) % 24;
+      const hour = normalizedHour % 12 || 12;
+      return {
+        hour: String(hour),
+        minute: String(minute).padStart(2, "0"),
+        period: normalizedHour >= 12 ? "PM" : "AM"
+      };
+    }
+
+    function nextWholeHourTime() {
+      const now = new Date();
+      return timePartsFrom24Hour(now.getHours() + 1, "00");
+    }
+
+    function formatTimeParts(parts) {
+      if (!parts) return "";
+      const hour = Number(parts.hour);
+      const minute = String(parts.minute || "00").padStart(2, "0");
+      const period = parts.period === "PM" ? "PM" : "AM";
+      return `${hour || 12}:${minute} ${period}`;
+    }
+
+    function timeOptionButtons(type, selected) {
+      const values = {
+        hour: Array.from({ length: 12 }, (_, index) => String(index + 1)),
+        minute: Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0")),
+        period: ["AM", "PM"]
+      }[type] || [];
+      const selectedValue = selected == null ? "" : String(selected);
+      return values.map(value => {
+        const selectedClass = value === selectedValue ? " selected" : "";
         return `<button class="time-option${selectedClass}" type="button" data-time-${type}="${value}">${value}</button>`;
       }).join("");
     }
@@ -2281,32 +2394,83 @@
       const valueLabel = picker.querySelector("[data-time-value]");
       const hourWheel = picker.querySelector("[data-time-wheel='hour']");
       const minuteWheel = picker.querySelector("[data-time-wheel='minute']");
+      const periodWheel = picker.querySelector("[data-time-wheel='period']");
       const initial = parseTimeValue(initialValue);
+      let userWheelIntent = false;
 
-      function setTime(hour, minute) {
-        picker.dataset.hour = hour;
-        picker.dataset.minute = minute;
-        hiddenInput.value = `${hour}:${minute}`;
-        valueLabel.textContent = hiddenInput.value;
+      function datasetKey(type) {
+        return `time${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+      }
+
+      function selectedValueFor(type, parts) {
+        if (type === "hour") return parts.hour;
+        if (type === "minute") return parts.minute;
+        return parts.period;
+      }
+
+      function vibrateTimeChange() {
+        try {
+          if (navigator.vibrate) navigator.vibrate(10);
+        } catch (error) {
+          // Haptics are a best-effort touch nicety.
+        }
+      }
+
+      function currentTimeParts() {
+        return parseTimeValue(hiddenInput.value) || nextWholeHourTime();
+      }
+
+      function findWheelOption(wheel, type, value) {
+        return Array.from(wheel.querySelectorAll(".time-option")).find(option => (
+          option.dataset[datasetKey(type)] === String(value)
+        ));
+      }
+
+      function scrollWheelTo(type, value, behavior = "smooth") {
+        const wheel = picker.querySelector(`[data-time-wheel='${type}']`);
+        if (!wheel) return;
+        findWheelOption(wheel, type, value)?.scrollIntoView({ block: "center", behavior });
+      }
+
+      function setTime(parts, options = {}) {
+        const nextParts = {
+          hour: String(Number(parts.hour) || 12),
+          minute: String(parts.minute || "00").padStart(2, "0"),
+          period: parts.period === "PM" ? "PM" : "AM"
+        };
+        const previousValue = hiddenInput.value;
+        const nextValue = formatTimeParts(nextParts);
+        picker.dataset.hour = nextParts.hour;
+        picker.dataset.minute = nextParts.minute;
+        picker.dataset.period = nextParts.period;
+        delete picker.dataset.timeCleared;
+        hiddenInput.value = nextValue;
+        valueLabel.textContent = nextValue;
         picker.querySelectorAll(".time-option").forEach(option => {
-          option.classList.toggle("selected", option.dataset.timeHour === hour || option.dataset.timeMinute === minute);
+          const type = option.closest("[data-time-wheel]")?.dataset.timeWheel;
+          option.classList.toggle("selected", Boolean(type) && option.dataset[datasetKey(type)] === selectedValueFor(type, nextParts));
         });
+        if (options.vibrate && previousValue !== nextValue) vibrateTimeChange();
       }
 
       function clearTime() {
         delete picker.dataset.hour;
         delete picker.dataset.minute;
+        delete picker.dataset.period;
+        picker.dataset.timeCleared = "true";
+        userWheelIntent = false;
         hiddenInput.value = "";
         valueLabel.textContent = "未设置";
         picker.querySelectorAll(".time-option").forEach(option => option.classList.remove("selected"));
       }
 
       if (initial) {
-        setTime(initial.hour, initial.minute);
-        setTimeout(() => {
-          hourWheel.querySelector(`[data-time-hour="${initial.hour}"]`)?.scrollIntoView({ block: "center" });
-          minuteWheel.querySelector(`[data-time-minute="${initial.minute}"]`)?.scrollIntoView({ block: "center" });
-        }, 0);
+        setTime(initial);
+        requestAnimationFrame(() => {
+          scrollWheelTo("hour", initial.hour, "auto");
+          scrollWheelTo("minute", initial.minute, "auto");
+          scrollWheelTo("period", initial.period, "auto");
+        });
       } else {
         clearTime();
       }
@@ -2314,6 +2478,7 @@
       picker.addEventListener("click", event => {
         const hourButton = event.target.closest("[data-time-hour]");
         const minuteButton = event.target.closest("[data-time-minute]");
+        const periodButton = event.target.closest("[data-time-period]");
         const clearButton = event.target.closest("[data-clear-time]");
 
         if (clearButton) {
@@ -2321,49 +2486,63 @@
           return;
         }
 
-        if (hourButton || minuteButton) {
-          const current = new Date();
-          const hour = hourButton?.dataset.timeHour || picker.dataset.hour || String(current.getHours()).padStart(2, "0");
-          const minute = minuteButton?.dataset.timeMinute || picker.dataset.minute || "00";
-          setTime(hour, minute);
+        if (hourButton || minuteButton || periodButton) {
+          const next = currentTimeParts();
+          if (hourButton) next.hour = hourButton.dataset.timeHour;
+          if (minuteButton) next.minute = minuteButton.dataset.timeMinute;
+          if (periodButton) next.period = periodButton.dataset.timePeriod;
+          setTime(next, { vibrate: true });
+          if (hourButton) scrollWheelTo("hour", next.hour);
+          if (minuteButton) scrollWheelTo("minute", next.minute);
+          if (periodButton) scrollWheelTo("period", next.period);
         }
       });
 
       function attachWheelScroll(wheel, type) {
+        if (!wheel) return;
         let scrollTimer;
+        const markUserWheelIntent = () => {
+          userWheelIntent = true;
+        };
+        const settleWheel = () => {
+          if (!hiddenInput.value && picker.dataset.timeCleared === "true" && !userWheelIntent) return;
+          const wheelRect = wheel.getBoundingClientRect();
+          const center = wheelRect.top + wheelRect.height / 2;
+          const options = Array.from(wheel.querySelectorAll(".time-option"));
+          const nearest = options.reduce((closest, option) => {
+            const rect = option.getBoundingClientRect();
+            const distance = Math.abs(rect.top + rect.height / 2 - center);
+            return !closest || distance < closest.distance ? { option, distance } : closest;
+          }, null)?.option;
+          if (!nearest) return;
+          const next = currentTimeParts();
+          next[type] = nearest.dataset[datasetKey(type)];
+          setTime(next, { vibrate: true });
+          userWheelIntent = false;
+        };
+
+        wheel.addEventListener("pointerdown", markUserWheelIntent, { passive: true });
+        wheel.addEventListener("touchstart", markUserWheelIntent, { passive: true });
+        wheel.addEventListener("wheel", markUserWheelIntent, { passive: true });
         wheel.addEventListener("scroll", () => {
           clearTimeout(scrollTimer);
-          scrollTimer = setTimeout(() => {
-            const wheelRect = wheel.getBoundingClientRect();
-            const center = wheelRect.top + wheelRect.height / 2;
-            const options = Array.from(wheel.querySelectorAll(".time-option"));
-            const nearest = options.reduce((closest, option) => {
-              const rect = option.getBoundingClientRect();
-              const distance = Math.abs(rect.top + rect.height / 2 - center);
-              return !closest || distance < closest.distance ? { option, distance } : closest;
-            }, null)?.option;
-            if (!nearest) return;
-            const current = new Date();
-            const hour = type === "hour"
-              ? nearest.dataset.timeHour
-              : picker.dataset.hour || String(current.getHours()).padStart(2, "0");
-            const minute = type === "minute"
-              ? nearest.dataset.timeMinute
-              : picker.dataset.minute || "00";
-            setTime(hour, minute);
-          }, 120);
-        });
+          scrollTimer = setTimeout(settleWheel, 90);
+        }, { passive: true });
+        wheel.addEventListener("scrollend", settleWheel, { passive: true });
       }
 
       attachWheelScroll(hourWheel, "hour");
       attachWheelScroll(minuteWheel, "minute");
+      attachWheelScroll(periodWheel, "period");
     }
 
     function openTaskSheet(taskId = null) {
       sheetMode = "task";
       editingId = taskId;
       const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
-      const taskTime = parseTimeValue(task?.time) || {};
+      const parsedTaskTime = parseTimeValue(task?.time);
+      const taskTime = task ? parsedTaskTime : nextWholeHourTime();
+      const initialTimeValue = taskTime ? formatTimeParts(taskTime) : "";
       els.sheetTitle.textContent = task ? "编辑任务" : "新建任务";
       els.sheetForm.innerHTML = `
         <label class="field">
@@ -2377,18 +2556,20 @@
         <div class="field">
           <span class="field-label">时间（可选）</span>
           <div class="time-picker" data-time-picker>
-            <input name="time" type="hidden" value="${escapeAttr(task?.time || "")}">
+            <input name="time" type="hidden" value="${escapeAttr(initialTimeValue)}">
             <div class="time-picker-header">
-              <span class="time-picker-value" data-time-value>${escapeHtml(task?.time || "未设置")}</span>
+              <span class="time-picker-value" data-time-value>${escapeHtml(initialTimeValue || "未设置")}</span>
               <button class="time-clear" type="button" data-clear-time>不设置</button>
             </div>
             <div class="time-wheels" aria-label="选择时间">
               <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
-                ${timeOptionButtons("hour", taskTime.hour, 24)}
+                ${timeOptionButtons("hour", taskTime?.hour)}
               </div>
-              <span class="time-separator">:</span>
               <div class="time-wheel" data-time-wheel="minute" aria-label="分钟">
-                ${timeOptionButtons("minute", taskTime.minute, 60)}
+                ${timeOptionButtons("minute", taskTime?.minute)}
+              </div>
+              <div class="time-wheel" data-time-wheel="period" aria-label="上午或下午">
+                ${timeOptionButtons("period", taskTime?.period)}
               </div>
             </div>
           </div>
@@ -2402,7 +2583,33 @@
         </div>
       `;
       openSheet();
-      initTimePicker(task?.time || "");
+      initTimePicker(initialTimeValue);
+      els.sheetForm.querySelector("input[name='name']").focus();
+    }
+
+    function openHabitSheet(habitId = null) {
+      sheetMode = "habit";
+      editingId = habitId;
+      const habit = habitId ? state.habits.find(item => item.id === habitId) : null;
+      els.sheetTitle.textContent = habit ? "编辑习惯" : "新建习惯";
+      els.sheetForm.innerHTML = `
+        <label class="field">
+          <span class="field-label">习惯名称</span>
+          <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入习惯名称" required>
+        </label>
+        <label class="field">
+          <span class="field-label">金币数量</span>
+          <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${habit?.coins ?? ""}" placeholder="0">
+        </label>
+        <div class="sheet-actions">
+          <button class="ghost-button" type="button" data-close-sheet>取消</button>
+          <button class="button" type="submit">${habit ? "保存" : "创建"}</button>
+        </div>
+        <div class="delete-row ${habit ? "" : "hidden"}">
+          <button class="danger-button" type="button" data-delete-habit="${habit?.id || ""}">删除习惯</button>
+        </div>
+      `;
+      openSheet();
       els.sheetForm.querySelector("input[name='name']").focus();
     }
 
@@ -2503,6 +2710,12 @@
           time: String(formData.get("time") || "").trim()
         });
       }
+      if (sheetMode === "habit") {
+        saveHabit({
+          name: String(formData.get("name") || "").trim(),
+          coins: parseAmount(formData.get("coins"))
+        });
+      }
       if (sheetMode === "bad") {
         saveBadHabit({
           name: String(formData.get("name") || "").trim(),
@@ -2545,6 +2758,32 @@
           updatedAt: new Date().toISOString()
         });
         showToast("任务已创建");
+      }
+      saveState();
+      closeSheet();
+      render();
+    }
+
+    function saveHabit(habitData) {
+      if (!habitData.name) {
+        showToast("请输入习惯名称");
+        return;
+      }
+      if (editingId) {
+        state.habits = state.habits.map(habit => (
+          habit.id === editingId
+            ? { ...habit, ...habitData, updatedAt: new Date().toISOString() }
+            : habit
+        ));
+        showToast("习惯已更新");
+      } else {
+        state.habits.push({
+          id: createId("habit"),
+          ...habitData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        showToast("习惯已创建");
       }
       saveState();
       closeSheet();
@@ -2682,6 +2921,14 @@
       return todayTasks().filter(task => !taskResultToday(task.id));
     }
 
+    function habitCompletedOnDate(habitId, day) {
+      return Boolean(state.habitCompletions?.[day]?.[habitId]);
+    }
+
+    function habitCompletedToday(habitId) {
+      return habitCompletedOnDate(habitId, dateKey());
+    }
+
     function summaryTotals() {
       if (!state.history.length) {
         return {
@@ -2692,7 +2939,7 @@
       }
 
       return state.history.reduce((totals, item) => {
-        if (item.type === "task_completed") {
+        if (item.type === "task_completed" || item.type === "habit_completed") {
           totals.completedTasks += 1;
         }
         if (item.type === "reward_redeemed") {
@@ -2747,11 +2994,11 @@
       setCoinReadouts(state.coins);
       els.homeStreak.textContent = formatNumber(streak);
       els.todayTaskCount.textContent = `${activeCount} 项`;
-      els.statStreak.textContent = formatNumber(streak);
-      els.statCompleted.textContent = formatNumber(totals.completedTasks);
-      els.statCoins.textContent = formatNumber(state.coins);
-      els.statSpent.textContent = formatNumber(totals.coinsSpent);
-      els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
+      if (els.statStreak) els.statStreak.textContent = formatNumber(streak);
+      if (els.statCompleted) els.statCompleted.textContent = formatNumber(totals.completedTasks);
+      if (els.statCoins) els.statCoins.textContent = formatNumber(state.coins);
+      if (els.statSpent) els.statSpent.textContent = formatNumber(totals.coinsSpent);
+      if (els.statPenalty) els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
     }
 
     function scheduleRender(delay = 320) {
@@ -2795,6 +3042,34 @@
       showCoinFeedback(amount, "positive", sourceEl, { flash: false });
       scheduleRender(sourceEl ? 380 : 0);
       showToast("任务已完成");
+    }
+
+    function completeHabit(habitId, sourceEl = null) {
+      const habit = state.habits.find(item => item.id === habitId);
+      if (!habit || habitCompletedToday(habitId)) return;
+
+      const today = dateKey();
+      const amount = parseAmount(habit.coins);
+      state.habitCompletions[today] = state.habitCompletions[today] || {};
+      state.habitCompletions[today][habitId] = true;
+      state.coins += amount;
+      updateStreakForCompletion(today);
+      state.history.unshift({
+        id: createId("history"),
+        type: "habit_completed",
+        habitId: habit.id,
+        name: habit.name,
+        coins: amount,
+        date: today,
+        timestamp: new Date().toISOString()
+      });
+      saveState();
+      updatePrimaryReadouts();
+      prepareActionCard(sourceEl);
+      if (sourceEl) sourceEl.classList.add("task-exit-success");
+      showCoinFeedback(amount, "positive", sourceEl, { flash: false });
+      scheduleRender(sourceEl ? 380 : 0);
+      showToast("习惯已完成");
     }
 
     async function failTask(taskId, sourceEl = null) {
@@ -2914,8 +3189,8 @@
       });
       saveState();
       const totals = summaryTotals();
-      els.statSpent.textContent = formatNumber(totals.coinsSpent);
-      els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
+      if (els.statSpent) els.statSpent.textContent = formatNumber(totals.coinsSpent);
+      if (els.statPenalty) els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
       if (sourceEl) {
         prepareActionCard(sourceEl);
         sourceEl.classList.remove("reward-redeemed");
@@ -2943,6 +3218,14 @@
       closeSheet();
       render();
       showToast("任务已删除");
+    }
+
+    function deleteHabit(habitId) {
+      state.habits = state.habits.filter(habit => habit.id !== habitId);
+      saveState();
+      closeSheet();
+      render();
+      showToast("习惯已删除");
     }
 
     function deleteBadHabit(habitId) {
@@ -2974,17 +3257,53 @@
 
       els.todayDate.textContent = formatDate();
       updatePrimaryReadouts();
+      els.habitCount.textContent = `${state.habits.length} 项`;
       els.todayTaskCount.textContent = `${activeCount} 项`;
       els.badHabitCount.textContent = `${state.badHabits.length} 项`;
       els.noteCount.textContent = `${state.notes.length} 条`;
       els.rewardCount.textContent = `${state.rewards.length} 项`;
 
+      renderHabits();
       renderTasks();
       renderBadHabits();
       renderNotes();
       renderDailyReview();
       renderRewards();
       renderStatsVisuals();
+    }
+
+    function renderHabits() {
+      if (!state.habits.length) {
+        els.habitList.innerHTML = `
+          <div class="empty-state">
+            <strong>还没有习惯</strong>
+            <p>添加一个每天固定出现的长期习惯。</p>
+            <button class="button empty-action" data-open-habit>新建习惯</button>
+          </div>
+        `;
+        return;
+      }
+
+      els.habitList.innerHTML = state.habits.map(habit => {
+        const completed = habitCompletedToday(habit.id);
+        return `
+          <article class="card ${completed ? "habit-completed" : ""}" data-habit-card="${habit.id}">
+            <div class="card-main">
+              <div class="title-wrap">
+                <h3>${escapeHtml(habit.name)}</h3>
+                <div class="meta-row">
+                  <span class="pill coin-pill">${formatNumber(parseAmount(habit.coins))} 金币</span>
+                  ${completed ? `<span class="pill green">今日已完成</span>` : ""}
+                </div>
+              </div>
+              <button class="text-button" data-edit-habit="${habit.id}">编辑</button>
+            </div>
+            <div class="card-actions">
+              <button class="button green" data-complete-habit="${habit.id}" ${completed ? "disabled" : ""}>${completed ? "已完成" : "完成"}</button>
+            </div>
+          </article>
+        `;
+      }).join("");
     }
 
     function renderTasks() {
@@ -3170,7 +3489,7 @@
     function renderStatsVisuals() {
       const rows = buildStatsRows(currentStatsRange);
       renderHeatmap();
-      renderBadHabitTrend(rows);
+      renderHabitTrend(rows);
     }
 
     function buildStatsRows(range) {
@@ -3193,7 +3512,7 @@
         const row = byKey.get(key);
         if (!row) return;
 
-        if (item.type === "task_completed") {
+        if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
           row.earned += parseAmount(item.coins);
         }
@@ -3244,7 +3563,7 @@
         if (!row) return;
         row.hasRecord = true;
 
-        if (item.type === "task_completed") {
+        if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
           row.earned += parseAmount(item.coins);
         }
@@ -3310,15 +3629,18 @@
 
     function dayCoinSummary(day) {
       const completed = dayEntries(day, item => item.type === "task_completed");
+      const habits = dayEntries(day, item => item.type === "habit_completed");
       const failed = dayEntries(day, item => item.type === "task_failed" || item.type === "task_missed");
       const badHabits = dayEntries(day, item => item.type === "bad_habit");
       const rewards = dayEntries(day, item => item.type === "reward_redeemed");
-      const earned = completed.reduce((sum, item) => sum + parseAmount(item.coins), 0);
+      const earned = completed.reduce((sum, item) => sum + parseAmount(item.coins), 0)
+        + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0);
       const deducted = failed.reduce((sum, item) => sum + parseAmount(item.coins), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
         + rewards.reduce((sum, item) => sum + parseAmount(item.cost), 0);
       return {
         completed,
+        habits,
         failed,
         badHabits,
         rewards,
@@ -3401,6 +3723,11 @@
           detailListHtml(summary.completed, "当天没有完成任务。", item => parseAmount(item.coins))
         )}
         ${detailSectionHtml(
+          "完成习惯",
+          summary.habits.length,
+          detailListHtml(summary.habits, "当天没有完成习惯。", item => parseAmount(item.coins))
+        )}
+        ${detailSectionHtml(
           "失败任务",
           summary.failed.length,
           detailListHtml(summary.failed, "当天没有失败任务。", item => -parseAmount(item.coins))
@@ -3469,40 +3796,46 @@
       return 1240;
     }
 
-    function renderBadHabitTrend(rows) {
+    function renderHabitTrend(rows) {
       const width = trendWidth(rows);
       const height = 168;
       const padX = 14;
       const padY = 18;
-      const values = rows.map(row => row.badHabits);
-      const min = Math.min(...values, 0);
+      const values = rows.flatMap(row => [row.completed, row.badHabits]);
       const max = Math.max(...values, 0);
-      const spread = Math.max(1, max - min);
+      const spread = Math.max(1, max);
       const xStep = rows.length > 1 ? (width - padX * 2) / (rows.length - 1) : 0;
-      const points = rows.map((row, index) => {
+      const yForValue = value => height - padY - (value / spread) * (height - padY * 2);
+      const pointsFor = key => rows.map((row, index) => {
         const x = padX + index * xStep;
-        const y = height - padY - ((row.badHabits - min) / spread) * (height - padY * 2);
+        const y = yForValue(row[key]);
         return { x, y, row };
       });
-      const linePath = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
-      const lastPoint = points[points.length - 1];
+      const pathFor = points => points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+      const completedPoints = pointsFor("completed");
+      const badPoints = pointsFor("badHabits");
+      const completedPath = pathFor(completedPoints);
+      const badPath = pathFor(badPoints);
+      const completedStart = completedPoints[0];
+      const completedEnd = completedPoints[completedPoints.length - 1];
+      const badStart = badPoints[0];
+      const badEnd = badPoints[badPoints.length - 1];
       const lastRow = rows[rows.length - 1];
-      const areaPath = `${linePath} L ${lastPoint.x.toFixed(1)} ${height - padY} L ${points[0].x.toFixed(1)} ${height - padY} Z`;
-      const start = points[0];
-      const end = lastPoint;
-      const zeroY = height - padY - ((0 - min) / spread) * (height - padY * 2);
-      els.badHabitTrendChart.innerHTML = `
+      const zeroY = yForValue(0);
+      els.habitTrendChart.innerHTML = `
         <div class="balance-chart" style="--trend-width: ${width}px;">
-          <svg class="balance-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="坏习惯趋势">
+          <svg class="balance-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="习惯趋势">
             <line class="balance-grid" x1="${padX}" y1="${zeroY.toFixed(1)}" x2="${width - padX}" y2="${zeroY.toFixed(1)}"></line>
-            <path class="balance-area" d="${areaPath}"></path>
-            <path class="balance-line" d="${linePath}"></path>
-            <circle class="balance-point" cx="${start.x.toFixed(1)}" cy="${start.y.toFixed(1)}" r="4"></circle>
-            <circle class="balance-point" cx="${end.x.toFixed(1)}" cy="${end.y.toFixed(1)}" r="4"></circle>
+            <path class="balance-line good" d="${completedPath}"></path>
+            <path class="balance-line bad" d="${badPath}"></path>
+            <circle class="balance-point good" cx="${completedStart.x.toFixed(1)}" cy="${completedStart.y.toFixed(1)}" r="4"></circle>
+            <circle class="balance-point good" cx="${completedEnd.x.toFixed(1)}" cy="${completedEnd.y.toFixed(1)}" r="4"></circle>
+            <circle class="balance-point bad" cx="${badStart.x.toFixed(1)}" cy="${badStart.y.toFixed(1)}" r="4"></circle>
+            <circle class="balance-point bad" cx="${badEnd.x.toFixed(1)}" cy="${badEnd.y.toFixed(1)}" r="4"></circle>
           </svg>
           <div class="balance-labels">
             <span>${escapeHtml(rows[0].label)}</span>
-            <span>${formatNumber(rows[0].badHabits)} → ${formatNumber(lastRow.badHabits)} 次</span>
+            <span>完成 ${formatNumber(rows[0].completed)} → ${formatNumber(lastRow.completed)} · 坏习惯 ${formatNumber(rows[0].badHabits)} → ${formatNumber(lastRow.badHabits)}</span>
             <span>${escapeHtml(lastRow.label)}</span>
           </div>
         </div>
@@ -3690,14 +4023,17 @@
       const undoButton = event.target.closest("[data-undo-action]");
       const navButton = event.target.closest("[data-nav]");
       const openTaskButton = event.target.closest("[data-open-task]");
+      const openHabitButton = event.target.closest("[data-open-habit]");
       const openBadButton = event.target.closest("[data-open-bad]");
       const openNoteButton = event.target.closest("[data-open-note]");
       const openRewardButton = event.target.closest("[data-open-reward]");
       const editTaskButton = event.target.closest("[data-edit-task]");
+      const editHabitButton = event.target.closest("[data-edit-habit]");
       const editBadButton = event.target.closest("[data-edit-bad]");
       const editNoteButton = event.target.closest("[data-edit-note]");
       const editRewardButton = event.target.closest("[data-edit-reward]");
       const completeTaskButton = event.target.closest("[data-complete-task]");
+      const completeHabitButton = event.target.closest("[data-complete-habit]");
       const failTaskButton = event.target.closest("[data-fail-task]");
       const triggerBadButton = event.target.closest("[data-trigger-bad]");
       const redeemRewardButton = event.target.closest("[data-redeem-reward]");
@@ -3706,6 +4042,7 @@
       const dayDetailButton = event.target.closest("[data-day-detail]");
       const closeButton = event.target.closest("[data-close-sheet]");
       const deleteTaskButton = event.target.closest("[data-delete-task]");
+      const deleteHabitButton = event.target.closest("[data-delete-habit]");
       const deleteBadButton = event.target.closest("[data-delete-bad]");
       const deleteNoteButton = event.target.closest("[data-delete-note]");
       const deleteRewardButton = event.target.closest("[data-delete-reward]");
@@ -3716,15 +4053,20 @@
       }
       if (navButton) switchView(navButton.dataset.nav);
       if (openTaskButton) openTaskSheet();
+      if (openHabitButton) openHabitSheet();
       if (openBadButton) openBadHabitSheet();
       if (openNoteButton) openNoteSheet();
       if (openRewardButton) openRewardSheet();
       if (editTaskButton) openTaskSheet(editTaskButton.dataset.editTask);
+      if (editHabitButton) openHabitSheet(editHabitButton.dataset.editHabit);
       if (editBadButton) openBadHabitSheet(editBadButton.dataset.editBad);
       if (editNoteButton) openNoteSheet(editNoteButton.dataset.editNote);
       if (editRewardButton) openRewardSheet(editRewardButton.dataset.editReward);
       if (completeTaskButton) {
         completeTask(completeTaskButton.dataset.completeTask, completeTaskButton.closest("[data-task-card]"));
+      }
+      if (completeHabitButton) {
+        completeHabit(completeHabitButton.dataset.completeHabit, completeHabitButton.closest("[data-habit-card]"));
       }
       if (failTaskButton) {
         failTask(failTaskButton.dataset.failTask, failTaskButton.closest("[data-task-card]"));
@@ -3744,7 +4086,7 @@
         document.querySelectorAll("[data-stats-range]").forEach(button => {
           button.classList.toggle("active", button === statsRangeButton);
         });
-        renderStatsVisuals();
+        renderHabitTrend(buildStatsRows(currentStatsRange));
       }
       if (heatMonthButton) {
         currentHeatmapMonth = shiftMonthKey(
@@ -3756,6 +4098,7 @@
       if (dayDetailButton) openDayDetail(dayDetailButton.dataset.dayDetail);
       if (closeButton) closeSheet();
       if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
+      if (deleteHabitButton) deleteHabit(deleteHabitButton.dataset.deleteHabit);
       if (deleteBadButton) deleteBadHabit(deleteBadButton.dataset.deleteBad);
       if (deleteNoteButton) deleteNote(deleteNoteButton.dataset.deleteNote);
       if (deleteRewardButton) deleteReward(deleteRewardButton.dataset.deleteReward);
