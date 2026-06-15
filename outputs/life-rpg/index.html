@@ -2668,7 +2668,7 @@
         updatedAt: new Date().toISOString()
       };
       saveState();
-      renderDailyReview();
+      renderDailyReview({ clearInputs: true });
       showReviewSavedStatus();
       showToast("✓ 已保存", 2000);
     }
@@ -3095,15 +3095,16 @@
       `;
     }
 
-    function renderDailyReview() {
+    function renderDailyReview(options = {}) {
       const todayReview = dailyReviewToday();
       const today = dateKey();
       const history = sortedDailyReviews(true);
+      const shouldClearInputs = options.clearInputs === true;
 
       els.reviewDate.textContent = formatDate();
-      els.reviewBest.value = todayReview.best || "";
-      els.reviewMistake.value = todayReview.mistake || "";
-      els.reviewPriority.value = todayReview.priority || "";
+      els.reviewBest.value = shouldClearInputs ? "" : todayReview.best || "";
+      els.reviewMistake.value = shouldClearInputs ? "" : todayReview.mistake || "";
+      els.reviewPriority.value = shouldClearInputs ? "" : todayReview.priority || "";
       els.reviewHistoryCount.textContent = `${history.length} 条`;
 
       if (!history.length) {
@@ -3232,7 +3233,6 @@
           badHabits: 0,
           earned: 0,
           deducted: 0,
-          badHabitCoins: 0,
           net: 0,
           hasRecord: false
         };
@@ -3253,10 +3253,8 @@
           row.deducted += parseAmount(item.coins);
         }
         if (item.type === "bad_habit") {
-          const amount = parseAmount(item.coins);
           row.badHabits += 1;
-          row.badHabitCoins += amount;
-          row.deducted += amount;
+          row.deducted += parseAmount(item.coins);
         }
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);
@@ -3270,21 +3268,21 @@
       return rows;
     }
 
-    function calendarDayClass(row, maxNet, maxBad) {
+    function calendarDayClass(row, maxNet, maxLoss) {
       if (!row.hasRecord) return "empty";
-      if (row.badHabits > 0) {
-        const severity = row.badHabitCoins || row.badHabits;
-        const ratio = maxBad ? severity / maxBad : 1;
-        if (ratio > 0.66) return "bad-3";
-        if (ratio > 0.33) return "bad-2";
-        return "bad-1";
-      }
       if (row.net > 0) {
         const ratio = maxNet ? row.net / maxNet : 1;
         if (ratio > 0.75) return "net-4";
         if (ratio > 0.5) return "net-3";
         if (ratio > 0.25) return "net-2";
         return "net-1";
+      }
+      if (row.net < 0) {
+        const loss = Math.abs(row.net);
+        const ratio = maxLoss ? loss / maxLoss : 1;
+        if (ratio > 0.66) return "bad-3";
+        if (ratio > 0.33) return "bad-2";
+        return "bad-1";
       }
       return "net-0";
     }
@@ -3439,7 +3437,7 @@
       const monthStart = monthDateFromKey(currentHeatmapMonth);
       const leadingDays = (monthStart.getDay() + 6) % 7;
       const maxNet = Math.max(...rows.map(row => Math.max(0, row.net)), 0);
-      const maxBad = Math.max(...rows.map(row => row.badHabitCoins || row.badHabits), 0);
+      const maxLoss = Math.max(...rows.map(row => Math.max(0, -row.net)), 0);
       const today = dateKey();
       const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -3452,7 +3450,7 @@
           <div class="calendar-grid">
             ${Array.from({ length: leadingDays }, () => `<span class="calendar-empty" aria-hidden="true"></span>`).join("")}
             ${rows.map(row => {
-              const level = calendarDayClass(row, maxNet, maxBad);
+              const level = calendarDayClass(row, maxNet, maxLoss);
               const todayClass = row.key === today ? " today" : "";
               const netLabel = row.net > 0 ? `+${formatNumber(row.net)}` : formatNumber(row.net);
               const title = row.hasRecord
