@@ -293,24 +293,125 @@
       gap: 10px;
     }
 
+    .task-time-group {
+      display: grid;
+      gap: 8px;
+    }
+
+    .task-time-group + .task-time-group {
+      margin-top: 4px;
+    }
+
+    .task-time-heading {
+      padding: 2px 2px 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 820;
+      letter-spacing: 0;
+    }
+
+    .task-time-list {
+      display: grid;
+      gap: 8px;
+      padding-left: 16px;
+      border-left: 2px solid rgba(152, 162, 179, 0.18);
+    }
+
+    .swipe-row {
+      --swipe-offset: 0px;
+      --swipe-width: 84px;
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--card-radius);
+      touch-action: pan-y;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .swipe-row.swiping .swipe-card {
+      transition: none;
+    }
+
+    .swipe-row.swipe-open .swipe-card {
+      transform: translateX(calc(-1 * var(--swipe-width)));
+    }
+
+    .swipe-card {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      transform: translateX(var(--swipe-offset));
+      will-change: transform;
+      cursor: pointer;
+      transition: transform 0.32s cubic-bezier(0.2, 0.82, 0.18, 1), background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .swipe-actions {
+      position: absolute;
+      inset: 0 0 0 auto;
+      z-index: 1;
+      display: flex;
+      justify-content: flex-end;
+      width: var(--swipe-width);
+      overflow: hidden;
+      border-radius: var(--card-radius);
+    }
+
+    .swipe-action {
+      width: 84px;
+      min-height: 100%;
+      border: 0;
+      border-radius: 0;
+      color: #ffffff;
+      font-size: 0.92rem;
+      font-weight: 850;
+      cursor: pointer;
+      transition: filter 0.16s ease, opacity 0.16s ease;
+    }
+
+    .swipe-action:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+    }
+
+    .swipe-action.green {
+      background: #34c759;
+    }
+
+    .swipe-action.red {
+      background: #ff3b30;
+    }
+
+    .swipe-action.blue {
+      background: #0a84ff;
+    }
+
+    .swipe-action:active {
+      filter: brightness(0.94);
+    }
+
     .card {
       padding: 15px;
       transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
     }
 
-    .card.flash-red {
+    .card.flash-red,
+    .swipe-row.flash-red .swipe-card {
       animation: flashRed 0.58s ease both;
     }
 
-    .card.flash-green {
+    .card.flash-green,
+    .swipe-row.flash-green .swipe-card {
       animation: flashGreen 0.58s ease both;
     }
 
-    .card.task-exit-success {
+    .card.task-exit-success,
+    .swipe-row.task-exit-success {
       animation: taskExitSuccess 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     }
 
-    .card.task-exit-penalty {
+    .card.task-exit-penalty,
+    .swipe-row.task-exit-penalty {
       animation: taskExitPenalty 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     }
 
@@ -319,13 +420,15 @@
       background: rgba(246, 255, 248, 0.82);
     }
 
-    .card.reward-redeemed {
+    .card.reward-redeemed,
+    .swipe-row.reward-redeemed {
       position: relative;
       overflow: hidden;
       animation: rewardPress 0.46s ease both;
     }
 
-    .card.reward-redeemed::after {
+    .card.reward-redeemed::after,
+    .swipe-row.reward-redeemed::after {
       content: "";
       position: absolute;
       inset: -25% -70%;
@@ -931,6 +1034,45 @@
       color: var(--quiet);
       font-size: 0.68rem;
       font-weight: 700;
+    }
+
+    .trend-date-axis {
+      position: relative;
+      min-width: var(--trend-width, 100%);
+      height: 24px;
+      margin-top: 8px;
+      color: var(--quiet);
+      font-size: 0.68rem;
+      font-weight: 720;
+      line-height: 1.1;
+    }
+
+    .trend-date-tick {
+      position: absolute;
+      top: 0;
+      width: 44px;
+      text-align: center;
+      white-space: nowrap;
+      transform: translateX(-50%);
+    }
+
+    .trend-date-tick.edge-start {
+      text-align: left;
+      transform: translateX(0);
+    }
+
+    .trend-date-tick.edge-end {
+      text-align: right;
+      transform: translateX(-100%);
+    }
+
+    .trend-summary {
+      min-width: var(--trend-width, 100%);
+      margin-top: 2px;
+      color: var(--quiet);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-align: center;
     }
 
     .positive {
@@ -1846,6 +1988,12 @@
         </section>
 
         <div class="section-heading">
+          <h2>今日任务</h2>
+          <span id="todayTaskCount">0 项</span>
+        </div>
+        <div class="list" id="todayTaskList"></div>
+
+        <div class="section-heading">
           <h2>习惯</h2>
           <div class="section-heading-actions">
             <span id="habitCount">0 项</span>
@@ -1853,12 +2001,6 @@
           </div>
         </div>
         <div class="list" id="habitList"></div>
-
-        <div class="section-heading">
-          <h2>今日任务</h2>
-          <span id="todayTaskCount">0 项</span>
-        </div>
-        <div class="list" id="todayTaskList"></div>
       </section>
 
       <section class="view" data-view="bad">
@@ -2123,6 +2265,8 @@
     let currentHeatmapMonth = monthKey();
     let pendingUndo = null;
     let confirmResolver = null;
+    let activeSwipe = null;
+    let suppressNextCardTap = false;
 
     const els = {
       todayDate: document.getElementById("todayDate"),
@@ -2929,6 +3073,71 @@
       return habitCompletedOnDate(habitId, dateKey());
     }
 
+    function visibleHabitsToday() {
+      return state.habits.filter(habit => !habitCompletedToday(habit.id));
+    }
+
+    function timeToMinutes(value) {
+      const parts = parseTimeValue(value);
+      if (!parts) return null;
+      const hour = Number(parts.hour);
+      const minute = Number(parts.minute);
+      if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+      const hour24 = (hour % 12) + (parts.period === "PM" ? 12 : 0);
+      return hour24 * 60 + minute;
+    }
+
+    function taskTimeGroupLabel(value) {
+      const raw = String(value || "").trim();
+      const parts = parseTimeValue(value);
+      return parts ? raw || formatTimeParts(parts) : "无时间任务";
+    }
+
+    function groupedActiveTasks(tasks) {
+      const sorted = [...tasks].sort((left, right) => {
+        const leftMinutes = timeToMinutes(left.time);
+        const rightMinutes = timeToMinutes(right.time);
+        if (leftMinutes == null && rightMinutes == null) return left.name.localeCompare(right.name, "zh-CN");
+        if (leftMinutes == null) return 1;
+        if (rightMinutes == null) return -1;
+        if (leftMinutes !== rightMinutes) return leftMinutes - rightMinutes;
+        return left.name.localeCompare(right.name, "zh-CN");
+      });
+
+      const groups = [];
+      sorted.forEach(task => {
+        const minutes = timeToMinutes(task.time);
+        const key = minutes == null ? "no-time" : String(minutes);
+        let group = groups.find(item => item.key === key);
+        if (!group) {
+          group = {
+            key,
+            label: minutes == null ? "无时间任务" : taskTimeGroupLabel(task.time),
+            tasks: []
+          };
+          groups.push(group);
+        }
+        group.tasks.push(task);
+      });
+      return groups;
+    }
+
+    function swipeRowHtml({ attrs = "", actionWidth = 84, actions = "", content = "", editType = "", editId = "", extraClass = "" }) {
+      const editAttrs = editType && editId
+        ? ` data-edit-card="${escapeAttr(editType)}" data-edit-id="${escapeAttr(editId)}"`
+        : "";
+      return `
+        <article class="swipe-row ${extraClass}" data-swipe-row style="--swipe-width: ${actionWidth}px;" ${attrs}>
+          <div class="swipe-actions" aria-hidden="false">
+            ${actions}
+          </div>
+          <div class="card swipe-card" data-swipe-content${editAttrs}>
+            ${content}
+          </div>
+        </article>
+      `;
+    }
+
     function summaryTotals() {
       if (!state.history.length) {
         return {
@@ -3011,6 +3220,113 @@
       card.querySelectorAll("button").forEach(button => {
         button.disabled = true;
       });
+    }
+
+    function swipeRowWidth(row) {
+      const value = getComputedStyle(row).getPropertyValue("--swipe-width").trim();
+      return Number(value.replace("px", "")) || 84;
+    }
+
+    function setSwipeOffset(row, offset) {
+      row.style.setProperty("--swipe-offset", `${Math.round(offset)}px`);
+    }
+
+    function closeSwipeRow(row) {
+      if (!row) return;
+      row.classList.remove("swipe-open", "swiping");
+      setSwipeOffset(row, 0);
+    }
+
+    function openSwipeRow(row) {
+      if (!row) return;
+      closeOpenSwipeRows(row);
+      row.classList.remove("swiping");
+      row.classList.add("swipe-open");
+      setSwipeOffset(row, -swipeRowWidth(row));
+    }
+
+    function closeOpenSwipeRows(exceptRow = null) {
+      document.querySelectorAll("[data-swipe-row].swipe-open").forEach(row => {
+        if (row !== exceptRow) closeSwipeRow(row);
+      });
+    }
+
+    function handleEditCardTap(card) {
+      const editId = card.dataset.editId;
+      if (!editId) return;
+      if (card.dataset.editCard === "task") openTaskSheet(editId);
+      if (card.dataset.editCard === "habit") openHabitSheet(editId);
+      if (card.dataset.editCard === "bad") openBadHabitSheet(editId);
+      if (card.dataset.editCard === "reward") openRewardSheet(editId);
+    }
+
+    function beginSwipe(event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (event.target.closest("button, input, textarea, select, a")) return;
+      const content = event.target.closest("[data-swipe-content]");
+      if (!content) return;
+      const row = content.closest("[data-swipe-row]");
+      if (!row) return;
+
+      const width = swipeRowWidth(row);
+      activeSwipe = {
+        row,
+        content,
+        startX: event.clientX,
+        startY: event.clientY,
+        pointerId: event.pointerId,
+        width,
+        baseOffset: row.classList.contains("swipe-open") ? -width : 0,
+        currentOffset: row.classList.contains("swipe-open") ? -width : 0,
+        dragging: false,
+        vertical: false
+      };
+      content.setPointerCapture?.(event.pointerId);
+    }
+
+    function moveSwipe(event) {
+      if (!activeSwipe || event.pointerId !== activeSwipe.pointerId) return;
+      const deltaX = event.clientX - activeSwipe.startX;
+      const deltaY = event.clientY - activeSwipe.startY;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+
+      if (!activeSwipe.dragging && !activeSwipe.vertical && absY > 8 && absY > absX) {
+        activeSwipe.vertical = true;
+        activeSwipe = null;
+        return;
+      }
+      if (!activeSwipe.dragging && absX < 6) return;
+
+      activeSwipe.dragging = true;
+      suppressNextCardTap = true;
+      activeSwipe.row.classList.add("swiping");
+      closeOpenSwipeRows(activeSwipe.row);
+
+      const offset = Math.max(-activeSwipe.width, Math.min(0, activeSwipe.baseOffset + deltaX));
+      activeSwipe.currentOffset = offset;
+      activeSwipe.row.classList.remove("swipe-open");
+      setSwipeOffset(activeSwipe.row, offset);
+      event.preventDefault();
+    }
+
+    function endSwipe(event) {
+      if (!activeSwipe || event.pointerId !== activeSwipe.pointerId) return;
+      const swipe = activeSwipe;
+      activeSwipe = null;
+      swipe.row.classList.remove("swiping");
+      swipe.content.releasePointerCapture?.(event.pointerId);
+
+      if (!swipe.dragging) return;
+      if (swipe.currentOffset <= -swipe.width * 0.42) {
+        openSwipeRow(swipe.row);
+      } else {
+        closeSwipeRow(swipe.row);
+      }
+
+      window.setTimeout(() => {
+        suppressNextCardTap = false;
+      }, 0);
     }
 
     function completeTask(taskId, sourceEl = null) {
@@ -3254,10 +3570,11 @@
 
     function render() {
       const activeCount = activeTasksToday().length;
+      const visibleHabitCount = visibleHabitsToday().length;
 
       els.todayDate.textContent = formatDate();
       updatePrimaryReadouts();
-      els.habitCount.textContent = `${state.habits.length} 项`;
+      els.habitCount.textContent = `${visibleHabitCount} 项`;
       els.todayTaskCount.textContent = `${activeCount} 项`;
       els.badHabitCount.textContent = `${state.badHabits.length} 项`;
       els.noteCount.textContent = `${state.notes.length} 条`;
@@ -3284,26 +3601,33 @@
         return;
       }
 
-      els.habitList.innerHTML = state.habits.map(habit => {
-        const completed = habitCompletedToday(habit.id);
-        return `
-          <article class="card ${completed ? "habit-completed" : ""}" data-habit-card="${habit.id}">
+      const activeHabits = visibleHabitsToday();
+      if (!activeHabits.length) {
+        els.habitList.innerHTML = `
+          <div class="empty-state">
+            <strong>今日习惯已清空</strong>
+            <p>完成的习惯已经收起，明天会自动重新出现。</p>
+          </div>
+        `;
+        return;
+      }
+
+      els.habitList.innerHTML = activeHabits.map(habit => swipeRowHtml({
+        attrs: `data-habit-card="${escapeAttr(habit.id)}"`,
+        editType: "habit",
+        editId: habit.id,
+        actions: `<button class="swipe-action green" type="button" data-complete-habit="${escapeAttr(habit.id)}">完成</button>`,
+        content: `
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(habit.name)}</h3>
                 <div class="meta-row">
                   <span class="pill coin-pill">${formatNumber(parseAmount(habit.coins))} 金币</span>
-                  ${completed ? `<span class="pill green">今日已完成</span>` : ""}
                 </div>
               </div>
-              <button class="text-button" data-edit-habit="${habit.id}">编辑</button>
             </div>
-            <div class="card-actions">
-              <button class="button green" data-complete-habit="${habit.id}" ${completed ? "disabled" : ""}>${completed ? "已完成" : "完成"}</button>
-            </div>
-          </article>
-        `;
-      }).join("");
+        `
+      })).join("");
     }
 
     function renderTasks() {
@@ -3330,23 +3654,32 @@
         return;
       }
 
-      els.todayTaskList.innerHTML = activeTasks.map(task => `
-          <article class="card" data-task-card="${task.id}">
+      els.todayTaskList.innerHTML = groupedActiveTasks(activeTasks).map(group => `
+        <section class="task-time-group">
+          <div class="task-time-heading">${escapeHtml(group.label)}</div>
+          <div class="task-time-list">
+            ${group.tasks.map(task => swipeRowHtml({
+              attrs: `data-task-card="${escapeAttr(task.id)}"`,
+              actionWidth: 168,
+              editType: "task",
+              editId: task.id,
+              actions: `
+                <button class="swipe-action green" type="button" data-complete-task="${escapeAttr(task.id)}">完成</button>
+                <button class="swipe-action red" type="button" data-fail-task="${escapeAttr(task.id)}">失败</button>
+              `,
+              content: `
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(task.name)}</h3>
                 <div class="meta-row">
-                  ${task.time ? `<span class="pill blue">${escapeHtml(task.time)}</span>` : ""}
                   <span class="pill coin-pill">${formatNumber(parseAmount(task.coins))} 金币</span>
                 </div>
               </div>
-              <button class="text-button" data-edit-task="${task.id}">编辑</button>
             </div>
-            <div class="card-actions">
-              <button class="button green" data-complete-task="${task.id}">完成</button>
-              <button class="button soft-red" data-fail-task="${task.id}">失败</button>
-            </div>
-          </article>
+              `
+            })).join("")}
+          </div>
+        </section>
       `).join("");
     }
 
@@ -3362,8 +3695,12 @@
         return;
       }
 
-      els.badHabitList.innerHTML = state.badHabits.map(habit => `
-        <article class="card" data-habit-card="${habit.id}">
+      els.badHabitList.innerHTML = state.badHabits.map(habit => swipeRowHtml({
+        attrs: `data-habit-card="${escapeAttr(habit.id)}" data-bad-card="${escapeAttr(habit.id)}"`,
+        editType: "bad",
+        editId: habit.id,
+        actions: `<button class="swipe-action red" type="button" data-trigger-bad="${escapeAttr(habit.id)}">记录一次</button>`,
+        content: `
           <div class="card-main">
             <div class="title-wrap">
                 <h3>${escapeHtml(habit.name)}</h3>
@@ -3371,13 +3708,9 @@
                 <span class="pill coin-pill">${formatNumber(parseAmount(habit.penalty))} 金币</span>
                 </div>
               </div>
-            <button class="text-button" data-edit-bad="${habit.id}">编辑</button>
           </div>
-          <div class="card-actions">
-            <button class="button red" data-trigger-bad="${habit.id}">扣除</button>
-          </div>
-        </article>
-      `).join("");
+        `
+      })).join("");
     }
 
     function renderNotes() {
@@ -3467,8 +3800,12 @@
       els.rewardList.innerHTML = state.rewards.map(reward => {
         const cost = parseAmount(reward.cost);
         const affordable = state.coins >= cost;
-        return `
-          <article class="card" data-reward-card="${reward.id}">
+        return swipeRowHtml({
+          attrs: `data-reward-card="${escapeAttr(reward.id)}"`,
+          editType: "reward",
+          editId: reward.id,
+          actions: `<button class="swipe-action blue" type="button" data-redeem-reward="${escapeAttr(reward.id)}" ${affordable ? "" : "disabled"}>${affordable ? "兑换" : "金币不足"}</button>`,
+          content: `
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(reward.name)}</h3>
@@ -3476,13 +3813,9 @@
                   <span class="pill coin-pill">${formatNumber(cost)} 金币</span>
                 </div>
               </div>
-              <button class="text-button" data-edit-reward="${reward.id}">编辑</button>
             </div>
-            <div class="card-actions">
-              <button class="button" data-redeem-reward="${reward.id}" ${affordable ? "" : "disabled"}>${affordable ? "兑换" : "金币不足"}</button>
-            </div>
-          </article>
-        `;
+          `
+        });
       }).join("");
     }
 
@@ -3796,6 +4129,51 @@
       return 1240;
     }
 
+    function datePartsFromKey(key) {
+      const [year, month, day] = String(key || "").split("-").map(Number);
+      return { year, month, day };
+    }
+
+    function trendDateLabel(row, rows) {
+      const { month, day } = datePartsFromKey(row.key);
+      if (!month || !day) return row.label || "";
+      if (rows.length > 30 && day === 1) return `${month}月`;
+      if (rows.length > 30) return `${month}/${day}`;
+      return `${month}/${day}`;
+    }
+
+    function trendDateTickIndexes(rows) {
+      if (rows.length <= 7) return rows.map((_, index) => index);
+      if (rows.length <= 30) {
+        const indexes = [];
+        for (let index = 0; index < rows.length; index += 5) indexes.push(index);
+        if (indexes[indexes.length - 1] !== rows.length - 1) indexes.push(rows.length - 1);
+        return indexes;
+      }
+
+      const indexes = [];
+      rows.forEach((row, index) => {
+        const { day } = datePartsFromKey(row.key);
+        if (day === 1) indexes.push(index);
+      });
+      return indexes.length ? indexes : [0, rows.length - 1];
+    }
+
+    function trendDateAxisHtml(rows, padX, xStep) {
+      const lastIndex = rows.length - 1;
+      const ticks = trendDateTickIndexes(rows);
+      return `
+        <div class="trend-date-axis" aria-label="趋势日期标注">
+          ${ticks.map(index => {
+            const row = rows[index];
+            const x = padX + index * xStep;
+            const edgeClass = index === 0 ? " edge-start" : index === lastIndex ? " edge-end" : "";
+            return `<span class="trend-date-tick${edgeClass}" style="left: ${x.toFixed(1)}px;">${escapeHtml(trendDateLabel(row, rows))}</span>`;
+          }).join("")}
+        </div>
+      `;
+    }
+
     function renderHabitTrend(rows) {
       const width = trendWidth(rows);
       const height = 168;
@@ -3833,10 +4211,9 @@
             <circle class="balance-point bad" cx="${badStart.x.toFixed(1)}" cy="${badStart.y.toFixed(1)}" r="4"></circle>
             <circle class="balance-point bad" cx="${badEnd.x.toFixed(1)}" cy="${badEnd.y.toFixed(1)}" r="4"></circle>
           </svg>
-          <div class="balance-labels">
-            <span>${escapeHtml(rows[0].label)}</span>
-            <span>完成 ${formatNumber(rows[0].completed)} → ${formatNumber(lastRow.completed)} · 坏习惯 ${formatNumber(rows[0].badHabits)} → ${formatNumber(lastRow.badHabits)}</span>
-            <span>${escapeHtml(lastRow.label)}</span>
+          ${trendDateAxisHtml(rows, padX, xStep)}
+          <div class="trend-summary">
+            完成 ${formatNumber(rows[0].completed)} → ${formatNumber(lastRow.completed)} · 坏习惯 ${formatNumber(rows[0].badHabits)} → ${formatNumber(lastRow.badHabits)}
           </div>
         </div>
       `;
@@ -4019,8 +4396,16 @@
       return escapeHtml(value);
     }
 
+    document.addEventListener("pointerdown", beginSwipe);
+    document.addEventListener("pointermove", moveSwipe, { passive: false });
+    document.addEventListener("pointerup", endSwipe);
+    document.addEventListener("pointercancel", endSwipe);
+
     document.addEventListener("click", event => {
       const undoButton = event.target.closest("[data-undo-action]");
+      const swipeActionButton = event.target.closest(".swipe-action");
+      const swipeContent = event.target.closest("[data-swipe-content]");
+      const editCard = event.target.closest("[data-edit-card]");
       const navButton = event.target.closest("[data-nav]");
       const openTaskButton = event.target.closest("[data-open-task]");
       const openHabitButton = event.target.closest("[data-open-habit]");
@@ -4049,6 +4434,21 @@
 
       if (undoButton) {
         undoLastAction();
+        return;
+      }
+      if (!event.target.closest("[data-swipe-row]")) {
+        closeOpenSwipeRows();
+      }
+      if (suppressNextCardTap && swipeContent) {
+        suppressNextCardTap = false;
+        return;
+      }
+      if (swipeContent && swipeContent.closest("[data-swipe-row]")?.classList.contains("swipe-open") && !swipeActionButton) {
+        closeSwipeRow(swipeContent.closest("[data-swipe-row]"));
+        return;
+      }
+      if (editCard && !swipeActionButton) {
+        handleEditCardTap(editCard);
         return;
       }
       if (navButton) switchView(navButton.dataset.nav);
