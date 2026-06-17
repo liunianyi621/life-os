@@ -176,16 +176,11 @@
       state.lastCompletedDate = today;
     }
 
-    async function triggerBadHabit(habitId, sourceEl = null) {
+    function triggerBadHabit(habitId, sourceEl = null) {
       const habit = state.badHabits.find(item => item.id === habitId);
       if (!habit) return;
       const amount = parseAmount(habit.penalty);
-      const confirmed = await askForConfirmation({
-        title: "确认记录坏习惯",
-        message: `将扣除 ${formatNumber(amount)} 金币。确认记录「${habit.name}」吗？`,
-        confirmText: "确认扣除"
-      });
-      if (!confirmed || !state.badHabits.some(item => item.id === habitId)) return;
+      if (!state.badHabits.some(item => item.id === habitId)) return;
 
       state.coins -= amount;
       state.totals.coinsPenalty += amount;
@@ -203,11 +198,18 @@
       updatePrimaryReadouts();
       showCoinFeedback(amount, "negative", sourceEl);
       scheduleRender(240);
-      showUndoToast({
-        type: "bad_habit",
-        historyId,
-        amount
-      });
+      showUndoToast(
+        {
+          type: "bad_habit",
+          historyId,
+          amount
+        },
+        {
+          message: "⚡︎ 已记录",
+          undoLabel: "撤回",
+          duration: 5000
+        }
+      );
     }
 
     async function redeemReward(rewardId, sourceEl = null, buttonEl = null) {
@@ -315,16 +317,31 @@
       }
     }
 
-    function showUndoToast(undoData) {
+    function showUndoToast(undoData, options = {}) {
+      const {
+        message = "操作已执行",
+        undoLabel = "撤销",
+        duration = 10000
+      } = options;
       clearPendingUndo(false);
       clearTimeout(showToast.timer);
       pendingUndo = {
         ...undoData,
         timer: window.setTimeout(() => {
           clearPendingUndo(true);
-        }, 10000)
+        }, duration)
       };
-      els.toast.innerHTML = `<span>操作已执行</span><span aria-hidden="true">·</span><button type="button" data-undo-action>撤销</button>`;
+      els.toast.textContent = "";
+      const messageEl = document.createElement("span");
+      messageEl.textContent = message;
+      const separatorEl = document.createElement("span");
+      separatorEl.setAttribute("aria-hidden", "true");
+      separatorEl.textContent = "·";
+      const undoButton = document.createElement("button");
+      undoButton.type = "button";
+      undoButton.dataset.undoAction = "";
+      undoButton.textContent = undoLabel;
+      els.toast.append(messageEl, separatorEl, undoButton);
       els.toast.classList.add("interactive", "show");
     }
 

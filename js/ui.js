@@ -16,6 +16,15 @@
       return Number(value.replace("px", "")) || 84;
     }
 
+    function actionButtonHtml({ tone, icon, label, attrs = "", disabled = false }) {
+      const disabledAttr = disabled ? " disabled" : "";
+      return `
+        <button class="swipe-action ${tone}" type="button" ${attrs}${disabledAttr} aria-label="${escapeAttr(label)}">
+          <span class="action-icon" aria-hidden="true">${icon}</span>
+        </button>
+      `;
+    }
+
     function setSwipeOffset(row, offset) {
       row.style.setProperty("--swipe-offset", `${Math.round(offset)}px`);
     }
@@ -160,7 +169,12 @@
         attrs: `data-habit-card="${escapeAttr(habit.id)}"`,
         editType: "habit",
         editId: habit.id,
-        actions: `<button class="swipe-action green" type="button" data-complete-habit="${escapeAttr(habit.id)}" aria-label="完成习惯"><span class="action-icon" aria-hidden="true">✓</span><span class="action-label">完成</span></button>`,
+        actions: actionButtonHtml({
+          tone: "green",
+          icon: "✓",
+          label: "习惯达成",
+          attrs: `data-complete-habit="${escapeAttr(habit.id)}"`
+        }),
         content: `
             <div class="card-main">
               <div class="title-wrap">
@@ -208,8 +222,18 @@
               editType: "task",
               editId: task.id,
               actions: `
-                <button class="swipe-action green" type="button" data-complete-task="${escapeAttr(task.id)}" aria-label="完成任务"><span class="action-icon" aria-hidden="true">✓</span><span class="action-label">完成</span></button>
-                <button class="swipe-action red" type="button" data-fail-task="${escapeAttr(task.id)}" aria-label="任务失败"><span class="action-icon" aria-hidden="true">×</span><span class="action-label">失败</span></button>
+                ${actionButtonHtml({
+                  tone: "green",
+                  icon: "✓",
+                  label: "任务达成",
+                  attrs: `data-complete-task="${escapeAttr(task.id)}"`
+                })}
+                ${actionButtonHtml({
+                  tone: "red",
+                  icon: "✕",
+                  label: "任务未达成",
+                  attrs: `data-fail-task="${escapeAttr(task.id)}"`
+                })}
               `,
               content: `
             <div class="card-main">
@@ -243,7 +267,12 @@
         attrs: `data-habit-card="${escapeAttr(habit.id)}" data-bad-card="${escapeAttr(habit.id)}"`,
         editType: "bad",
         editId: habit.id,
-        actions: `<button class="swipe-action red" type="button" data-trigger-bad="${escapeAttr(habit.id)}" aria-label="记录坏习惯"><span class="action-icon" aria-hidden="true">×</span><span class="action-label">记录</span></button>`,
+        actions: actionButtonHtml({
+          tone: "red",
+          icon: "⚡︎",
+          label: "坏习惯扣金币",
+          attrs: `data-trigger-bad="${escapeAttr(habit.id)}"`
+        }),
         content: `
           <div class="card-main">
             <div class="title-wrap">
@@ -348,7 +377,13 @@
           attrs: `data-reward-card="${escapeAttr(reward.id)}"`,
           editType: "reward",
           editId: reward.id,
-          actions: `<button class="swipe-action blue" type="button" data-redeem-reward="${escapeAttr(reward.id)}" ${affordable ? "" : "disabled"} aria-label="${affordable ? "兑换奖励" : "金币不足"}"><span class="action-icon" aria-hidden="true">兑</span><span class="action-label">${affordable ? "兑换" : "不足"}</span></button>`,
+          actions: actionButtonHtml({
+            tone: "blue",
+            icon: "🎁",
+            label: affordable ? "使用奖励" : "金币不足",
+            attrs: `data-redeem-reward="${escapeAttr(reward.id)}"`,
+            disabled: !affordable
+          }),
           content: `
             <div class="card-main">
               <div class="title-wrap">

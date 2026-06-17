@@ -97,5 +97,5 @@
       saveState();
       closeSheet();
       render();
-      showToast("任务已删除");
+      showToast("任务已移除");
     }

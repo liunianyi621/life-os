@@ -21,6 +21,9 @@
       --glass: rgba(255, 255, 255, 0.76);
       --glass-strong: rgba(255, 255, 255, 0.9);
       --glass-border: rgba(255, 255, 255, 0.78);
+      --control-glass: rgba(247, 248, 251, 0.78);
+      --control-glass-strong: rgba(255, 255, 255, 0.9);
+      --control-border: rgba(147, 157, 171, 0.2);
       --card-border: rgba(185, 195, 208, 0.28);
       --shadow: 0 14px 34px rgba(31, 41, 55, 0.07), 0 1px 0 rgba(255, 255, 255, 0.82) inset;
       --soft-shadow: 0 7px 18px rgba(31, 41, 55, 0.055), 0 1px 0 rgba(255, 255, 255, 0.72) inset;
@@ -134,16 +137,18 @@
     .icon-button {
       display: inline-grid;
       place-items: center;
-      width: 38px;
-      height: 38px;
+      width: 42px;
+      height: 42px;
       flex: 0 0 auto;
-      border: 0;
+      border: 1px solid var(--control-border);
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.86);
+      background: var(--control-glass);
       color: var(--blue);
-      box-shadow: var(--soft-shadow);
+      box-shadow: 0 9px 20px rgba(31, 41, 55, 0.06), 0 1px 0 rgba(255, 255, 255, 0.86) inset;
       cursor: pointer;
-      transition: transform 0.16s ease, opacity 0.16s ease;
+      transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
     }
 
     .icon-plus {
@@ -157,7 +162,7 @@
       content: "";
       position: absolute;
       inset: 7px 0 auto;
-      height: 3px;
+      height: 2px;
       border-radius: 999px;
       background: currentColor;
     }
@@ -356,38 +361,31 @@
     }
 
     .swipe-action {
-      min-width: 44px;
-      min-height: 38px;
-      border: 1px solid transparent;
-      border-radius: var(--pill-radius);
-      padding: 6px 10px 6px 7px;
+      width: 46px;
+      height: 46px;
+      border: 1px solid var(--control-border);
+      border-radius: 18px;
+      padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 5px;
-      font-size: 0.78rem;
       line-height: 1;
-      font-weight: 780;
       cursor: pointer;
-      box-shadow: 0 5px 12px rgba(31, 41, 55, 0.045), 0 1px 0 rgba(255, 255, 255, 0.86) inset;
-      transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+      background: var(--control-glass);
+      box-shadow: 0 10px 20px rgba(31, 41, 55, 0.055), 0 1px 0 rgba(255, 255, 255, 0.88) inset;
+      transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
     }
 
     .action-icon {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
+      width: 26px;
+      height: 26px;
       display: inline-grid;
       place-items: center;
-      background: rgba(255, 255, 255, 0.7);
-      font-size: 1rem;
+      font-size: 1.1rem;
       line-height: 1;
-      font-weight: 850;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset;
-    }
-
-    .action-label {
-      white-space: nowrap;
+      font-weight: 380;
     }
 
     .swipe-action:disabled {
@@ -396,20 +394,20 @@
     }
 
     .swipe-action.green {
-      border-color: var(--green-line);
-      background: var(--green-soft);
+      border-color: rgba(74, 167, 103, 0.22);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(243, 247, 245, 0.74));
       color: var(--green-ink);
     }
 
     .swipe-action.red {
-      border-color: var(--red-line);
-      background: var(--red-soft);
+      border-color: rgba(215, 101, 95, 0.22);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 244, 244, 0.74));
       color: var(--red-ink);
     }
 
     .swipe-action.blue {
-      border-color: rgba(10, 132, 255, 0.18);
-      background: rgba(10, 132, 255, 0.1);
+      border-color: rgba(10, 132, 255, 0.2);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(242, 246, 251, 0.74));
       color: #1465b7;
     }
 
@@ -542,37 +540,41 @@
     .danger-button,
     .text-button {
       min-height: 38px;
-      border: 0;
+      border: 1px solid var(--control-border);
       border-radius: var(--control-radius);
       padding: 9px 13px;
       font-size: 0.9rem;
       font-weight: 760;
       cursor: pointer;
-      transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
+      background: var(--control-glass);
+      box-shadow: 0 8px 18px rgba(31, 41, 55, 0.05), 0 1px 0 rgba(255, 255, 255, 0.84) inset;
+      transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
     }
 
     .button {
-      background: var(--blue);
-      color: #ffffff;
-      box-shadow: 0 8px 18px rgba(10, 132, 255, 0.18);
+      border-color: rgba(10, 132, 255, 0.2);
+      background: var(--control-glass-strong);
+      color: var(--blue);
     }
 
     .button.green {
-      background: var(--green-soft);
+      border-color: rgba(74, 167, 103, 0.22);
+      background: var(--control-glass);
       color: var(--green-ink);
-      box-shadow: none;
     }
 
     .button.red {
-      background: var(--red-soft);
+      border-color: rgba(215, 101, 95, 0.22);
+      background: var(--control-glass);
       color: var(--red-ink);
-      box-shadow: none;
     }
 
     .button.soft-red {
-      background: rgba(215, 101, 95, 0.09);
+      border-color: rgba(215, 101, 95, 0.2);
+      background: var(--control-glass);
       color: var(--red-ink);
-      box-shadow: none;
     }
 
     .button[disabled] {
@@ -581,12 +583,13 @@
     }
 
     .ghost-button {
-      background: rgba(237, 242, 247, 0.86);
+      background: var(--control-glass);
       color: var(--blue);
     }
 
     .danger-button {
-      background: rgba(215, 101, 95, 0.09);
+      border-color: rgba(215, 101, 95, 0.22);
+      background: var(--control-glass);
       color: var(--red-ink);
     }
 
@@ -595,6 +598,18 @@
       padding: 7px 4px;
       background: transparent;
       color: var(--blue);
+    }
+
+    .icon-only-button {
+      width: 46px;
+      height: 46px;
+      min-height: 46px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 18px;
+      font-size: 1.08rem;
+      line-height: 1;
     }
 
     .button:active,
@@ -1680,9 +1695,10 @@
       z-index: 60;
       width: min(calc(100% - 32px), 420px);
       padding: 12px 14px;
-      border-radius: var(--control-radius);
-      background: rgba(17, 24, 39, 0.92);
-      color: #ffffff;
+      border: 1px solid var(--control-border);
+      border-radius: 20px;
+      background: rgba(248, 249, 252, 0.9);
+      color: var(--text);
       text-align: center;
       font-size: 0.9rem;
       font-weight: 720;
@@ -1690,6 +1706,9 @@
       pointer-events: none;
       transform: translate(-50%, 12px);
       transition: opacity 0.18s ease, transform 0.18s ease;
+      box-shadow: 0 16px 34px rgba(31, 41, 55, 0.12), 0 1px 0 rgba(255, 255, 255, 0.84) inset;
+      backdrop-filter: blur(22px) saturate(155%);
+      -webkit-backdrop-filter: blur(22px) saturate(155%);
     }
 
     .toast.show {
@@ -1707,15 +1726,16 @@
 
     .toast button {
       min-height: 28px;
-      border: 0;
+      border: 1px solid rgba(10, 132, 255, 0.2);
       border-radius: 999px;
-      padding: 4px 9px;
-      background: rgba(255, 255, 255, 0.16);
-      color: #ffffff;
+      padding: 4px 11px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--blue);
       font: inherit;
       font-size: 0.86rem;
       font-weight: 840;
       cursor: pointer;
+      box-shadow: 0 4px 10px rgba(31, 41, 55, 0.045), 0 1px 0 rgba(255, 255, 255, 0.84) inset;
     }
 
     .floating-delta {

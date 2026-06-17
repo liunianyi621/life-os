@@ -65,7 +65,7 @@
       saveState();
       closeSheet();
       render();
-      showToast("习惯已删除");
+      showToast("习惯已移除");
     }
 
     function deleteBadHabit(habitId) {
@@ -73,5 +73,5 @@
       saveState();
       closeSheet();
       render();
-      showToast("坏习惯已删除");
+      showToast("坏习惯已移除");
     }

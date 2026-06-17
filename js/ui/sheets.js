@@ -1,3 +1,11 @@
+    function deleteIconButtonHtml({ action, id, label }) {
+      return `
+        <button class="danger-button icon-only-button" type="button" data-delete-${action}="${escapeAttr(id || "")}" aria-label="${escapeAttr(label)}">
+          <span aria-hidden="true">🗑</span>
+        </button>
+      `;
+    }
+
     function openTaskSheet(taskId = null) {
       sheetMode = "task";
       editingId = taskId;
@@ -41,7 +49,7 @@
           <button class="button" type="submit">${task ? "保存" : "创建"}</button>
         </div>
         <div class="delete-row ${task ? "" : "hidden"}">
-          <button class="danger-button" type="button" data-delete-task="${task?.id || ""}">删除任务</button>
+          ${deleteIconButtonHtml({ action: "task", id: task?.id, label: "移除任务" })}
         </div>
       `;
       openSheet();
@@ -68,7 +76,7 @@
           <button class="button" type="submit">${habit ? "保存" : "创建"}</button>
         </div>
         <div class="delete-row ${habit ? "" : "hidden"}">
-          <button class="danger-button" type="button" data-delete-habit="${habit?.id || ""}">删除习惯</button>
+          ${deleteIconButtonHtml({ action: "habit", id: habit?.id, label: "移除习惯" })}
         </div>
       `;
       openSheet();
@@ -94,7 +102,7 @@
           <button class="button" type="submit">${habit ? "保存" : "创建"}</button>
         </div>
         <div class="delete-row ${habit ? "" : "hidden"}">
-          <button class="danger-button" type="button" data-delete-bad="${habit?.id || ""}">删除坏习惯</button>
+          ${deleteIconButtonHtml({ action: "bad", id: habit?.id, label: "移除坏习惯" })}
         </div>
       `;
       openSheet();
@@ -116,7 +124,7 @@
           <button class="button" type="submit">${note ? "保存" : "创建"}</button>
         </div>
         <div class="delete-row ${note ? "" : "hidden"}">
-          <button class="danger-button" type="button" data-delete-note="${note?.id || ""}">删除笔记</button>
+          ${deleteIconButtonHtml({ action: "note", id: note?.id, label: "移除笔记" })}
         </div>
       `;
       openSheet();
@@ -142,7 +150,7 @@
           <button class="button" type="submit">${reward ? "保存" : "创建"}</button>
         </div>
         <div class="delete-row ${reward ? "" : "hidden"}">
-          <button class="danger-button" type="button" data-delete-reward="${reward?.id || ""}">删除奖励</button>
+          ${deleteIconButtonHtml({ action: "reward", id: reward?.id, label: "移除奖励" })}
         </div>
       `;
       openSheet();
@@ -254,7 +262,7 @@
       saveState();
       closeSheet();
       render();
-      showToast("笔记已删除");
+      showToast("笔记已移除");
     }
 
     function deleteReward(rewardId) {
@@ -262,5 +270,5 @@
       saveState();
       closeSheet();
       render();
-      showToast("奖励已删除");
+      showToast("奖励已移除");
     }
