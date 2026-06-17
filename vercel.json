@@ -1,10 +1,11 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "css/**", "use": "@vercel/static" },
+    { "src": "js/**", "use": "@vercel/static" },
+    { "src": "manifest.webmanifest", "use": "@vercel/static" },
+    { "src": "icon.svg", "use": "@vercel/static" }
   ],
   "routes": [
     {
