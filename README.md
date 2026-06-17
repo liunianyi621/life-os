@@ -21,10 +21,10 @@ LifeOS
 
 ## 当前状态
 
-- 当前是静态单文件 App，可直接打开 `index.html` 使用。
-- 主文件是 `index.html`，页面结构、样式和交互脚本都集中在这个文件中。
+- 当前是纯静态 App，可直接打开 `index.html` 使用。
+- 主入口是 `index.html`，样式在 `css/styles.css`，交互脚本在 `js/` 模块中。
 - 已包含 PWA manifest、图标和 Vercel 静态部署配置。
-- 项目没有 `package.json`、源码目录或构建脚本，长期维护能力较弱。
+- `outputs/life-rpg` 是生成产物，不再手动维护。
 - 数据主要保存在浏览器本地。
 - 已迁移到 `~/codex-workspace/Active/LifeOS`，作为长期维护项目继续管理。
 - 已初始化本地 Git 仓库，但尚未创建远程仓库，也未推送到 Github。
@@ -52,4 +52,18 @@ LifeOS
 
 ```text
 index.html
+```
+
+## 构建预览副本
+
+生成 `outputs/life-rpg`：
+
+```text
+node scripts/build-output.js
+```
+
+如果本机安装了 npm，也可以运行：
+
+```text
+npm run build
 ```

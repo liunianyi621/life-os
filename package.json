@@ -1,0 +1,9 @@
+{
+  "name": "lifeos",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node scripts/build-output.js"
+  }
+}
