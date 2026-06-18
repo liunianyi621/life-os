@@ -8,14 +8,18 @@
       --quiet: #98a2b3;
       --line: #e6e9ee;
       --blue: #0a84ff;
-      --green: #4aa767;
-      --green-ink: #2f7248;
-      --green-soft: rgba(74, 167, 103, 0.13);
-      --green-line: rgba(74, 167, 103, 0.2);
-      --red: #d7655f;
-      --red-ink: #9f4d49;
-      --red-soft: rgba(215, 101, 95, 0.12);
-      --red-line: rgba(215, 101, 95, 0.2);
+      --green: #5ba878;
+      --green-ink: #357052;
+      --green-soft: rgba(91, 168, 120, 0.11);
+      --green-line: rgba(91, 168, 120, 0.24);
+      --red: #d66a62;
+      --red-ink: #a4514c;
+      --red-soft: rgba(214, 106, 98, 0.1);
+      --red-line: rgba(214, 106, 98, 0.22);
+      --orange: #c98538;
+      --orange-ink: #9a642b;
+      --orange-soft: rgba(201, 133, 56, 0.11);
+      --orange-line: rgba(201, 133, 56, 0.24);
       --gold: #c88a18;
       --gold-soft: rgba(201, 139, 24, 0.14);
       --glass: rgba(255, 255, 255, 0.76);
@@ -361,31 +365,41 @@
     }
 
     .swipe-action {
-      width: 46px;
-      height: 46px;
-      border: 1px solid var(--control-border);
-      border-radius: 18px;
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(147, 157, 171, 0.22);
+      border-radius: 999px;
       padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       line-height: 1;
       cursor: pointer;
-      background: var(--control-glass);
-      box-shadow: 0 10px 20px rgba(31, 41, 55, 0.055), 0 1px 0 rgba(255, 255, 255, 0.88) inset;
+      background: rgba(248, 249, 252, 0.72);
+      box-shadow: 0 10px 22px rgba(31, 41, 55, 0.052), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
       transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
       backdrop-filter: blur(18px) saturate(150%);
       -webkit-backdrop-filter: blur(18px) saturate(150%);
     }
 
     .action-icon {
-      width: 26px;
-      height: 26px;
+      width: 24px;
+      height: 24px;
       display: inline-grid;
       place-items: center;
-      font-size: 1.1rem;
       line-height: 1;
-      font-weight: 380;
+    }
+
+    .sf-icon {
+      width: 23px;
+      height: 23px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.65;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
     }
 
     .swipe-action:disabled {
@@ -394,21 +408,27 @@
     }
 
     .swipe-action.green {
-      border-color: rgba(74, 167, 103, 0.22);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(243, 247, 245, 0.74));
+      border-color: var(--green-line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 249, 247, 0.74));
       color: var(--green-ink);
     }
 
     .swipe-action.red {
-      border-color: rgba(215, 101, 95, 0.22);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 244, 244, 0.74));
+      border-color: var(--red-line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(249, 246, 246, 0.74));
       color: var(--red-ink);
     }
 
+    .swipe-action.orange {
+      border-color: var(--orange-line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 247, 243, 0.74));
+      color: var(--orange-ink);
+    }
+
     .swipe-action.blue {
-      border-color: rgba(10, 132, 255, 0.2);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(242, 246, 251, 0.74));
-      color: #1465b7;
+      border-color: rgba(86, 129, 180, 0.22);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 248, 251, 0.76));
+      color: #4b6f9f;
     }
 
     .swipe-action:active {
@@ -601,14 +621,16 @@
     }
 
     .icon-only-button {
-      width: 46px;
-      height: 46px;
-      min-height: 46px;
+      width: 48px;
+      height: 48px;
+      min-height: 48px;
       padding: 0;
       display: inline-grid;
       place-items: center;
-      border-radius: 18px;
-      font-size: 1.08rem;
+      border-radius: 999px;
+      border-color: rgba(147, 157, 171, 0.24);
+      background: rgba(248, 249, 252, 0.72);
+      color: #6b7280;
       line-height: 1;
     }
 
@@ -1722,6 +1744,43 @@
       justify-content: center;
       gap: 7px;
       pointer-events: auto;
+    }
+
+    .toast-message {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toast-icon {
+      position: relative;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      color: var(--orange-ink);
+    }
+
+    .toast-icon-minus-circle::before,
+    .toast-icon-minus-circle::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .toast-icon-minus-circle::before {
+      width: 15px;
+      height: 15px;
+      border: 1.55px solid currentColor;
+      border-radius: 50%;
+    }
+
+    .toast-icon-minus-circle::after {
+      width: 6.5px;
+      height: 1.55px;
+      border-radius: 999px;
+      background: currentColor;
     }
 
     .toast button {

@@ -137,7 +137,7 @@
       const confirmed = await askForConfirmation({
         title: "确认任务失败",
         message: `将扣除 ${formatNumber(amount)} 金币。确认把「${task.name}」判定为失败吗？`,
-        confirmText: "确认失败"
+        confirmText: "确认"
       });
       if (!confirmed || taskResultToday(taskId)) return;
 
@@ -205,7 +205,8 @@
           amount
         },
         {
-          message: "⚡︎ 已记录",
+          icon: "minus.circle",
+          message: "已扣除",
           undoLabel: "撤回",
           duration: 5000
         }
@@ -223,7 +224,7 @@
       const confirmed = await askForConfirmation({
         title: "确认兑换奖励",
         message: `将消耗 ${formatNumber(amount)} 金币。确认兑换「${reward.name}」吗？`,
-        confirmText: "确认兑换"
+        confirmText: "确认"
       });
       if (!confirmed) return;
       if (!state.rewards.some(item => item.id === rewardId)) return;
@@ -319,6 +320,7 @@
 
     function showUndoToast(undoData, options = {}) {
       const {
+        icon = "",
         message = "操作已执行",
         undoLabel = "撤销",
         duration = 10000
@@ -332,8 +334,17 @@
         }, duration)
       };
       els.toast.textContent = "";
+      const toastMessage = document.createElement("span");
+      toastMessage.className = "toast-message";
+      if (icon === "minus.circle") {
+        const iconEl = document.createElement("span");
+        iconEl.className = "toast-icon toast-icon-minus-circle";
+        iconEl.setAttribute("aria-hidden", "true");
+        toastMessage.append(iconEl);
+      }
       const messageEl = document.createElement("span");
       messageEl.textContent = message;
+      toastMessage.append(messageEl);
       const separatorEl = document.createElement("span");
       separatorEl.setAttribute("aria-hidden", "true");
       separatorEl.textContent = "·";
@@ -341,7 +352,7 @@
       undoButton.type = "button";
       undoButton.dataset.undoAction = "";
       undoButton.textContent = undoLabel;
-      els.toast.append(messageEl, separatorEl, undoButton);
+      els.toast.append(toastMessage, separatorEl, undoButton);
       els.toast.classList.add("interactive", "show");
     }
 

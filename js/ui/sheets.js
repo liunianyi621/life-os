@@ -1,7 +1,16 @@
     function deleteIconButtonHtml({ action, id, label }) {
       return `
         <button class="danger-button icon-only-button" type="button" data-delete-${action}="${escapeAttr(id || "")}" aria-label="${escapeAttr(label)}">
-          <span aria-hidden="true">🗑</span>
+          <span class="action-icon" aria-hidden="true">
+            <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+              <path d="M8.2 8.9v9.3"></path>
+              <path d="M12 8.9v9.3"></path>
+              <path d="M15.8 8.9v9.3"></path>
+              <path d="M6.7 6.6h10.6"></path>
+              <path d="M10 4.7h4"></path>
+              <path d="M7.7 6.6l.7 13.1h7.2l.7-13.1"></path>
+            </svg>
+          </span>
         </button>
       `;
     }
