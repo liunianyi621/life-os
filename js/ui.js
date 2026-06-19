@@ -179,7 +179,9 @@
           <div class="empty-state">
             <strong>还没有习惯</strong>
             <p>添加一个每天固定出现的长期习惯。</p>
-            <button class="button empty-action" data-open-habit>新建习惯</button>
+            <button class="icon-button empty-icon-action" data-open-habit aria-label="添加习惯">
+              <span class="icon-plus" aria-hidden="true"></span>
+            </button>
           </div>
         `;
         return;
@@ -352,15 +354,20 @@
     }
 
     function renderDailyReview(options = {}) {
-      const todayReview = dailyReviewToday();
+      const reviewDate = setSelectedReviewDate(selectedReviewDate);
+      const selectedReview = dailyReviewForDate(reviewDate);
       const today = dateKey();
       const history = sortedDailyReviews(true);
       const shouldClearInputs = options.clearInputs === true;
 
-      els.reviewDate.textContent = formatDate();
-      els.reviewBest.value = shouldClearInputs ? "" : todayReview.best || "";
-      els.reviewMistake.value = shouldClearInputs ? "" : todayReview.mistake || "";
-      els.reviewPriority.value = shouldClearInputs ? "" : todayReview.priority || "";
+      els.reviewDate.textContent = formatReviewDateLabel(reviewDate);
+      if (els.reviewDateInput) {
+        els.reviewDateInput.value = reviewDate;
+        els.reviewDateInput.max = today;
+      }
+      els.reviewBest.value = shouldClearInputs ? "" : selectedReview.best || "";
+      els.reviewMistake.value = shouldClearInputs ? "" : selectedReview.mistake || "";
+      els.reviewPriority.value = shouldClearInputs ? "" : selectedReview.priority || "";
       els.reviewHistoryCount.textContent = `${history.length} 条`;
 
       if (!history.length) {
@@ -543,6 +550,21 @@
       if (event.target === els.confirmBackdrop) closeConfirm(false);
     });
     els.sheetForm.addEventListener("submit", handleSheetSubmit);
+    els.reviewDateButton.addEventListener("click", () => {
+      if (!els.reviewDateInput) return;
+      els.reviewDateInput.value = selectedReviewDate;
+      els.reviewDateInput.max = dateKey();
+      if (typeof els.reviewDateInput.showPicker === "function") {
+        els.reviewDateInput.showPicker();
+        return;
+      }
+      els.reviewDateInput.focus();
+    });
+    els.reviewDateInput.addEventListener("change", event => {
+      const nextDate = setSelectedReviewDate(event.target.value);
+      event.target.value = nextDate;
+      renderDailyReview();
+    });
     els.dailyReviewForm.addEventListener("submit", event => {
       event.preventDefault();
       const formData = new FormData(els.dailyReviewForm);
@@ -550,7 +572,7 @@
         best: formData.get("best"),
         mistake: formData.get("mistake"),
         priority: formData.get("priority")
-      });
+      }, selectedReviewDate);
     });
     els.resetAllBtn.addEventListener("click", () => {
       const confirmed = confirm("确定要重置所有数据吗？此操作会清空当前浏览器中的全部记录。");

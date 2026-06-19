@@ -32,6 +32,7 @@
     let editingId = null;
     let currentStatsRange = "week";
     let currentHeatmapMonth = monthKey();
+    let selectedReviewDate = dateKey();
     let pendingUndo = null;
     let confirmResolver = null;
     let activeSwipe = null;
@@ -128,6 +129,18 @@
       }).format(date);
     }
 
+    function formatReviewDateLabel(key = selectedReviewDate) {
+      const date = dateFromKey(key);
+      const monthDay = new Intl.DateTimeFormat("zh-CN", {
+        month: "long",
+        day: "numeric"
+      }).format(date);
+      const weekday = new Intl.DateTimeFormat("zh-CN", {
+        weekday: "long"
+      }).format(date);
+      return `${monthDay} ${weekday}`;
+    }
+
     function formatMonth(key) {
       return new Intl.DateTimeFormat("zh-CN", {
         year: "numeric",
@@ -171,16 +184,34 @@
       OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
       state = cloneEmptyState();
       state.settledThroughDate = yesterdayKey();
+      selectedReviewDate = dateKey();
       saveState();
       render();
       showToast("所有数据已重置");
     }
-    function dailyReviewToday() {
-      return state.dailyReviews[dateKey()] || {
+
+    function normalizeReviewDateKey(key) {
+      const value = String(key || "").trim();
+      const today = dateKey();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return today;
+      return value > today ? today : value;
+    }
+
+    function setSelectedReviewDate(key) {
+      selectedReviewDate = normalizeReviewDateKey(key);
+      return selectedReviewDate;
+    }
+
+    function dailyReviewForDate(key = selectedReviewDate) {
+      return state.dailyReviews[normalizeReviewDateKey(key)] || {
         best: "",
         mistake: "",
         priority: ""
       };
+    }
+
+    function dailyReviewToday() {
+      return dailyReviewForDate(dateKey());
     }
 
     function sortedDailyReviews(includeToday = true) {
@@ -193,8 +224,8 @@
         .sort(([left], [right]) => right.localeCompare(left));
     }
 
-    function saveDailyReview(reviewData) {
-      const today = dateKey();
+    function saveDailyReview(reviewData, key = selectedReviewDate) {
+      const reviewDate = setSelectedReviewDate(key);
       const best = String(reviewData.best || "").trim();
       const mistake = String(reviewData.mistake || "").trim();
       const priority = String(reviewData.priority || "").trim();
@@ -204,9 +235,9 @@
         return;
       }
 
-      const previous = state.dailyReviews[today] || {};
-      state.dailyReviews[today] = {
-        date: today,
+      const previous = state.dailyReviews[reviewDate] || {};
+      state.dailyReviews[reviewDate] = {
+        date: reviewDate,
         best,
         mistake,
         priority,
@@ -214,7 +245,7 @@
         updatedAt: new Date().toISOString()
       };
       saveState();
-      renderDailyReview({ clearInputs: true });
+      renderDailyReview();
       showReviewSavedStatus();
       showToast("✓ 已保存", 2000);
     }

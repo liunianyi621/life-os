@@ -12,6 +12,8 @@
       noteCount: document.getElementById("noteCount"),
       noteList: document.getElementById("noteList"),
       reviewDate: document.getElementById("reviewDate"),
+      reviewDateButton: document.getElementById("reviewDateButton"),
+      reviewDateInput: document.getElementById("reviewDateInput"),
       dailyReviewForm: document.getElementById("dailyReviewForm"),
       reviewBest: document.getElementById("reviewBest"),
       reviewMistake: document.getElementById("reviewMistake"),

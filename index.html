@@ -55,7 +55,9 @@
           <h2>习惯</h2>
           <div class="section-heading-actions">
             <span id="habitCount">0 项</span>
-            <button class="text-button" type="button" data-open-habit>新建</button>
+            <button class="icon-button habit-add-button" type="button" data-open-habit aria-label="添加习惯">
+              <span class="icon-plus" aria-hidden="true"></span>
+            </button>
           </div>
         </div>
         <div class="list" id="habitList"></div>
@@ -106,7 +108,13 @@
       <section class="view" data-view="review">
         <header class="header">
           <div>
-            <span class="eyebrow" id="reviewDate">今天</span>
+            <div class="review-date-control">
+              <button class="review-date-button" type="button" id="reviewDateButton" aria-label="切换复盘日期">
+                <span id="reviewDate">今天</span>
+                <span class="review-date-chevron" aria-hidden="true">⌄</span>
+              </button>
+              <input class="review-date-input" id="reviewDateInput" type="date" aria-label="选择复盘日期">
+            </div>
             <h1>每日复盘</h1>
           </div>
         </header>
@@ -126,7 +134,7 @@
           </label>
           <div class="review-save-row">
             <span class="review-save-status" id="reviewSaveStatus" role="status" aria-live="polite">✓ 已保存</span>
-            <button class="button" type="submit">保存今日复盘</button>
+            <button class="button" type="submit">保存复盘</button>
           </div>
         </form>
 
