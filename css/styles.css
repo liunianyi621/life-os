@@ -709,6 +709,16 @@
       line-height: 1;
     }
 
+    .button.icon-only-button,
+    .ghost-button.icon-only-button {
+      color: var(--blue);
+    }
+
+    .danger-button.icon-only-button {
+      color: var(--red-ink);
+      border-color: rgba(215, 101, 95, 0.22);
+    }
+
     .button:active,
     .ghost-button:active,
     .danger-button:active,
@@ -745,6 +755,10 @@
 
     .note-card p {
       white-space: pre-wrap;
+    }
+
+    .note-card[role="button"] {
+      cursor: pointer;
     }
 
     .review-form {
@@ -880,6 +894,15 @@
       grid-template-columns: 1fr 1fr;
       gap: 12px;
       margin-bottom: 20px;
+    }
+
+    .stat-card-wide {
+      grid-column: 1 / -1;
+    }
+
+    .stat-value-compact {
+      font-size: 1.34rem;
+      line-height: 1.18;
     }
 
     .segmented {
@@ -1120,6 +1143,10 @@
       background: var(--red);
     }
 
+    .chart-legend i.focus {
+      background: var(--blue);
+    }
+
     .trend-range {
       margin: 0 0 12px;
     }
@@ -1223,6 +1250,12 @@
       font-size: 0.72rem;
       font-weight: 700;
       text-align: center;
+    }
+
+    .trend-summary span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
     }
 
     .positive {
@@ -1508,8 +1541,8 @@
     }
 
     .confirm-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
+      justify-content: flex-end;
       gap: 10px;
     }
 
@@ -1581,14 +1614,16 @@
     }
 
     .time-clear {
-      min-height: 30px;
-      border: 0;
+      width: 34px;
+      height: 34px;
+      min-height: 34px;
+      border: 1px solid var(--control-border);
       border-radius: 999px;
-      padding: 6px 10px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
       background: rgba(237, 242, 247, 0.92);
       color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 760;
     }
 
     .time-wheels {
@@ -1667,8 +1702,8 @@
     }
 
     .sheet-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
+      justify-content: flex-end;
       gap: 10px;
       margin-top: 4px;
     }
@@ -1831,6 +1866,29 @@
       gap: 6px;
     }
 
+    .toast-message-stacked {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 3px 8px;
+      text-align: left;
+    }
+
+    .toast-message-stacked .toast-icon {
+      grid-row: 1 / span 3;
+      align-self: start;
+      margin-top: 1px;
+    }
+
+    .toast-line {
+      display: block;
+      line-height: 1.32;
+    }
+
+    .toast-icon.positive {
+      color: var(--green-ink);
+    }
+
     .toast-icon {
       position: relative;
       width: 18px;
@@ -1863,15 +1921,16 @@
     }
 
     .toast button {
-      min-height: 28px;
+      width: 30px;
+      height: 30px;
+      min-height: 30px;
       border: 1px solid rgba(10, 132, 255, 0.2);
       border-radius: 999px;
-      padding: 4px 11px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
       background: rgba(255, 255, 255, 0.72);
       color: var(--blue);
-      font: inherit;
-      font-size: 0.86rem;
-      font-weight: 840;
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(31, 41, 55, 0.045), 0 1px 0 rgba(255, 255, 255, 0.84) inset;
     }

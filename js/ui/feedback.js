@@ -35,7 +35,7 @@
         confirmResolver = resolve;
         els.confirmTitle.textContent = title;
         els.confirmMessage.textContent = message;
-        els.confirmAcceptBtn.textContent = confirmText || "确认";
+        els.confirmAcceptBtn.setAttribute("aria-label", confirmText || "确认");
         els.confirmBackdrop.classList.remove("hidden");
         els.confirmBackdrop.setAttribute("aria-hidden", "false");
         window.setTimeout(() => els.confirmAcceptBtn.focus(), 0);

@@ -16,44 +16,14 @@
       return Number(value.replace("px", "")) || 84;
     }
 
-    const actionIcons = {
-      "checkmark.circle": `
-        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
-          <circle cx="12" cy="12" r="8.25"></circle>
-          <path d="m8.55 12.18 2.18 2.18 4.82-5.08"></path>
-        </svg>
-      `,
-      "xmark.circle": `
-        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
-          <circle cx="12" cy="12" r="8.25"></circle>
-          <path d="m9.3 9.3 5.4 5.4"></path>
-          <path d="m14.7 9.3-5.4 5.4"></path>
-        </svg>
-      `,
-      "minus.circle": `
-        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
-          <circle cx="12" cy="12" r="8.25"></circle>
-          <path d="M8.6 12h6.8"></path>
-        </svg>
-      `,
-      gift: `
-        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
-          <path d="M5.5 10h13"></path>
-          <path d="M6.6 10v8.3h10.8V10"></path>
-          <path d="M12 10v8.3"></path>
-          <path d="M12 10c-2.5 0-4.05-.85-4.05-2.2 0-.98.78-1.75 1.84-1.75 1.44 0 2.21 1.55 2.21 3.95Z"></path>
-          <path d="M12 10c2.5 0 4.05-.85 4.05-2.2 0-.98-.78-1.75-1.84-1.75-1.44 0-2.21 1.55-2.21 3.95Z"></path>
-        </svg>
-      `
-    };
-
     function actionButtonHtml({ tone, icon, label, attrs = "", disabled = false }) {
-      const disabledAttr = disabled ? " disabled" : "";
-      return `
-        <button class="swipe-action ${tone}" type="button" ${attrs}${disabledAttr} aria-label="${escapeAttr(label)}">
-          <span class="action-icon" aria-hidden="true">${actionIcons[icon] || ""}</span>
-        </button>
-      `;
+      return iconActionButtonHtml({
+        className: `swipe-action ${tone}`,
+        icon,
+        label,
+        attrs,
+        disabled
+      });
     }
 
     function setSwipeOffset(row, offset) {
@@ -86,6 +56,7 @@
       if (card.dataset.editCard === "task") openTaskSheet(editId);
       if (card.dataset.editCard === "habit") openHabitSheet(editId);
       if (card.dataset.editCard === "bad") openBadHabitSheet(editId);
+      if (card.dataset.editCard === "note") openNoteSheet(editId);
       if (card.dataset.editCard === "reward") openRewardSheet(editId);
     }
 
@@ -179,9 +150,12 @@
           <div class="empty-state">
             <strong>还没有习惯</strong>
             <p>添加一个每天固定出现的长期习惯。</p>
-            <button class="icon-button empty-icon-action" data-open-habit aria-label="添加习惯">
-              <span class="icon-plus" aria-hidden="true"></span>
-            </button>
+            ${iconActionButtonHtml({
+              className: "icon-button empty-icon-action",
+              icon: "plus",
+              label: "添加习惯",
+              attrs: "data-open-habit"
+            })}
           </div>
         `;
         return;
@@ -221,6 +195,43 @@
       })).join("");
     }
 
+    function taskMetaHtml(task, status) {
+      if (status === "running") {
+        const startedAt = taskStartedAtLabel(task);
+        return `
+          <span class="pill green">进行中</span>
+          ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
+        `;
+      }
+      return `<span class="pill coin-pill">2.00 金币/小时</span>`;
+    }
+
+    function taskActionsHtml(task, status) {
+      const taskId = escapeAttr(task.id);
+      const primaryAction = status === "running"
+        ? actionButtonHtml({
+            tone: "blue",
+            icon: "stop.circle",
+            label: "结束任务",
+            attrs: `data-stop-task="${taskId}"`
+          })
+        : actionButtonHtml({
+            tone: "blue",
+            icon: "play.circle",
+            label: "开始任务",
+            attrs: `data-start-task="${taskId}"`
+          });
+      return `
+        ${primaryAction}
+        ${actionButtonHtml({
+          tone: "red",
+          icon: "xmark.circle",
+          label: "任务未完成",
+          attrs: `data-fail-task="${taskId}"`
+        })}
+      `;
+    }
+
     function renderTasks() {
       const tasksForToday = todayTasks();
       if (!tasksForToday.length) {
@@ -228,7 +239,12 @@
           <div class="empty-state">
             <strong>今天没有任务</strong>
             <p>添加一个你今天必须完成的任务。</p>
-            <button class="button empty-action" data-open-task>新建任务</button>
+            ${iconActionButtonHtml({
+              className: "button icon-only-button empty-action",
+              icon: "plus",
+              label: "新建任务",
+              attrs: "data-open-task"
+            })}
           </div>
         `;
         return;
@@ -249,36 +265,26 @@
         <section class="task-time-group">
           <div class="task-time-heading">${escapeHtml(group.label)}</div>
           <div class="task-time-list">
-            ${group.tasks.map(task => swipeRowHtml({
-              attrs: `data-task-card="${escapeAttr(task.id)}"`,
-              actionWidth: 168,
-              editType: "task",
-              editId: task.id,
-              actions: `
-                ${actionButtonHtml({
-                  tone: "green",
-                  icon: "checkmark.circle",
-                  label: "任务达成",
-                  attrs: `data-complete-task="${escapeAttr(task.id)}"`
-                })}
-                ${actionButtonHtml({
-                  tone: "red",
-                  icon: "xmark.circle",
-                  label: "任务未达成",
-                  attrs: `data-fail-task="${escapeAttr(task.id)}"`
-                })}
-              `,
-              content: `
+            ${group.tasks.map(task => {
+              const status = taskStatusToday(task);
+              return swipeRowHtml({
+                attrs: `data-task-card="${escapeAttr(task.id)}"`,
+                actionWidth: 168,
+                editType: "task",
+                editId: task.id,
+                actions: taskActionsHtml(task, status),
+                content: `
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(task.name)}</h3>
                 <div class="meta-row">
-                  <span class="pill coin-pill">${formatNumber(parseAmount(task.coins))} 金币</span>
+                  ${taskMetaHtml(task, status)}
                 </div>
               </div>
             </div>
               `
-            })).join("")}
+              });
+            }).join("")}
           </div>
         </section>
       `).join("");
@@ -290,7 +296,12 @@
           <div class="empty-state">
             <strong>没有坏习惯</strong>
             <p>添加一个需要立刻付出代价的行为。</p>
-            <button class="button empty-action" data-open-bad>新建坏习惯</button>
+            ${iconActionButtonHtml({
+              className: "button icon-only-button empty-action",
+              icon: "plus",
+              label: "新建坏习惯",
+              attrs: "data-open-bad"
+            })}
           </div>
         `;
         return;
@@ -325,19 +336,23 @@
           <div class="empty-state">
             <strong>没有笔记</strong>
             <p>写下一个简单提醒。</p>
-            <button class="button empty-action" data-open-note>新建笔记</button>
+            ${iconActionButtonHtml({
+              className: "button icon-only-button empty-action",
+              icon: "plus",
+              label: "新建笔记",
+              attrs: "data-open-note"
+            })}
           </div>
         `;
         return;
       }
 
       els.noteList.innerHTML = state.notes.map(note => `
-        <article class="card note-card">
+        <article class="card note-card" data-edit-card="note" data-edit-id="${escapeAttr(note.id)}" role="button" tabindex="0" aria-label="编辑笔记">
           <div class="card-main">
             <div class="title-wrap">
               <p>${escapeHtml(note.text)}</p>
             </div>
-            <button class="text-button" data-edit-note="${note.id}">编辑</button>
           </div>
         </article>
       `).join("");
@@ -402,7 +417,12 @@
           <div class="empty-state">
             <strong>没有奖励</strong>
             <p>添加一个可以用金币兑换的奖励。</p>
-            <button class="button empty-action" data-open-reward>新建奖励</button>
+            ${iconActionButtonHtml({
+              className: "button icon-only-button empty-action",
+              icon: "plus",
+              label: "新建奖励",
+              attrs: "data-open-reward"
+            })}
           </div>
         `;
         return;
@@ -458,6 +478,8 @@
       const editNoteButton = event.target.closest("[data-edit-note]");
       const editRewardButton = event.target.closest("[data-edit-reward]");
       const completeTaskButton = event.target.closest("[data-complete-task]");
+      const startTaskButton = event.target.closest("[data-start-task]");
+      const stopTaskButton = event.target.closest("[data-stop-task]");
       const completeHabitButton = event.target.closest("[data-complete-habit]");
       const failTaskButton = event.target.closest("[data-fail-task]");
       const triggerBadButton = event.target.closest("[data-trigger-bad]");
@@ -489,6 +511,7 @@
       if (openBadButton) openBadHabitSheet();
       if (openNoteButton) openNoteSheet();
       if (openRewardButton) openRewardSheet();
+      if (editCard?.dataset.editCard === "note") handleEditCardTap(editCard);
       if (editTaskButton) openTaskSheet(editTaskButton.dataset.editTask);
       if (editHabitButton) openHabitSheet(editHabitButton.dataset.editHabit);
       if (editBadButton) openBadHabitSheet(editBadButton.dataset.editBad);
@@ -496,6 +519,12 @@
       if (editRewardButton) openRewardSheet(editRewardButton.dataset.editReward);
       if (completeTaskButton) {
         completeTask(completeTaskButton.dataset.completeTask, completeTaskButton.closest("[data-task-card]"));
+      }
+      if (startTaskButton) {
+        startTask(startTaskButton.dataset.startTask, startTaskButton.closest("[data-task-card]"));
+      }
+      if (stopTaskButton) {
+        finishTask(stopTaskButton.dataset.stopTask, stopTaskButton.closest("[data-task-card]"));
       }
       if (completeHabitButton) {
         completeHabit(completeHabitButton.dataset.completeHabit, completeHabitButton.closest("[data-habit-card]"));
@@ -574,12 +603,22 @@
         priority: formData.get("priority")
       }, selectedReviewDate);
     });
-    els.resetAllBtn.addEventListener("click", () => {
-      const confirmed = confirm("确定要重置所有数据吗？此操作会清空当前浏览器中的全部记录。");
+    els.resetAllBtn.addEventListener("click", async () => {
+      const confirmed = await askForConfirmation({
+        title: "重置所有数据",
+        message: "此操作会清空当前浏览器中的全部记录。",
+        confirmText: "确认重置"
+      });
       if (confirmed) resetAllData();
     });
 
     document.addEventListener("keydown", event => {
+      const noteEditCard = event.target.closest?.("[data-edit-card='note']");
+      if (noteEditCard && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        handleEditCardTap(noteEditCard);
+        return;
+      }
       if (event.key === "Escape") {
         if (!els.confirmBackdrop.classList.contains("hidden")) {
           closeConfirm(false);

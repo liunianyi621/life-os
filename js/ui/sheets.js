@@ -1,18 +1,28 @@
     function deleteIconButtonHtml({ action, id, label }) {
-      return `
-        <button class="danger-button icon-only-button" type="button" data-delete-${action}="${escapeAttr(id || "")}" aria-label="${escapeAttr(label)}">
-          <span class="action-icon" aria-hidden="true">
-            <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
-              <path d="M8.2 8.9v9.3"></path>
-              <path d="M12 8.9v9.3"></path>
-              <path d="M15.8 8.9v9.3"></path>
-              <path d="M6.7 6.6h10.6"></path>
-              <path d="M10 4.7h4"></path>
-              <path d="M7.7 6.6l.7 13.1h7.2l.7-13.1"></path>
-            </svg>
-          </span>
-        </button>
-      `;
+      return iconActionButtonHtml({
+        className: "danger-button icon-only-button",
+        icon: "trash",
+        label,
+        attrs: `data-delete-${action}="${escapeAttr(id || "")}"`
+      });
+    }
+
+    function closeSheetButtonHtml() {
+      return iconActionButtonHtml({
+        className: "ghost-button icon-only-button",
+        icon: "xmark.circle",
+        label: "取消",
+        attrs: "data-close-sheet"
+      });
+    }
+
+    function submitSheetButtonHtml(label) {
+      return iconActionButtonHtml({
+        className: "button icon-only-button",
+        type: "submit",
+        icon: "checkmark.circle",
+        label
+      });
     }
 
     function openTaskSheet(taskId = null) {
@@ -38,7 +48,12 @@
             <input name="time" type="hidden" value="${escapeAttr(initialTimeValue)}">
             <div class="time-picker-header">
               <span class="time-picker-value" data-time-value>${escapeHtml(initialTimeValue || "未设置")}</span>
-              <button class="time-clear" type="button" data-clear-time>不设置</button>
+              ${iconActionButtonHtml({
+                className: "time-clear icon-only-button",
+                icon: "xmark.circle",
+                label: "不设置时间",
+                attrs: "data-clear-time"
+              })}
             </div>
             <div class="time-wheels" aria-label="选择时间">
               <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
@@ -54,8 +69,8 @@
           </div>
         </div>
         <div class="sheet-actions">
-          <button class="ghost-button" type="button" data-close-sheet>取消</button>
-          <button class="button" type="submit">${task ? "保存" : "创建"}</button>
+          ${closeSheetButtonHtml()}
+          ${submitSheetButtonHtml(task ? "保存任务" : "创建任务")}
         </div>
         <div class="delete-row ${task ? "" : "hidden"}">
           ${deleteIconButtonHtml({ action: "task", id: task?.id, label: "移除任务" })}
@@ -81,8 +96,8 @@
           <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${habit?.coins ?? ""}" placeholder="0">
         </label>
         <div class="sheet-actions">
-          <button class="ghost-button" type="button" data-close-sheet>取消</button>
-          <button class="button" type="submit">${habit ? "保存" : "创建"}</button>
+          ${closeSheetButtonHtml()}
+          ${submitSheetButtonHtml(habit ? "保存习惯" : "创建习惯")}
         </div>
         <div class="delete-row ${habit ? "" : "hidden"}">
           ${deleteIconButtonHtml({ action: "habit", id: habit?.id, label: "移除习惯" })}
@@ -107,8 +122,8 @@
           <input name="penalty" type="number" min="0" step="1" inputmode="numeric" value="${habit?.penalty ?? ""}" placeholder="0">
         </label>
         <div class="sheet-actions">
-          <button class="ghost-button" type="button" data-close-sheet>取消</button>
-          <button class="button" type="submit">${habit ? "保存" : "创建"}</button>
+          ${closeSheetButtonHtml()}
+          ${submitSheetButtonHtml(habit ? "保存坏习惯" : "创建坏习惯")}
         </div>
         <div class="delete-row ${habit ? "" : "hidden"}">
           ${deleteIconButtonHtml({ action: "bad", id: habit?.id, label: "移除坏习惯" })}
@@ -129,8 +144,8 @@
           <textarea name="text" maxlength="500" placeholder="输入提醒内容" required>${escapeHtml(note?.text || "")}</textarea>
         </label>
         <div class="sheet-actions">
-          <button class="ghost-button" type="button" data-close-sheet>取消</button>
-          <button class="button" type="submit">${note ? "保存" : "创建"}</button>
+          ${closeSheetButtonHtml()}
+          ${submitSheetButtonHtml(note ? "保存笔记" : "创建笔记")}
         </div>
         <div class="delete-row ${note ? "" : "hidden"}">
           ${deleteIconButtonHtml({ action: "note", id: note?.id, label: "移除笔记" })}
@@ -155,8 +170,8 @@
           <input name="cost" type="number" min="0" step="1" inputmode="numeric" value="${reward?.cost ?? ""}" placeholder="0">
         </label>
         <div class="sheet-actions">
-          <button class="ghost-button" type="button" data-close-sheet>取消</button>
-          <button class="button" type="submit">${reward ? "保存" : "创建"}</button>
+          ${closeSheetButtonHtml()}
+          ${submitSheetButtonHtml(reward ? "保存奖励" : "创建奖励")}
         </div>
         <div class="delete-row ${reward ? "" : "hidden"}">
           ${deleteIconButtonHtml({ action: "reward", id: reward?.id, label: "移除奖励" })}

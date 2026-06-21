@@ -23,9 +23,7 @@
             <span class="eyebrow" id="todayDate">今天</span>
             <h1>自律系统</h1>
           </div>
-          <button class="icon-button" data-open-task aria-label="新建任务">
-            <span class="icon-plus" aria-hidden="true"></span>
-          </button>
+          <button class="icon-button" data-open-task aria-label="新建任务" data-icon-button="plus"></button>
         </header>
 
         <section class="summary-grid" aria-label="今日概览">
@@ -55,9 +53,7 @@
           <h2>习惯</h2>
           <div class="section-heading-actions">
             <span id="habitCount">0 项</span>
-            <button class="icon-button habit-add-button" type="button" data-open-habit aria-label="添加习惯">
-              <span class="icon-plus" aria-hidden="true"></span>
-            </button>
+            <button class="icon-button habit-add-button" type="button" data-open-habit aria-label="添加习惯" data-icon-button="plus"></button>
           </div>
         </div>
         <div class="list" id="habitList"></div>
@@ -69,9 +65,7 @@
             <span class="eyebrow">点击即扣金币</span>
             <h1>坏习惯</h1>
           </div>
-          <button class="icon-button" data-open-bad aria-label="新建坏习惯">
-            <span class="icon-plus" aria-hidden="true"></span>
-          </button>
+          <button class="icon-button" data-open-bad aria-label="新建坏习惯" data-icon-button="plus"></button>
         </header>
 
         <section class="balance-strip" aria-label="当前金币">
@@ -93,9 +87,7 @@
             <span class="eyebrow">简单提醒</span>
             <h1>笔记</h1>
           </div>
-          <button class="icon-button" data-open-note aria-label="新建笔记">
-            <span class="icon-plus" aria-hidden="true"></span>
-          </button>
+          <button class="icon-button" data-open-note aria-label="新建笔记" data-icon-button="plus"></button>
         </header>
 
         <div class="section-heading">
@@ -134,7 +126,7 @@
           </label>
           <div class="review-save-row">
             <span class="review-save-status" id="reviewSaveStatus" role="status" aria-live="polite">✓ 已保存</span>
-            <button class="button" type="submit">保存复盘</button>
+            <button class="button icon-only-button" type="submit" aria-label="保存复盘" data-icon-button="checkmark.circle"></button>
           </div>
         </form>
 
@@ -151,9 +143,7 @@
             <span class="eyebrow">自定义兑换</span>
             <h1>奖励</h1>
           </div>
-          <button class="icon-button" data-open-reward aria-label="新建奖励">
-            <span class="icon-plus" aria-hidden="true"></span>
-          </button>
+          <button class="icon-button" data-open-reward aria-label="新建奖励" data-icon-button="plus"></button>
         </header>
 
         <section class="balance-strip" aria-label="当前金币">
@@ -186,6 +176,10 @@
             <span class="stat-label">当前金库</span>
             <strong class="stat-value" id="statCoins">0</strong>
           </div>
+          <div class="stat-card stat-card-wide">
+            <span class="stat-label">累计专注时长</span>
+            <strong class="stat-value stat-value-compact" id="statFocusDuration">0 分钟</strong>
+          </div>
         </div>
 
         <section class="card chart-card" aria-label="自律热力图">
@@ -209,7 +203,7 @@
         <section class="card chart-card" aria-label="习惯趋势">
           <div class="chart-title">
             <h2>习惯趋势</h2>
-            <span>次数</span>
+            <span>次数 / 分钟</span>
           </div>
           <div class="segmented trend-range" aria-label="统计范围">
             <button class="segment-button active" data-stats-range="week" type="button">最近一周</button>
@@ -220,6 +214,7 @@
           <div class="chart-legend" aria-hidden="true">
             <span><i class="good"></i>完成</span>
             <span><i class="bad"></i>坏习惯</span>
+            <span><i class="focus"></i>专注</span>
           </div>
         </section>
 
@@ -229,7 +224,7 @@
               <h2>重置所有数据</h2>
               <p>清空任务、习惯、坏习惯、笔记和金币记录。</p>
             </div>
-            <button class="danger-button" id="resetAllBtn">重置</button>
+            <button class="danger-button icon-only-button" id="resetAllBtn" aria-label="重置所有数据" data-icon-button="trash"></button>
           </div>
         </section>
       </section>
@@ -263,7 +258,7 @@
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
       <div class="sheet-header">
         <h2 id="sheetTitle">新建</h2>
-        <button class="text-button" type="button" id="closeSheetBtn">取消</button>
+        <button class="text-button icon-only-button" type="button" id="closeSheetBtn" aria-label="关闭面板" data-icon-button="xmark.circle"></button>
       </div>
       <form class="sheet-form" id="sheetForm"></form>
     </section>
@@ -273,7 +268,7 @@
     <section class="sheet day-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="dayDetailTitle">
       <div class="sheet-header">
         <h2 id="dayDetailTitle">日详情</h2>
-        <button class="text-button" type="button" id="closeDayDetailBtn">关闭</button>
+        <button class="text-button icon-only-button" type="button" id="closeDayDetailBtn" aria-label="关闭详情" data-icon-button="xmark.circle"></button>
       </div>
       <div class="day-detail-content" id="dayDetailContent"></div>
     </section>
@@ -286,8 +281,8 @@
         <p id="confirmMessage">确认执行此操作吗？</p>
       </div>
       <div class="confirm-actions">
-        <button class="ghost-button" type="button" id="confirmCancelBtn">取消</button>
-        <button class="danger-button" type="button" id="confirmAcceptBtn">确认</button>
+        <button class="ghost-button icon-only-button" type="button" id="confirmCancelBtn" aria-label="取消" data-icon-button="xmark.circle"></button>
+        <button class="danger-button icon-only-button" type="button" id="confirmAcceptBtn" aria-label="确认" data-icon-button="checkmark.circle"></button>
       </div>
     </section>
   </div>

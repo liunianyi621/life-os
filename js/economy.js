@@ -11,6 +11,10 @@
         if (item.type === "task_completed" || item.type === "habit_completed") {
           totals.completedTasks += 1;
         }
+        if (item.type === "task_completed") {
+          totals.taskDurationSeconds += taskDurationSecondsFromItem(item);
+          totals.earnedTaskCoins += taskEarnedCoinsFromItem(item);
+        }
         if (item.type === "reward_redeemed") {
           totals.coinsSpent += parseAmount(item.cost);
         }
@@ -21,12 +25,14 @@
       }, {
         completedTasks: 0,
         coinsSpent: 0,
-        coinsPenalty: 0
+        coinsPenalty: 0,
+        taskDurationSeconds: 0,
+        earnedTaskCoins: 0
       });
     }
 
     function setCoinReadouts(value) {
-      const formatted = formatNumber(value);
+      const formatted = formatCoinAmount(value);
       [els.homeCoins, els.badCoins, els.rewardCoins, els.statCoins].forEach(target => {
         if (target) target.textContent = formatted;
       });
@@ -49,7 +55,7 @@
       const tick = timestamp => {
         const progress = Math.min(1, (timestamp - start) / duration);
         const eased = 1 - Math.pow(1 - progress, 3);
-        setCoinReadouts(Math.round(from + change * eased));
+        setCoinReadouts(parseCoinAmount(from + change * eased));
         if (progress < 1) frame(tick);
         else setCoinReadouts(to);
       };
@@ -65,29 +71,75 @@
       els.todayTaskCount.textContent = `${activeCount} 项`;
       if (els.statStreak) els.statStreak.textContent = formatNumber(streak);
       if (els.statCompleted) els.statCompleted.textContent = formatNumber(totals.completedTasks);
-      if (els.statCoins) els.statCoins.textContent = formatNumber(state.coins);
+      if (els.statCoins) els.statCoins.textContent = formatCoinAmount(state.coins);
       if (els.statSpent) els.statSpent.textContent = formatNumber(totals.coinsSpent);
       if (els.statPenalty) els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
+      if (els.statFocusDuration) els.statFocusDuration.textContent = formatFocusDuration(totals.taskDurationSeconds);
     }
-    function completeTask(taskId, sourceEl = null) {
+    function startTask(taskId, sourceEl = null) {
       const task = todayTasks().find(item => item.id === taskId);
       if (!task || taskResultToday(taskId)) return;
+      if (taskStatusToday(task) === "running") return;
+
+      const startTime = new Date().toISOString();
+      state.tasks = state.tasks.map(item => (
+        item.id === taskId
+          ? {
+              ...item,
+              status: "running",
+              startTime,
+              endTime: null,
+              durationMinutes: null,
+              durationSeconds: null,
+              earnedCoins: null,
+              updatedAt: startTime
+            }
+          : item
+      ));
+      saveState();
+      render();
+    }
+
+    function finishTask(taskId, sourceEl = null) {
+      const task = todayTasks().find(item => item.id === taskId);
+      if (!task || taskResultToday(taskId) || taskStatusToday(task) !== "running") return;
 
       const today = dateKey();
-      const amount = parseAmount(task.coins);
+      const endTime = new Date().toISOString();
+      const { durationSeconds, durationMinutes, earnedCoins } = taskDurationPayload(task.startTime, endTime);
+      state.tasks = state.tasks.map(item => (
+        item.id === taskId
+          ? {
+              ...item,
+              status: "completed",
+              endTime,
+              durationSeconds,
+              durationMinutes,
+              earnedCoins,
+              updatedAt: endTime
+            }
+          : item
+      ));
       state.completions[today] = state.completions[today] || {};
       state.completions[today][taskId] = true;
       state.taskResults[today] = state.taskResults[today] || {};
       state.taskResults[today][taskId] = "completed";
-      state.coins += amount;
+      state.coins = parseCoinAmount(state.coins + earnedCoins);
       state.totals.completedTasks += 1;
+      state.totals.taskDurationSeconds = (Number(state.totals.taskDurationSeconds) || 0) + durationSeconds;
+      state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + earnedCoins);
       updateStreakForCompletion(today);
       state.history.unshift({
         id: createId("history"),
         type: "task_completed",
         taskId: task.id,
         name: task.name,
-        coins: amount,
+        coins: earnedCoins,
+        earnedCoins,
+        durationMinutes,
+        durationSeconds,
+        startTime: task.startTime,
+        endTime,
         date: today,
         timestamp: new Date().toISOString()
       });
@@ -95,9 +147,17 @@
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
       if (sourceEl) sourceEl.classList.add("task-exit-success");
-      showCoinFeedback(amount, "positive", sourceEl, { flash: false });
+      showCoinFeedback(earnedCoins, "positive", sourceEl, { flash: false });
       scheduleRender(sourceEl ? 380 : 0);
-      showToast("任务已完成");
+      showTaskRewardToast({
+        earnedCoins,
+        durationSeconds,
+        currentCoins: state.coins
+      });
+    }
+
+    function completeTask(taskId, sourceEl = null) {
+      finishTask(taskId, sourceEl);
     }
 
     function completeHabit(habitId, sourceEl = null) {
@@ -128,22 +188,34 @@
       showToast("习惯已完成");
     }
 
-    async function failTask(taskId, sourceEl = null) {
+    function failTask(taskId, sourceEl = null) {
       const task = todayTasks().find(item => item.id === taskId);
       if (!task || taskResultToday(taskId)) return;
 
       const today = dateKey();
-      const amount = parseAmount(task.coins) * 5;
-      const confirmed = await askForConfirmation({
-        title: "确认任务失败",
-        message: `将扣除 ${formatNumber(amount)} 金币。确认把「${task.name}」判定为失败吗？`,
-        confirmText: "确认"
-      });
-      if (!confirmed || taskResultToday(taskId)) return;
+      const amount = 10;
+      const previousTask = {
+        status: task.status || "pending",
+        startTime: task.startTime || null,
+        endTime: task.endTime || null,
+        durationMinutes: task.durationMinutes ?? null,
+        durationSeconds: task.durationSeconds ?? null,
+        earnedCoins: task.earnedCoins ?? null
+      };
 
+      state.tasks = state.tasks.map(item => (
+        item.id === taskId
+          ? {
+              ...item,
+              status: "failed",
+              failedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }
+          : item
+      ));
       state.taskResults[today] = state.taskResults[today] || {};
       state.taskResults[today][taskId] = "failed";
-      state.coins -= amount;
+      state.coins = parseCoinAmount(state.coins - amount);
       state.totals.coinsPenalty += amount;
       const historyId = createId("history");
       state.history.unshift({
@@ -166,7 +238,17 @@
         historyId,
         taskId: task.id,
         date: today,
-        amount
+        amount,
+        previousTask
+      }, {
+        icon: "xmark.circle",
+        lines: [
+          `扣除 ${formatCoinAmount(amount)} 金币`,
+          "任务未完成",
+          `当前金币 ${formatCoinAmount(state.coins)}`
+        ],
+        undoLabel: "撤回",
+        duration: 7000
       });
     }
 
@@ -300,12 +382,42 @@
       const rect = sourceEl ? sourceEl.getBoundingClientRect() : els.homeCoins.getBoundingClientRect();
       const delta = document.createElement("span");
       delta.className = `floating-delta ${tone}`;
-      delta.textContent = `${tone === "positive" ? "+" : "-"}${formatNumber(amount)}`;
+      delta.textContent = `${tone === "positive" ? "+" : "-"}${formatCoinAmount(amount)}`;
       delta.style.left = `${rect.left + rect.width / 2}px`;
       delta.style.top = `${rect.top + 14}px`;
       document.body.appendChild(delta);
       delta.addEventListener("animationend", () => delta.remove(), { once: true });
     }
+
+    function showTaskRewardToast({ earnedCoins, durationSeconds, currentCoins }) {
+      clearPendingUndo(false);
+      clearTimeout(showToast.timer);
+      els.toast.textContent = "";
+      const toastMessage = document.createElement("span");
+      toastMessage.className = "toast-message toast-message-stacked";
+      const iconEl = document.createElement("span");
+      iconEl.className = "toast-icon action-icon positive";
+      iconEl.setAttribute("aria-hidden", "true");
+      iconEl.innerHTML = actionIcons["checkmark.circle"];
+      toastMessage.append(iconEl);
+      [
+        `获得 ${formatCoinAmount(earnedCoins)} 金币`,
+        `用时 ${formatTaskDurationClock(durationSeconds)}`,
+        `当前金币 ${formatCoinAmount(currentCoins)}`
+      ].forEach(line => {
+        const lineEl = document.createElement("span");
+        lineEl.className = "toast-line";
+        lineEl.textContent = line;
+        toastMessage.append(lineEl);
+      });
+      els.toast.append(toastMessage);
+      els.toast.classList.remove("interactive");
+      els.toast.classList.add("show");
+      showToast.timer = setTimeout(() => {
+        els.toast.classList.remove("show");
+      }, 3600);
+    }
+
     function clearPendingUndo(hideToast = false) {
       if (pendingUndo?.timer) {
         clearTimeout(pendingUndo.timer);
@@ -322,6 +434,7 @@
       const {
         icon = "",
         message = "操作已执行",
+        lines = null,
         undoLabel = "撤销",
         duration = 10000
       } = options;
@@ -336,22 +449,30 @@
       els.toast.textContent = "";
       const toastMessage = document.createElement("span");
       toastMessage.className = "toast-message";
-      if (icon === "minus.circle") {
+      if (icon && actionIcons[icon]) {
         const iconEl = document.createElement("span");
-        iconEl.className = "toast-icon toast-icon-minus-circle";
+        iconEl.className = "toast-icon action-icon";
         iconEl.setAttribute("aria-hidden", "true");
+        iconEl.innerHTML = actionIcons[icon];
         toastMessage.append(iconEl);
       }
-      const messageEl = document.createElement("span");
-      messageEl.textContent = message;
-      toastMessage.append(messageEl);
+      const messageLines = Array.isArray(lines) && lines.length ? lines : [message];
+      if (messageLines.length > 1) toastMessage.classList.add("toast-message-stacked");
+      messageLines.forEach(line => {
+        const messageEl = document.createElement("span");
+        messageEl.className = "toast-line";
+        messageEl.textContent = line;
+        toastMessage.append(messageEl);
+      });
       const separatorEl = document.createElement("span");
       separatorEl.setAttribute("aria-hidden", "true");
       separatorEl.textContent = "·";
       const undoButton = document.createElement("button");
       undoButton.type = "button";
       undoButton.dataset.undoAction = "";
-      undoButton.textContent = undoLabel;
+      undoButton.className = "toast-icon-button";
+      undoButton.setAttribute("aria-label", undoLabel);
+      undoButton.innerHTML = actionIconHtml("xmark.circle");
       els.toast.append(toastMessage, separatorEl, undoButton);
       els.toast.classList.add("interactive", "show");
     }
@@ -376,15 +497,30 @@
             delete state.taskResults[undo.date];
           }
         }
-        state.coins += undo.amount;
+        state.tasks = state.tasks.map(task => (
+          task.id === undo.taskId
+            ? {
+                ...task,
+                status: undo.previousTask?.status || "pending",
+                startTime: undo.previousTask?.startTime || null,
+                endTime: undo.previousTask?.endTime || null,
+                durationMinutes: undo.previousTask?.durationMinutes ?? null,
+                durationSeconds: undo.previousTask?.durationSeconds ?? null,
+                earnedCoins: undo.previousTask?.earnedCoins ?? null,
+                failedAt: null,
+                updatedAt: new Date().toISOString()
+              }
+            : task
+        ));
+        state.coins = parseCoinAmount(state.coins + undo.amount);
         state.totals.coinsPenalty = Math.max(0, parseAmount(state.totals.coinsPenalty) - undo.amount);
       }
       if (undo.type === "bad_habit") {
-        state.coins += undo.amount;
+        state.coins = parseCoinAmount(state.coins + undo.amount);
         state.totals.coinsPenalty = Math.max(0, parseAmount(state.totals.coinsPenalty) - undo.amount);
       }
       if (undo.type === "reward_redeemed") {
-        state.coins += undo.amount;
+        state.coins = parseCoinAmount(state.coins + undo.amount);
         state.totals.coinsSpent = Math.max(0, parseAmount(state.totals.coinsSpent) - undo.amount);
       }
 

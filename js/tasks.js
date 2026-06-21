@@ -6,6 +6,70 @@
       return taskResultOnDate(taskId, dateKey());
     }
 
+    function taskStatusToday(task) {
+      const result = taskResultToday(task.id);
+      if (result === "completed" || result === "failed") return result;
+      if (task.status === "running" && task.startTime && !task.endTime) return "running";
+      return "pending";
+    }
+
+    function taskStartedAtLabel(task) {
+      if (!task?.startTime) return "";
+      const date = new Date(task.startTime);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).format(date);
+    }
+
+    function taskDurationPayload(startTime, endTime = new Date()) {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+        return {
+          durationSeconds: 0,
+          durationMinutes: 0,
+          earnedCoins: 0
+        };
+      }
+      const durationSeconds = Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000));
+      const durationMinutes = Math.round((durationSeconds / 60) * 100) / 100;
+      const earnedCoins = parseCoinAmount((durationSeconds / 3600) * 2);
+      return { durationSeconds, durationMinutes, earnedCoins };
+    }
+
+    function formatTaskDurationClock(seconds) {
+      const value = Math.max(0, Math.round(Number(seconds) || 0));
+      const minutes = Math.floor(value / 60);
+      const restSeconds = value % 60;
+      return `${minutes}分${String(restSeconds).padStart(2, "0")}秒`;
+    }
+
+    function formatFocusDuration(seconds) {
+      const minutes = Math.max(0, Math.round((Number(seconds) || 0) / 60));
+      if (minutes < 60) return `${formatNumber(minutes)} 分钟`;
+      const hours = Math.floor(minutes / 60);
+      const restMinutes = minutes % 60;
+      return `${formatNumber(hours)}小时${String(restMinutes).padStart(2, "0")}分钟`;
+    }
+
+    function taskDurationSecondsFromItem(item) {
+      if (item?.type !== "task_completed") return 0;
+      const seconds = Number(item.durationSeconds);
+      return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+    }
+
+    function totalCompletedTaskDurationSeconds(items = state.history) {
+      return (items || []).reduce((total, item) => total + taskDurationSecondsFromItem(item), 0);
+    }
+
+    function taskEarnedCoinsFromItem(item) {
+      if (item?.type !== "task_completed") return 0;
+      return parseCoinAmount(item.earnedCoins ?? item.coins);
+    }
+
     function taskDate(task) {
       if (task.date) return task.date;
       if (task.createdDate) return task.createdDate;
@@ -46,7 +110,10 @@
     }
 
     function activeTasksToday() {
-      return todayTasks().filter(task => !taskResultToday(task.id));
+      return todayTasks().filter(task => {
+        const status = taskStatusToday(task);
+        return status !== "completed" && status !== "failed";
+      });
     }
     function timeToMinutes(value) {
       const parts = parseTimeValue(value);

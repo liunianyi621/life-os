@@ -14,6 +14,9 @@
         badHabits: 0,
         earned: 0,
         deducted: 0,
+        focusSeconds: 0,
+        focusMinutes: 0,
+        earnedTaskCoins: 0,
         net: 0,
         score: 0
       }));
@@ -26,7 +29,11 @@
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
-          row.earned += parseAmount(item.coins);
+          row.earned += item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
+        }
+        if (item.type === "task_completed") {
+          row.focusSeconds += taskDurationSecondsFromItem(item);
+          row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
         }
         if (item.type === "task_failed" || item.type === "task_missed") {
           row.failed += 1;
@@ -42,6 +49,7 @@
       });
 
       rows.forEach(row => {
+        row.focusMinutes = Math.round(row.focusSeconds / 60);
         row.net = row.earned - row.deducted;
         row.score = row.completed - row.failed - row.badHabits;
       });
@@ -64,6 +72,9 @@
           badHabits: 0,
           earned: 0,
           deducted: 0,
+          focusSeconds: 0,
+          focusMinutes: 0,
+          earnedTaskCoins: 0,
           net: 0,
           hasRecord: false
         };
@@ -77,7 +88,11 @@
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
-          row.earned += parseAmount(item.coins);
+          row.earned += item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
+        }
+        if (item.type === "task_completed") {
+          row.focusSeconds += taskDurationSecondsFromItem(item);
+          row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
         }
         if (item.type === "task_failed" || item.type === "task_missed") {
           row.failed += 1;
@@ -93,10 +108,19 @@
       });
 
       rows.forEach(row => {
+        row.focusMinutes = Math.round(row.focusSeconds / 60);
         row.net = row.earned - row.deducted;
       });
 
       return rows;
+    }
+
+    function buildMonthlyTaskSummary(month) {
+      const rows = buildMonthlyHeatRows(month);
+      return {
+        monthlyTaskDuration: rows.reduce((total, row) => total + row.focusSeconds, 0),
+        monthlyEarnedCoinsFromTasks: parseCoinAmount(rows.reduce((total, row) => total + row.earnedTaskCoins, 0))
+      };
     }
 
     function calendarDayClass(row, maxNet, maxLoss) {
@@ -132,7 +156,7 @@
       const value = Number(amount) || 0;
       const tone = value > 0 ? "positive" : value < 0 ? "negative" : "";
       const sign = value > 0 ? "+" : value < 0 ? "-" : "";
-      return `<span class="detail-amount ${tone}">${sign}${formatNumber(Math.abs(value))}</span>`;
+      return `<span class="detail-amount ${tone}">${sign}${formatCoinAmount(Math.abs(value))}</span>`;
     }
 
     function dayEntries(day, matcher) {
@@ -145,7 +169,7 @@
       const failed = dayEntries(day, item => item.type === "task_failed" || item.type === "task_missed");
       const badHabits = dayEntries(day, item => item.type === "bad_habit");
       const rewards = dayEntries(day, item => item.type === "reward_redeemed");
-      const earned = completed.reduce((sum, item) => sum + parseAmount(item.coins), 0)
+      const earned = completed.reduce((sum, item) => sum + taskEarnedCoinsFromItem(item), 0)
         + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0);
       const deducted = failed.reduce((sum, item) => sum + parseAmount(item.coins), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
@@ -232,7 +256,7 @@
         ${detailSectionHtml(
           "完成任务",
           summary.completed.length,
-          detailListHtml(summary.completed, "当天没有完成任务。", item => parseAmount(item.coins))
+          detailListHtml(summary.completed, "当天没有完成任务。", item => taskEarnedCoinsFromItem(item))
         )}
         ${detailSectionHtml(
           "完成习惯",
@@ -273,6 +297,7 @@
 
     function renderHeatmap() {
       const rows = buildMonthlyHeatRows(currentHeatmapMonth);
+      const monthlyTaskSummary = buildMonthlyTaskSummary(currentHeatmapMonth);
       const monthStart = monthDateFromKey(currentHeatmapMonth);
       const leadingDays = (monthStart.getDay() + 6) % 7;
       const maxNet = Math.max(...rows.map(row => Math.max(0, row.net)), 0);
@@ -281,6 +306,8 @@
       const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
 
       els.heatmapMonthLabel.textContent = formatMonth(currentHeatmapMonth);
+      els.heatmapChart.dataset.monthlyTaskDuration = String(monthlyTaskSummary.monthlyTaskDuration);
+      els.heatmapChart.dataset.monthlyEarnedCoinsFromTasks = String(monthlyTaskSummary.monthlyEarnedCoinsFromTasks);
       els.heatmapChart.innerHTML = `
         <div class="calendar-heatmap">
           <div class="calendar-weekdays" aria-hidden="true">
@@ -378,6 +405,7 @@
       const badStart = badPoints[0];
       const badEnd = badPoints[badPoints.length - 1];
       const lastRow = rows[rows.length - 1];
+      const focusSeconds = rows.reduce((total, row) => total + row.focusSeconds, 0);
       const zeroY = yForValue(0);
       els.habitTrendChart.innerHTML = `
         <div class="balance-chart" style="--trend-width: ${width}px;">
@@ -393,6 +421,7 @@
           ${trendDateAxisHtml(rows, padX, xStep)}
           <div class="trend-summary">
             完成 ${formatNumber(rows[0].completed)} → ${formatNumber(lastRow.completed)} · 坏习惯 ${formatNumber(rows[0].badHabits)} → ${formatNumber(lastRow.badHabits)}
+            <span>本周期专注：${escapeHtml(formatFocusDuration(focusSeconds))}</span>
           </div>
         </div>
       `;

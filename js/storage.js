@@ -23,7 +23,9 @@
       totals: {
         completedTasks: 0,
         coinsSpent: 0,
-        coinsPenalty: 0
+        coinsPenalty: 0,
+        taskDurationSeconds: 0,
+        earnedTaskCoins: 0
       }
     };
 
@@ -169,6 +171,19 @@
       const amount = Number(value);
       if (!Number.isFinite(amount) || amount < 0) return 0;
       return Math.round(amount);
+    }
+
+    function parseCoinAmount(value) {
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) return 0;
+      return Math.round(amount * 100) / 100;
+    }
+
+    function formatCoinAmount(value) {
+      return new Intl.NumberFormat("zh-CN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(parseCoinAmount(value));
     }
 
     function currentStreak() {
