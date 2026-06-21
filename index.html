@@ -34,13 +34,13 @@
               <span>金币</span>
             </div>
           </div>
-          <div class="summary-card">
-            <span class="summary-label">当前连续</span>
+          <button class="summary-card memo-summary-card" type="button" id="memoSummaryCard" aria-label="打开备忘录">
+            <span class="summary-label">备忘录</span>
             <div class="summary-value">
-              <strong id="homeStreak">0</strong>
-              <span>天</span>
+              <strong id="homeMemoCount">0</strong>
+              <span>项</span>
             </div>
-          </div>
+          </button>
         </section>
 
         <div class="section-heading">
@@ -274,6 +274,23 @@
     </section>
   </div>
 
+  <div class="sheet-backdrop hidden" id="memoBackdrop" aria-hidden="true">
+    <section class="sheet memo-sheet" role="dialog" aria-modal="true" aria-labelledby="memoSheetTitle">
+      <div class="sheet-header">
+        <div>
+          <span class="eyebrow">临时待办</span>
+          <h2 id="memoSheetTitle">备忘录</h2>
+        </div>
+        <button class="text-button icon-only-button" type="button" id="closeMemoBtn" aria-label="关闭备忘录" data-icon-button="xmark.circle"></button>
+      </div>
+      <form class="memo-form" id="memoForm">
+        <input id="memoInput" name="memo" type="text" maxlength="120" placeholder="记下一件临时想到的事" autocomplete="off">
+        <button class="button icon-only-button" type="submit" id="saveMemoBtn" aria-label="新增备忘录" data-icon-button="plus"></button>
+      </form>
+      <div class="memo-list" id="memoList"></div>
+    </section>
+  </div>
+
   <div class="confirm-backdrop hidden" id="confirmBackdrop" aria-hidden="true">
     <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
       <div>
@@ -298,6 +315,7 @@
   <script src="js/ui/feedback.js"></script>
   <script src="js/ui/time-picker.js"></script>
   <script src="js/ui/sheets.js"></script>
+  <script src="js/memos.js"></script>
   <script src="js/ui.js"></script>
 </body>
 </html>

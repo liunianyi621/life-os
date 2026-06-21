@@ -129,6 +129,7 @@
 
       els.todayDate.textContent = formatDate();
       updatePrimaryReadouts();
+      renderMemoSummary();
       els.habitCount.textContent = `${visibleHabitCount} 项`;
       els.todayTaskCount.textContent = `${activeCount} 项`;
       els.badHabitCount.textContent = `${state.badHabits.length} 项`;
@@ -141,6 +142,7 @@
       renderNotes();
       renderDailyReview();
       renderRewards();
+      if (!els.memoBackdrop.classList.contains("hidden")) renderMemos();
       renderStatsVisuals();
     }
 
@@ -472,6 +474,10 @@
       const openBadButton = event.target.closest("[data-open-bad]");
       const openNoteButton = event.target.closest("[data-open-note]");
       const openRewardButton = event.target.closest("[data-open-reward]");
+      const memoSummaryCard = event.target.closest("#memoSummaryCard");
+      const toggleMemoButton = event.target.closest("[data-toggle-memo]");
+      const editMemoTarget = event.target.closest("[data-edit-memo]");
+      const deleteMemoButton = event.target.closest("[data-delete-memo]");
       const editTaskButton = event.target.closest("[data-edit-task]");
       const editHabitButton = event.target.closest("[data-edit-habit]");
       const editBadButton = event.target.closest("[data-edit-bad]");
@@ -511,6 +517,19 @@
       if (openBadButton) openBadHabitSheet();
       if (openNoteButton) openNoteSheet();
       if (openRewardButton) openRewardSheet();
+      if (memoSummaryCard) openMemoSheet();
+      if (toggleMemoButton) {
+        toggleMemo(toggleMemoButton.dataset.toggleMemo);
+        return;
+      }
+      if (editMemoTarget) {
+        editMemo(editMemoTarget.dataset.editMemo);
+        return;
+      }
+      if (deleteMemoButton) {
+        deleteMemo(deleteMemoButton.dataset.deleteMemo);
+        return;
+      }
       if (editCard?.dataset.editCard === "note") handleEditCardTap(editCard);
       if (editTaskButton) openTaskSheet(editTaskButton.dataset.editTask);
       if (editHabitButton) openHabitSheet(editHabitButton.dataset.editHabit);
@@ -573,12 +592,17 @@
     els.dayDetailBackdrop.addEventListener("click", event => {
       if (event.target === els.dayDetailBackdrop) closeDayDetail();
     });
+    els.closeMemoBtn.addEventListener("click", closeMemoSheet);
+    els.memoBackdrop.addEventListener("click", event => {
+      if (event.target === els.memoBackdrop) closeMemoSheet();
+    });
     els.confirmCancelBtn.addEventListener("click", () => closeConfirm(false));
     els.confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
     els.confirmBackdrop.addEventListener("click", event => {
       if (event.target === els.confirmBackdrop) closeConfirm(false);
     });
     els.sheetForm.addEventListener("submit", handleSheetSubmit);
+    els.memoForm.addEventListener("submit", handleMemoSubmit);
     els.reviewDateButton.addEventListener("click", () => {
       if (!els.reviewDateInput) return;
       els.reviewDateInput.value = selectedReviewDate;
@@ -614,6 +638,12 @@
 
     document.addEventListener("keydown", event => {
       const noteEditCard = event.target.closest?.("[data-edit-card='note']");
+      const memoEditTarget = event.target.closest?.("[data-edit-memo]");
+      if (memoEditTarget && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        editMemo(memoEditTarget.dataset.editMemo);
+        return;
+      }
       if (noteEditCard && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         handleEditCardTap(noteEditCard);
@@ -626,6 +656,10 @@
         }
         if (!els.dayDetailBackdrop.classList.contains("hidden")) {
           closeDayDetail();
+          return;
+        }
+        if (!els.memoBackdrop.classList.contains("hidden")) {
+          closeMemoSheet();
           return;
         }
         if (!els.sheetBackdrop.classList.contains("hidden")) {

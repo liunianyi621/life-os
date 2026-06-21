@@ -278,6 +278,21 @@
       justify-content: space-between;
     }
 
+    .memo-summary-card {
+      width: 100%;
+      appearance: none;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .memo-summary-card:focus-visible {
+      outline: 0;
+      border-color: rgba(10, 132, 255, 0.34);
+      box-shadow: var(--shadow), 0 0 0 4px rgba(10, 132, 255, 0.1);
+    }
+
     .balance-strip {
       display: flex;
       align-items: baseline;
@@ -724,7 +739,8 @@
     .danger-button:active,
     .text-button:active,
     .nav-button:active,
-    .icon-button:active {
+    .icon-button:active,
+    .memo-action:active {
       transform: scale(0.97);
     }
 
@@ -759,6 +775,112 @@
 
     .note-card[role="button"] {
       cursor: pointer;
+    }
+
+    .memo-sheet {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .memo-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 48px;
+      gap: 10px;
+      padding: 8px 16px 12px;
+    }
+
+    .memo-form input {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: var(--control-radius);
+      padding: 11px 13px;
+      background: rgba(249, 250, 251, 0.86);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+
+    .memo-form input:focus {
+      border-color: rgba(10, 132, 255, 0.52);
+      background: var(--surface);
+      box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.11);
+    }
+
+    .memo-list {
+      display: grid;
+      gap: 10px;
+      max-height: min(50svh, 420px);
+      overflow: auto;
+      padding: 0 16px 18px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .memo-item {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) 44px;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: var(--soft-shadow);
+    }
+
+    .memo-action {
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(147, 157, 171, 0.22);
+      border-radius: 999px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
+      background: rgba(248, 249, 252, 0.72);
+      color: #6b7280;
+      box-shadow: 0 8px 18px rgba(31, 41, 55, 0.05), 0 1px 0 rgba(255, 255, 255, 0.86) inset;
+      cursor: pointer;
+      transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+    }
+
+    .memo-action.completed {
+      border-color: var(--green-line);
+      background: var(--green-soft);
+      color: var(--green-ink);
+    }
+
+    .memo-delete {
+      border-color: var(--red-line);
+      color: var(--red-ink);
+    }
+
+    .memo-body {
+      min-width: 0;
+      padding: 2px 0;
+      border-radius: var(--small-radius);
+      cursor: pointer;
+    }
+
+    .memo-body:focus-visible {
+      outline: 0;
+      box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.1);
+    }
+
+    .memo-text {
+      margin: 0;
+      color: var(--text);
+      font-size: 0.96rem;
+      font-weight: 720;
+      line-height: 1.42;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .memo-item.completed .memo-text {
+      color: var(--quiet);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
     }
 
     .review-form {
