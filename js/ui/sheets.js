@@ -39,8 +39,8 @@
           <input name="name" type="text" maxlength="80" value="${escapeAttr(task?.name || "")}" placeholder="输入任务名称" required>
         </label>
         <label class="field">
-          <span class="field-label">金币金额</span>
-          <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${task?.coins ?? ""}" placeholder="0">
+          <span class="field-label">奖励金币</span>
+          <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${taskRewardInputValue(task)}" placeholder="默认 2">
         </label>
         <div class="field">
           <span class="field-label">时间（可选）</span>
@@ -177,11 +177,12 @@
           ${deleteIconButtonHtml({ action: "reward", id: reward?.id, label: "移除奖励" })}
         </div>
       `;
-      openSheet();
-      els.sheetForm.querySelector("input[name='name']").focus();
+      openSheet({ position: "top" });
+      focusSheetField("input[name='name']");
     }
 
-    function openSheet() {
+    function openSheet(options = {}) {
+      els.sheetBackdrop.dataset.sheetPosition = options.position || "bottom";
       els.sheetBackdrop.classList.remove("hidden");
       els.sheetBackdrop.setAttribute("aria-hidden", "false");
     }
@@ -189,18 +190,33 @@
     function closeSheet() {
       els.sheetBackdrop.classList.add("hidden");
       els.sheetBackdrop.setAttribute("aria-hidden", "true");
+      delete els.sheetBackdrop.dataset.sheetPosition;
       sheetMode = null;
       editingId = null;
       els.sheetForm.innerHTML = "";
+    }
+
+    function focusSheetField(selector) {
+      const target = els.sheetForm.querySelector(selector);
+      if (!target) return;
+      window.setTimeout(() => {
+        try {
+          target.focus({ preventScroll: true });
+        } catch {
+          target.focus();
+        }
+        target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }, 80);
     }
 
     function handleSheetSubmit(event) {
       event.preventDefault();
       const formData = new FormData(els.sheetForm);
       if (sheetMode === "task") {
+        const taskCoinsInput = String(formData.get("coins") || "").trim();
         saveTask({
           name: String(formData.get("name") || "").trim(),
-          coins: parseAmount(formData.get("coins")),
+          coins: taskCoinsInput === "" ? "" : parseCoinAmount(Math.max(0, Number(taskCoinsInput))),
           time: String(formData.get("time") || "").trim()
         });
       }

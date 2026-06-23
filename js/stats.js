@@ -37,7 +37,7 @@
         }
         if (item.type === "task_failed" || item.type === "task_missed") {
           row.failed += 1;
-          row.deducted += parseAmount(item.coins);
+          row.deducted += item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
@@ -96,7 +96,7 @@
         }
         if (item.type === "task_failed" || item.type === "task_missed") {
           row.failed += 1;
-          row.deducted += parseAmount(item.coins);
+          row.deducted += item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
@@ -171,7 +171,7 @@
       const rewards = dayEntries(day, item => item.type === "reward_redeemed");
       const earned = completed.reduce((sum, item) => sum + taskEarnedCoinsFromItem(item), 0)
         + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0);
-      const deducted = failed.reduce((sum, item) => sum + parseAmount(item.coins), 0)
+      const deducted = failed.reduce((sum, item) => sum + (item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
         + rewards.reduce((sum, item) => sum + parseAmount(item.cost), 0);
       return {
@@ -242,15 +242,15 @@
         <div class="detail-summary-grid" aria-label="当天金币变化">
           <div class="detail-metric">
             <span>获得</span>
-            <strong class="positive">+${formatNumber(summary.earned)}</strong>
+            <strong class="positive">+${formatCoinAmount(summary.earned)}</strong>
           </div>
           <div class="detail-metric">
             <span>扣除 / 消耗</span>
-            <strong class="negative">-${formatNumber(summary.deducted)}</strong>
+            <strong class="negative">-${formatCoinAmount(summary.deducted)}</strong>
           </div>
           <div class="detail-metric">
             <span>净变化</span>
-            <strong class="${netTone}">${netPrefix}${formatNumber(Math.abs(summary.net))}</strong>
+            <strong class="${netTone}">${netPrefix}${formatCoinAmount(Math.abs(summary.net))}</strong>
           </div>
         </div>
         ${detailSectionHtml(
@@ -266,7 +266,7 @@
         ${detailSectionHtml(
           "失败任务",
           summary.failed.length,
-          detailListHtml(summary.failed, "当天没有失败任务。", item => -parseAmount(item.coins))
+          detailListHtml(summary.failed, "当天没有失败任务。", item => -(item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)))
         )}
         ${detailSectionHtml(
           "坏习惯记录",
@@ -318,7 +318,7 @@
             ${rows.map(row => {
               const level = calendarDayClass(row, maxNet, maxLoss);
               const todayClass = row.key === today ? " today" : "";
-              const netLabel = row.net > 0 ? `+${formatNumber(row.net)}` : formatNumber(row.net);
+              const netLabel = row.net > 0 ? `+${formatCoinAmount(row.net)}` : formatCoinAmount(row.net);
               const title = row.hasRecord
                 ? `${formatFullDateKey(row.key)}：净金币 ${netLabel}，完成 ${row.completed}，失败 ${row.failed}，坏习惯 ${row.badHabits} 次`
                 : `${formatFullDateKey(row.key)}：无记录`;

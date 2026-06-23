@@ -1,3 +1,6 @@
+    const DEFAULT_TASK_REWARD = 2;
+    const TASK_FAILURE_MULTIPLIER = 5;
+
     function taskResultOnDate(taskId, day) {
       return state.taskResults[day]?.[taskId] || null;
     }
@@ -24,7 +27,25 @@
       }).format(date);
     }
 
-    function taskDurationPayload(startTime, endTime = new Date()) {
+    function taskRewardInputValue(task) {
+      const value = Number(task?.coins);
+      return Number.isFinite(value) && value > 0 ? parseCoinAmount(value) : "";
+    }
+
+    function taskRewardAmount(task) {
+      const value = Number(task?.coins);
+      return Number.isFinite(value) && value > 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
+    }
+
+    function taskFailurePenalty(task) {
+      return parseCoinAmount(taskRewardAmount(task) * TASK_FAILURE_MULTIPLIER);
+    }
+
+    function taskHasTime(task) {
+      return timeToMinutes(task?.time) != null;
+    }
+
+    function taskDurationPayload(startTime, endTime = new Date(), hourlyCoins = DEFAULT_TASK_REWARD) {
       const start = new Date(startTime);
       const end = new Date(endTime);
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
@@ -36,14 +57,17 @@
       }
       const durationSeconds = Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000));
       const durationMinutes = Math.round((durationSeconds / 60) * 100) / 100;
-      const earnedCoins = parseCoinAmount((durationSeconds / 3600) * 2);
+      const rate = Number(hourlyCoins);
+      const earnedCoins = parseCoinAmount((durationSeconds / 3600) * (Number.isFinite(rate) ? rate : DEFAULT_TASK_REWARD));
       return { durationSeconds, durationMinutes, earnedCoins };
     }
 
     function formatTaskDurationClock(seconds) {
       const value = Math.max(0, Math.round(Number(seconds) || 0));
-      const minutes = Math.floor(value / 60);
+      const hours = Math.floor(value / 3600);
+      const minutes = Math.floor((value % 3600) / 60);
       const restSeconds = value % 60;
+      if (hours > 0) return `${hours}小时${String(minutes).padStart(2, "0")}分${String(restSeconds).padStart(2, "0")}秒`;
       return `${minutes}分${String(restSeconds).padStart(2, "0")}秒`;
     }
 

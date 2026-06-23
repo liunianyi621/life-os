@@ -1606,6 +1606,14 @@
       opacity: 0;
     }
 
+    .sheet-backdrop[data-sheet-position="top"] {
+      align-items: start;
+      padding-top: max(14px, calc(12px + env(safe-area-inset-top)));
+      padding-bottom: calc(42svh + env(safe-area-inset-bottom));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
     .sheet {
       width: min(100%, 448px);
       max-height: min(82svh, 680px);
@@ -1617,8 +1625,17 @@
       transition: transform 0.2s ease;
     }
 
+    .sheet-backdrop[data-sheet-position="top"] .sheet {
+      max-height: min(56svh, 420px);
+      border-radius: 22px;
+    }
+
     .sheet-backdrop.hidden .sheet {
       transform: translateY(16px);
+    }
+
+    .sheet-backdrop.hidden[data-sheet-position="top"] .sheet {
+      transform: translateY(-16px);
     }
 
     .confirm-backdrop {

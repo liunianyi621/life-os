@@ -205,16 +205,36 @@
           ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
         `;
       }
-      return `<span class="pill coin-pill">2.00 金币/小时</span>`;
+      if (taskHasTime(task)) {
+        return `<span class="pill coin-pill">${formatCoinAmount(taskRewardAmount(task))} 金币/小时</span>`;
+      }
+      return `<span class="pill coin-pill">${formatCoinAmount(taskRewardAmount(task))} 金币</span>`;
     }
 
     function taskActionsHtml(task, status) {
       const taskId = escapeAttr(task.id);
+      const failAction = actionButtonHtml({
+        tone: "red",
+        icon: "xmark.circle",
+        label: "任务未完成",
+        attrs: `data-fail-task="${taskId}"`
+      });
+      if (!taskHasTime(task)) {
+        return `
+          ${actionButtonHtml({
+            tone: "green",
+            icon: "checkmark.circle",
+            label: "完成任务",
+            attrs: `data-complete-task="${taskId}"`
+          })}
+          ${failAction}
+        `;
+      }
       const primaryAction = status === "running"
         ? actionButtonHtml({
-            tone: "blue",
-            icon: "stop.circle",
-            label: "结束任务",
+            tone: "green",
+            icon: "checkmark.circle",
+            label: "完成任务",
             attrs: `data-stop-task="${taskId}"`
           })
         : actionButtonHtml({
@@ -225,12 +245,7 @@
           });
       return `
         ${primaryAction}
-        ${actionButtonHtml({
-          tone: "red",
-          icon: "xmark.circle",
-          label: "任务未完成",
-          attrs: `data-fail-task="${taskId}"`
-        })}
+        ${failAction}
       `;
     }
 
