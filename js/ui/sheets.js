@@ -29,9 +29,13 @@
       sheetMode = "task";
       editingId = taskId;
       const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
-      const parsedTaskTime = parseTimeValue(task?.time);
-      const taskTime = task ? parsedTaskTime : nextWholeHourTime();
-      const initialTimeValue = taskTime ? formatTimeParts(taskTime) : "";
+      const defaultRange = defaultTaskTimeRange();
+      const startTimeValue = task ? taskStartTimeValue(task) : defaultRange.start;
+      const endTimeValue = task ? taskEndTimeValue(task) : defaultRange.end;
+      const parsedStartTime = parseTimeValue(startTimeValue);
+      const parsedEndTime = parseTimeValue(endTimeValue);
+      const initialStartTimeValue = parsedStartTime ? formatTimeParts(parsedStartTime) : "";
+      const initialEndTimeValue = parsedEndTime ? formatTimeParts(parsedEndTime) : "";
       els.sheetTitle.textContent = task ? "编辑任务" : "新建任务";
       els.sheetForm.innerHTML = `
         <label class="field">
@@ -41,29 +45,58 @@
         <label class="field">
           <span class="field-label">奖励金币</span>
           <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${taskRewardInputValue(task)}" placeholder="默认 2">
+          <span class="field-help">有时间任务按每小时计算；无时间任务按固定奖励计算。</span>
         </label>
-        <div class="field">
-          <span class="field-label">时间（可选）</span>
-          <div class="time-picker" data-time-picker>
-            <input name="time" type="hidden" value="${escapeAttr(initialTimeValue)}">
-            <div class="time-picker-header">
-              <span class="time-picker-value" data-time-value>${escapeHtml(initialTimeValue || "未设置")}</span>
-              ${iconActionButtonHtml({
-                className: "time-clear icon-only-button",
-                icon: "xmark.circle",
-                label: "不设置时间",
-                attrs: "data-clear-time"
-              })}
+        <div class="task-time-range-fields">
+          <div class="field">
+            <span class="field-label">开始时间</span>
+            <div class="time-picker" data-time-picker data-time-role="start">
+              <input name="timeStart" type="hidden" value="${escapeAttr(initialStartTimeValue)}">
+              <div class="time-picker-header">
+                <span class="time-picker-value" data-time-value>${escapeHtml(initialStartTimeValue || "未设置")}</span>
+                ${iconActionButtonHtml({
+                  className: "time-clear icon-only-button",
+                  icon: "xmark.circle",
+                  label: "不设置开始时间",
+                  attrs: "data-clear-time"
+                })}
+              </div>
+              <div class="time-wheels" aria-label="选择开始时间">
+                <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
+                  ${timeOptionButtons("hour", parsedStartTime?.hour)}
+                </div>
+                <div class="time-wheel" data-time-wheel="minute" aria-label="分钟">
+                  ${timeOptionButtons("minute", parsedStartTime?.minute)}
+                </div>
+                <div class="time-wheel" data-time-wheel="period" aria-label="上午或下午">
+                  ${timeOptionButtons("period", parsedStartTime?.period)}
+                </div>
+              </div>
             </div>
-            <div class="time-wheels" aria-label="选择时间">
-              <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
-                ${timeOptionButtons("hour", taskTime?.hour)}
+          </div>
+          <div class="field">
+            <span class="field-label">结束时间</span>
+            <div class="time-picker" data-time-picker data-time-role="end">
+              <input name="timeEnd" type="hidden" value="${escapeAttr(initialEndTimeValue)}">
+              <div class="time-picker-header">
+                <span class="time-picker-value" data-time-value>${escapeHtml(initialEndTimeValue || "未设置")}</span>
+                ${iconActionButtonHtml({
+                  className: "time-clear icon-only-button",
+                  icon: "xmark.circle",
+                  label: "不设置结束时间",
+                  attrs: "data-clear-time"
+                })}
               </div>
-              <div class="time-wheel" data-time-wheel="minute" aria-label="分钟">
-                ${timeOptionButtons("minute", taskTime?.minute)}
-              </div>
-              <div class="time-wheel" data-time-wheel="period" aria-label="上午或下午">
-                ${timeOptionButtons("period", taskTime?.period)}
+              <div class="time-wheels" aria-label="选择结束时间">
+                <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
+                  ${timeOptionButtons("hour", parsedEndTime?.hour)}
+                </div>
+                <div class="time-wheel" data-time-wheel="minute" aria-label="分钟">
+                  ${timeOptionButtons("minute", parsedEndTime?.minute)}
+                </div>
+                <div class="time-wheel" data-time-wheel="period" aria-label="上午或下午">
+                  ${timeOptionButtons("period", parsedEndTime?.period)}
+                </div>
               </div>
             </div>
           </div>
@@ -77,7 +110,7 @@
         </div>
       `;
       openSheet();
-      initTimePicker(initialTimeValue);
+      initTimePicker();
       els.sheetForm.querySelector("input[name='name']").focus();
     }
 
@@ -214,10 +247,17 @@
       const formData = new FormData(els.sheetForm);
       if (sheetMode === "task") {
         const taskCoinsInput = String(formData.get("coins") || "").trim();
+        const taskCoins = taskCoinsInput === "" ? "" : parseCoinAmount(Math.max(0, Number(taskCoinsInput)));
+        const timeStart = String(formData.get("timeStart") || "").trim();
+        const timeEnd = String(formData.get("timeEnd") || "").trim();
         saveTask({
           name: String(formData.get("name") || "").trim(),
-          coins: taskCoinsInput === "" ? "" : parseCoinAmount(Math.max(0, Number(taskCoinsInput))),
-          time: String(formData.get("time") || "").trim()
+          coins: taskCoins,
+          hourlyReward: taskCoins,
+          reward: taskCoins,
+          timeStart,
+          timeEnd,
+          time: timeStart
         });
       }
       if (sheetMode === "habit") {

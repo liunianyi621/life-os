@@ -57,6 +57,15 @@
       return habitCompletedOnDate(habitId, dateKey());
     }
 
+    function habitFailedOnDate(habitId, day) {
+      return Boolean(state.habitFailures?.[day]?.[habitId]);
+    }
+
+    function habitActiveOnDate(habit, day) {
+      const createdDate = String(habit.createdDate || habit.createdAt || "").slice(0, 10);
+      return !createdDate || createdDate <= day;
+    }
+
     function visibleHabitsToday() {
       return state.habits.filter(habit => !habitCompletedToday(habit.id));
     }

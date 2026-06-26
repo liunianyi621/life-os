@@ -35,9 +35,9 @@
           row.focusSeconds += taskDurationSecondsFromItem(item);
           row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
         }
-        if (item.type === "task_failed" || item.type === "task_missed") {
+        if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
           row.failed += 1;
-          row.deducted += item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
+          row.deducted += item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
@@ -94,9 +94,9 @@
           row.focusSeconds += taskDurationSecondsFromItem(item);
           row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
         }
-        if (item.type === "task_failed" || item.type === "task_missed") {
+        if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
           row.failed += 1;
-          row.deducted += item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
+          row.deducted += item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
@@ -167,17 +167,20 @@
       const completed = dayEntries(day, item => item.type === "task_completed");
       const habits = dayEntries(day, item => item.type === "habit_completed");
       const failed = dayEntries(day, item => item.type === "task_failed" || item.type === "task_missed");
+      const failedHabits = dayEntries(day, item => item.type === "habit_failed");
       const badHabits = dayEntries(day, item => item.type === "bad_habit");
       const rewards = dayEntries(day, item => item.type === "reward_redeemed");
       const earned = completed.reduce((sum, item) => sum + taskEarnedCoinsFromItem(item), 0)
         + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0);
       const deducted = failed.reduce((sum, item) => sum + (item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), 0)
+        + failedHabits.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
         + rewards.reduce((sum, item) => sum + parseAmount(item.cost), 0);
       return {
         completed,
         habits,
         failed,
+        failedHabits,
         badHabits,
         rewards,
         earned,
@@ -267,6 +270,11 @@
           "失败任务",
           summary.failed.length,
           detailListHtml(summary.failed, "当天没有失败任务。", item => -(item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)))
+        )}
+        ${detailSectionHtml(
+          "失败习惯",
+          summary.failedHabits.length,
+          detailListHtml(summary.failedHabits, "当天没有失败习惯。", item => -parseCoinAmount(item.coins))
         )}
         ${detailSectionHtml(
           "坏习惯记录",

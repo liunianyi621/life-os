@@ -1,6 +1,10 @@
     const DEFAULT_TASK_REWARD = 2;
     const TASK_FAILURE_MULTIPLIER = 5;
 
+    function firstPresentValue(values) {
+      return values.find(value => String(value ?? "").trim() !== "");
+    }
+
     function taskResultOnDate(taskId, day) {
       return state.taskResults[day]?.[taskId] || null;
     }
@@ -12,7 +16,7 @@
     function taskStatusToday(task) {
       const result = taskResultToday(task.id);
       if (result === "completed" || result === "failed") return result;
-      if (task.status === "running" && task.startTime && !task.endTime) return "running";
+      if (taskHasTime(task) && task.status === "running" && task.startTime && !task.endTime) return "running";
       return "pending";
     }
 
@@ -28,12 +32,12 @@
     }
 
     function taskRewardInputValue(task) {
-      const value = Number(task?.coins);
+      const value = Number(firstPresentValue([task?.hourlyReward, task?.reward, task?.coins]));
       return Number.isFinite(value) && value > 0 ? parseCoinAmount(value) : "";
     }
 
     function taskRewardAmount(task) {
-      const value = Number(task?.coins);
+      const value = Number(firstPresentValue([task?.hourlyReward, task?.reward, task?.coins]));
       return Number.isFinite(value) && value > 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
     }
 
@@ -42,7 +46,7 @@
     }
 
     function taskHasTime(task) {
-      return timeToMinutes(task?.time) != null;
+      return Boolean(taskTimeRange(task));
     }
 
     function taskDurationPayload(startTime, endTime = new Date(), hourlyCoins = DEFAULT_TASK_REWARD) {
@@ -100,6 +104,60 @@
       if (task.createdAt) return String(task.createdAt).slice(0, 10);
       return "";
     }
+
+    function taskStartTimeValue(task) {
+      return String(task?.timeStart || task?.scheduledStart || task?.time || "").trim();
+    }
+
+    function taskEndTimeValue(task) {
+      return String(task?.timeEnd || task?.scheduledEnd || "").trim();
+    }
+
+    function timePartsToMinutes(parts) {
+      if (!parts) return null;
+      const hour = Number(parts.hour);
+      const minute = Number(parts.minute);
+      if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+      const hour24 = (hour % 12) + (parts.period === "PM" ? 12 : 0);
+      return hour24 * 60 + minute;
+    }
+
+    function minutesToClockLabel(minutes) {
+      const normalized = ((Number(minutes) % 1440) + 1440) % 1440;
+      const hour = Math.floor(normalized / 60);
+      const minute = normalized % 60;
+      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    }
+
+    function taskTimeRange(task) {
+      const startMinutes = timeToMinutes(taskStartTimeValue(task));
+      const endMinutes = timeToMinutes(taskEndTimeValue(task));
+      if (startMinutes == null || endMinutes == null) return null;
+      return { startMinutes, endMinutes };
+    }
+
+    function taskTimeRangeLabel(task) {
+      const range = taskTimeRange(task);
+      if (!range) return "";
+      return `${minutesToClockLabel(range.startMinutes)} - ${minutesToClockLabel(range.endMinutes)}`;
+    }
+
+    function taskEndDateTime(task, day = taskDate(task) || dateKey()) {
+      const range = taskTimeRange(task);
+      if (!range) return null;
+      const end = dateFromKey(day);
+      end.setHours(Math.floor(range.endMinutes / 60), range.endMinutes % 60, 0, 0);
+      if (range.endMinutes <= range.startMinutes) {
+        end.setDate(end.getDate() + 1);
+      }
+      return end;
+    }
+
+    function taskPastEndTime(task, now = new Date()) {
+      const end = taskEndDateTime(task);
+      return Boolean(end && now >= end);
+    }
+
     function saveTask(taskData) {
       if (!taskData.name) {
         showToast("请输入任务名称");
@@ -141,12 +199,7 @@
     }
     function timeToMinutes(value) {
       const parts = parseTimeValue(value);
-      if (!parts) return null;
-      const hour = Number(parts.hour);
-      const minute = Number(parts.minute);
-      if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-      const hour24 = (hour % 12) + (parts.period === "PM" ? 12 : 0);
-      return hour24 * 60 + minute;
+      return timePartsToMinutes(parts);
     }
 
     function taskTimeGroupLabel(value) {
@@ -157,24 +210,29 @@
 
     function groupedActiveTasks(tasks) {
       const sorted = [...tasks].sort((left, right) => {
-        const leftMinutes = timeToMinutes(left.time);
-        const rightMinutes = timeToMinutes(right.time);
+        const leftRange = taskTimeRange(left);
+        const rightRange = taskTimeRange(right);
+        const leftMinutes = leftRange?.startMinutes ?? null;
+        const rightMinutes = rightRange?.startMinutes ?? null;
         if (leftMinutes == null && rightMinutes == null) return left.name.localeCompare(right.name, "zh-CN");
         if (leftMinutes == null) return 1;
         if (rightMinutes == null) return -1;
         if (leftMinutes !== rightMinutes) return leftMinutes - rightMinutes;
+        if ((leftRange?.endMinutes ?? 0) !== (rightRange?.endMinutes ?? 0)) {
+          return (leftRange?.endMinutes ?? 0) - (rightRange?.endMinutes ?? 0);
+        }
         return left.name.localeCompare(right.name, "zh-CN");
       });
 
       const groups = [];
       sorted.forEach(task => {
-        const minutes = timeToMinutes(task.time);
-        const key = minutes == null ? "no-time" : String(minutes);
+        const range = taskTimeRange(task);
+        const key = range ? `${range.startMinutes}-${range.endMinutes}` : "no-time";
         let group = groups.find(item => item.key === key);
         if (!group) {
           group = {
             key,
-            label: minutes == null ? "无时间任务" : taskTimeGroupLabel(task.time),
+            label: range ? taskTimeRangeLabel(task) : "",
             tasks: []
           };
           groups.push(group);

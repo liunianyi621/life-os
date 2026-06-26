@@ -1704,6 +1704,13 @@
       gap: 7px;
     }
 
+    .field-help {
+      color: var(--quiet);
+      font-size: 0.78rem;
+      font-weight: 680;
+      line-height: 1.35;
+    }
+
     .field input,
     .field textarea {
       width: 100%;
@@ -1737,6 +1744,11 @@
       border: 1px solid var(--line);
       border-radius: 20px;
       background: rgba(249, 250, 251, 0.82);
+    }
+
+    .task-time-range-fields {
+      display: grid;
+      gap: 12px;
     }
 
     .time-picker-header {

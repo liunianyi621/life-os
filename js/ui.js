@@ -233,8 +233,8 @@
       const primaryAction = status === "running"
         ? actionButtonHtml({
             tone: "green",
-            icon: "checkmark.circle",
-            label: "完成任务",
+            icon: "stop.circle",
+            label: "完成计时任务",
             attrs: `data-stop-task="${taskId}"`
           })
         : actionButtonHtml({
@@ -280,7 +280,7 @@
 
       els.todayTaskList.innerHTML = groupedActiveTasks(activeTasks).map(group => `
         <section class="task-time-group">
-          <div class="task-time-heading">${escapeHtml(group.label)}</div>
+          ${group.label ? `<div class="task-time-heading">${escapeHtml(group.label)}</div>` : ""}
           <div class="task-time-list">
             ${group.tasks.map(task => {
               const status = taskStatusToday(task);
@@ -526,7 +526,10 @@
         suppressNextCardTap = false;
         return;
       }
-      if (navButton) switchView(navButton.dataset.nav);
+      if (navButton) {
+        switchView(navButton.dataset.nav);
+        if (runAutomaticChecks()) render();
+      }
       if (openTaskButton) openTaskSheet();
       if (openHabitButton) openHabitSheet();
       if (openBadButton) openBadHabitSheet();
@@ -683,4 +686,5 @@
       }
     });
 
+    runAutomaticChecks({ renderAfter: false });
     render();

@@ -15,6 +15,8 @@
       taskResults: {},
       habits: [],
       habitCompletions: {},
+      habitFailures: {},
+      taskAutoFailures: {},
       badHabits: [],
       notes: [],
       memos: [],
@@ -62,7 +64,9 @@
           history: Array.isArray(saved.history) ? saved.history : [],
           completions: saved.completions && typeof saved.completions === "object" ? saved.completions : {},
           taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {},
-          habitCompletions: saved.habitCompletions && typeof saved.habitCompletions === "object" ? saved.habitCompletions : {}
+          habitCompletions: saved.habitCompletions && typeof saved.habitCompletions === "object" ? saved.habitCompletions : {},
+          habitFailures: saved.habitFailures && typeof saved.habitFailures === "object" ? saved.habitFailures : {},
+          taskAutoFailures: saved.taskAutoFailures && typeof saved.taskAutoFailures === "object" ? saved.taskAutoFailures : {}
         } : cloneEmptyState();
 
         if (!Object.keys(merged.taskResults).length && Object.keys(merged.completions).length) {

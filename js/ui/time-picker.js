@@ -30,17 +30,35 @@
       };
     }
 
+    function timePartsFromMinutes(minutes) {
+      const normalized = ((Number(minutes) % 1440) + 1440) % 1440;
+      return timePartsFrom24Hour(Math.floor(normalized / 60), String(normalized % 60).padStart(2, "0"));
+    }
+
     function nextWholeHourTime() {
       const now = new Date();
       return timePartsFrom24Hour(now.getHours() + 1, "00");
     }
 
+    function shiftTimeParts(parts, minutes) {
+      const baseMinutes = timePartsToMinutes(parts);
+      return timePartsFromMinutes((baseMinutes ?? 0) + minutes);
+    }
+
+    function defaultTaskTimeRange() {
+      const start = nextWholeHourTime();
+      const end = shiftTimeParts(start, 60);
+      return {
+        start: formatTimeParts(start),
+        end: formatTimeParts(end)
+      };
+    }
+
     function formatTimeParts(parts) {
       if (!parts) return "";
-      const hour = Number(parts.hour);
-      const minute = String(parts.minute || "00").padStart(2, "0");
-      const period = parts.period === "PM" ? "PM" : "AM";
-      return `${hour || 12}:${minute} ${period}`;
+      const minutes = timePartsToMinutes(parts);
+      if (minutes == null) return "";
+      return minutesToClockLabel(minutes);
     }
 
     function timeOptionButtons(type, selected) {
@@ -57,16 +75,20 @@
     }
 
     function initTimePicker(initialValue = "") {
-      const picker = els.sheetForm.querySelector("[data-time-picker]");
-      if (!picker) return;
+      els.sheetForm.querySelectorAll("[data-time-picker]").forEach((picker, index) => {
+        initSingleTimePicker(picker, index === 0 ? initialValue : "");
+      });
+    }
 
-      const hiddenInput = picker.querySelector("input[name='time']");
+    function initSingleTimePicker(picker, fallbackValue = "") {
+      const hiddenInput = picker.querySelector("input[type='hidden']");
       const valueLabel = picker.querySelector("[data-time-value]");
       const hourWheel = picker.querySelector("[data-time-wheel='hour']");
       const minuteWheel = picker.querySelector("[data-time-wheel='minute']");
       const periodWheel = picker.querySelector("[data-time-wheel='period']");
-      const initial = parseTimeValue(initialValue);
+      const initial = parseTimeValue(hiddenInput?.value || fallbackValue);
       let userWheelIntent = false;
+      if (!hiddenInput || !valueLabel) return;
 
       function datasetKey(type) {
         return `time${type.charAt(0).toUpperCase()}${type.slice(1)}`;
