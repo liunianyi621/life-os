@@ -31,6 +31,9 @@
           row.completed += 1;
           row.earned += item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
         }
+        if (item.type === "review_reward") {
+          row.earned += parseCoinAmount(item.coins);
+        }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
           row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
@@ -89,6 +92,9 @@
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
           row.earned += item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
+        }
+        if (item.type === "review_reward") {
+          row.earned += parseCoinAmount(item.coins);
         }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
@@ -170,8 +176,10 @@
       const failedHabits = dayEntries(day, item => item.type === "habit_failed");
       const badHabits = dayEntries(day, item => item.type === "bad_habit");
       const rewards = dayEntries(day, item => item.type === "reward_redeemed");
+      const reviewRewards = dayEntries(day, item => item.type === "review_reward");
       const earned = completed.reduce((sum, item) => sum + taskEarnedCoinsFromItem(item), 0)
-        + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0);
+        + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
+        + reviewRewards.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0);
       const deducted = failed.reduce((sum, item) => sum + (item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), 0)
         + failedHabits.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
@@ -183,6 +191,7 @@
         failedHabits,
         badHabits,
         rewards,
+        reviewRewards,
         earned,
         deducted,
         net: earned - deducted
@@ -285,6 +294,11 @@
           "奖励兑换",
           summary.rewards.length,
           detailListHtml(summary.rewards, "当天没有奖励兑换记录。", item => -parseAmount(item.cost))
+        )}
+        ${detailSectionHtml(
+          "复盘奖励",
+          summary.reviewRewards.length,
+          detailListHtml(summary.reviewRewards, "当天没有复盘奖励。", item => parseCoinAmount(item.coins))
         )}
         ${detailSectionHtml("每日复盘", state.dailyReviews?.[day] ? 1 : 0, dayReviewDetailHtml(day))}
       `;
@@ -390,45 +404,35 @@
 
     function renderHabitTrend(rows) {
       const width = trendWidth(rows);
-      const height = 168;
-      const padX = 14;
-      const padY = 18;
       const values = rows.flatMap(row => [row.completed, row.badHabits]);
-      const max = Math.max(...values, 0);
-      const spread = Math.max(1, max);
-      const xStep = rows.length > 1 ? (width - padX * 2) / (rows.length - 1) : 0;
-      const yForValue = value => height - padY - (value / spread) * (height - padY * 2);
-      const pointsFor = key => rows.map((row, index) => {
-        const x = padX + index * xStep;
-        const y = yForValue(row[key]);
-        return { x, y, row };
-      });
-      const pathFor = points => points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
-      const completedPoints = pointsFor("completed");
-      const badPoints = pointsFor("badHabits");
-      const completedPath = pathFor(completedPoints);
-      const badPath = pathFor(badPoints);
-      const completedStart = completedPoints[0];
-      const completedEnd = completedPoints[completedPoints.length - 1];
-      const badStart = badPoints[0];
-      const badEnd = badPoints[badPoints.length - 1];
-      const lastRow = rows[rows.length - 1];
+      const spread = Math.max(1, ...values);
+      const ticks = new Set(trendDateTickIndexes(rows));
       const focusSeconds = rows.reduce((total, row) => total + row.focusSeconds, 0);
-      const zeroY = yForValue(0);
+      const completedTotal = rows.reduce((total, row) => total + row.completed, 0);
+      const badTotal = rows.reduce((total, row) => total + row.badHabits, 0);
+      const gridTemplate = `repeat(${rows.length}, minmax(4px, 1fr))`;
       els.habitTrendChart.innerHTML = `
-        <div class="balance-chart" style="--trend-width: ${width}px;">
-          <svg class="balance-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="习惯趋势">
-            <line class="balance-grid" x1="${padX}" y1="${zeroY.toFixed(1)}" x2="${width - padX}" y2="${zeroY.toFixed(1)}"></line>
-            <path class="balance-line good" d="${completedPath}"></path>
-            <path class="balance-line bad" d="${badPath}"></path>
-            <circle class="balance-point good" cx="${completedStart.x.toFixed(1)}" cy="${completedStart.y.toFixed(1)}" r="4"></circle>
-            <circle class="balance-point good" cx="${completedEnd.x.toFixed(1)}" cy="${completedEnd.y.toFixed(1)}" r="4"></circle>
-            <circle class="balance-point bad" cx="${badStart.x.toFixed(1)}" cy="${badStart.y.toFixed(1)}" r="4"></circle>
-            <circle class="balance-point bad" cx="${badEnd.x.toFixed(1)}" cy="${badEnd.y.toFixed(1)}" r="4"></circle>
-          </svg>
-          ${trendDateAxisHtml(rows, padX, xStep)}
+        <div class="habit-bar-chart" style="--trend-width: ${width}px;">
+          <div class="habit-bar-grid" style="grid-template-columns: ${gridTemplate};" role="img" aria-label="习惯趋势柱状图">
+            ${rows.map(row => {
+              const completedHeight = row.completed > 0 ? Math.max(8, (row.completed / spread) * 100) : 0;
+              const badHeight = row.badHabits > 0 ? Math.max(8, (row.badHabits / spread) * 100) : 0;
+              const title = `${trendDateLabel(row, rows)}：完成 ${row.completed}，坏习惯 ${row.badHabits} 次`;
+              return `
+                <div class="habit-bar-day" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}">
+                  <div class="habit-bar-group">
+                    <span class="habit-bar good" style="height: ${completedHeight.toFixed(1)}%;"></span>
+                    <span class="habit-bar bad" style="height: ${badHeight.toFixed(1)}%;"></span>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+          <div class="habit-bar-axis" style="grid-template-columns: ${gridTemplate};" aria-label="趋势日期标注">
+            ${rows.map((row, index) => `<span>${ticks.has(index) ? escapeHtml(trendDateLabel(row, rows)) : ""}</span>`).join("")}
+          </div>
           <div class="trend-summary">
-            完成 ${formatNumber(rows[0].completed)} → ${formatNumber(lastRow.completed)} · 坏习惯 ${formatNumber(rows[0].badHabits)} → ${formatNumber(lastRow.badHabits)}
+            完成 ${formatNumber(completedTotal)} · 坏习惯 ${formatNumber(badTotal)}
             <span>本周期专注：${escapeHtml(formatFocusDuration(focusSeconds))}</span>
           </div>
         </div>

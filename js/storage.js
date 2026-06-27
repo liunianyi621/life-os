@@ -22,6 +22,7 @@
       memos: [],
       rewards: [],
       dailyReviews: {},
+      reviewRewards: {},
       history: [],
       totals: {
         completedTasks: 0,
@@ -61,6 +62,7 @@
           memos: Array.isArray(saved.memos) ? saved.memos : [],
           rewards: Array.isArray(saved.rewards) ? saved.rewards : [],
           dailyReviews: saved.dailyReviews && typeof saved.dailyReviews === "object" ? saved.dailyReviews : {},
+          reviewRewards: saved.reviewRewards && typeof saved.reviewRewards === "object" ? saved.reviewRewards : {},
           history: Array.isArray(saved.history) ? saved.history : [],
           completions: saved.completions && typeof saved.completions === "object" ? saved.completions : {},
           taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {},
@@ -257,16 +259,56 @@
       }
 
       const previous = state.dailyReviews[reviewDate] || {};
+      const hadPreviousReview = Boolean(state.dailyReviews[reviewDate]);
+      const shouldReward = !state.reviewRewards?.[reviewDate];
+      const rewardAmount = 2;
+      const savedAt = new Date().toISOString();
       state.dailyReviews[reviewDate] = {
         date: reviewDate,
         best,
         mistake,
         priority,
-        createdAt: previous.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: previous.createdAt || savedAt,
+        updatedAt: savedAt
       };
+      if (shouldReward) {
+        const historyId = createId("history");
+        state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
+        state.reviewRewards[reviewDate] = historyId;
+        state.coins = parseCoinAmount(state.coins + rewardAmount);
+        state.history.unshift({
+          id: historyId,
+          type: "review_reward",
+          name: "每日复盘",
+          coins: rewardAmount,
+          date: reviewDate,
+          timestamp: savedAt
+        });
+        saveState();
+        renderDailyReview();
+        updatePrimaryReadouts();
+        showReviewSavedStatus();
+        showUndoToast({
+          type: "review_reward",
+          historyId,
+          date: reviewDate,
+          amount: rewardAmount,
+          previousReview: { ...previous },
+          hadPreviousReview
+        }, {
+          icon: "checkmark.circle",
+          lines: [
+            "✓ 复盘已保存",
+            `获得 ${formatNumber(rewardAmount)} 金币`
+          ],
+          undoLabel: "撤回",
+          duration: 5000,
+          iconTone: "positive"
+        });
+        return;
+      }
       saveState();
       renderDailyReview();
       showReviewSavedStatus();
-      showToast("✓ 已保存", 2000);
+      showToast("✓ 复盘已保存", 2000);
     }

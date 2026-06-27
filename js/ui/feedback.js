@@ -43,6 +43,7 @@
     }
 
     function showToast(message, duration = 1800) {
+      if (pendingUndo) return;
       clearPendingUndo(false);
       els.toast.textContent = message;
       els.toast.classList.remove("interactive");

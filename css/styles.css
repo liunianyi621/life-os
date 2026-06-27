@@ -1277,6 +1277,75 @@
       min-width: var(--trend-width, 100%);
     }
 
+    .habit-bar-chart {
+      min-width: var(--trend-width, 100%);
+      display: grid;
+      gap: 8px;
+    }
+
+    .habit-bar-grid {
+      min-width: var(--trend-width, 100%);
+      height: 168px;
+      display: grid;
+      align-items: end;
+      gap: 4px;
+      padding: 12px 8px 0;
+      border-bottom: 1px solid rgba(152, 162, 179, 0.2);
+      background:
+        linear-gradient(180deg, rgba(152, 162, 179, 0.1) 1px, transparent 1px) 0 25% / 100% 25%,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.3));
+      border-radius: 18px 18px 10px 10px;
+    }
+
+    .habit-bar-day {
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .habit-bar-group {
+      width: min(18px, 100%);
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .habit-bar {
+      width: min(7px, 48%);
+      min-width: 2px;
+      border-radius: 999px 999px 4px 4px;
+      opacity: 0.9;
+      box-shadow: 0 6px 12px rgba(31, 41, 55, 0.08);
+    }
+
+    .habit-bar.good {
+      background: rgba(74, 167, 103, 0.72);
+    }
+
+    .habit-bar.bad {
+      background: rgba(215, 101, 95, 0.72);
+    }
+
+    .habit-bar-axis {
+      min-width: var(--trend-width, 100%);
+      display: grid;
+      gap: 4px;
+      color: var(--quiet);
+      font-size: 0.66rem;
+      font-weight: 720;
+      line-height: 1.1;
+      text-align: center;
+    }
+
+    .habit-bar-axis span {
+      min-width: 0;
+      white-space: nowrap;
+    }
+
     .balance-svg {
       display: block;
       width: 100%;
@@ -2072,16 +2141,19 @@
     }
 
     .toast button {
-      width: 30px;
+      width: auto;
       height: 30px;
       min-height: 30px;
       border: 1px solid rgba(10, 132, 255, 0.2);
       border-radius: 999px;
-      padding: 0;
+      padding: 0 10px;
       display: inline-grid;
       place-items: center;
       background: rgba(255, 255, 255, 0.72);
       color: var(--blue);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 800;
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(31, 41, 55, 0.045), 0 1px 0 rgba(255, 255, 255, 0.84) inset;
     }

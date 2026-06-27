@@ -111,6 +111,8 @@
 
       const today = dateKey();
       const endTime = new Date().toISOString();
+      const previousTask = taskPreviousState(task);
+      const previousProgress = progressSnapshot(today, task.id);
       const { durationSeconds, durationMinutes, earnedCoins } = taskDurationPayload(
         task.startTime,
         endTime,
@@ -138,8 +140,9 @@
       state.totals.taskDurationSeconds = (Number(state.totals.taskDurationSeconds) || 0) + durationSeconds;
       state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + earnedCoins);
       updateStreakForCompletion(today);
+      const historyId = createId("history");
       state.history.unshift({
-        id: createId("history"),
+        id: historyId,
         type: "task_completed",
         taskId: task.id,
         name: task.name,
@@ -162,7 +165,17 @@
         earnedCoins,
         durationSeconds,
         currentCoins: state.coins,
-        showDuration: true
+        showDuration: true,
+        undoData: {
+          type: "task_completed",
+          historyId,
+          taskId: task.id,
+          date: today,
+          amount: earnedCoins,
+          durationSeconds,
+          previousTask,
+          previousProgress
+        }
       });
     }
 
@@ -177,6 +190,8 @@
       const today = dateKey();
       const completedAt = new Date().toISOString();
       const earnedCoins = taskRewardAmount(task);
+      const previousTask = taskPreviousState(task);
+      const previousProgress = progressSnapshot(today, task.id);
       state.tasks = state.tasks.map(item => (
         item.id === taskId
           ? {
@@ -198,8 +213,9 @@
       state.totals.completedTasks = (Number(state.totals.completedTasks) || 0) + 1;
       state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + earnedCoins);
       updateStreakForCompletion(today);
+      const historyId = createId("history");
       state.history.unshift({
-        id: createId("history"),
+        id: historyId,
         type: "task_completed",
         taskId: task.id,
         name: task.name,
@@ -220,7 +236,17 @@
       scheduleRender(sourceEl ? 380 : 0);
       showTaskRewardToast({
         earnedCoins,
-        currentCoins: state.coins
+        currentCoins: state.coins,
+        undoData: {
+          type: "task_completed",
+          historyId,
+          taskId: task.id,
+          date: today,
+          amount: earnedCoins,
+          durationSeconds: 0,
+          previousTask,
+          previousProgress
+        }
       });
     }
 
@@ -230,12 +256,14 @@
 
       const today = dateKey();
       const amount = parseAmount(habit.coins);
+      const previousProgress = habitProgressSnapshot(today, habit.id);
       state.habitCompletions[today] = state.habitCompletions[today] || {};
       state.habitCompletions[today][habitId] = true;
-      state.coins += amount;
+      state.coins = parseCoinAmount(state.coins + amount);
       updateStreakForCompletion(today);
+      const historyId = createId("history");
       state.history.unshift({
-        id: createId("history"),
+        id: historyId,
         type: "habit_completed",
         habitId: habit.id,
         name: habit.name,
@@ -249,7 +277,24 @@
       if (sourceEl) sourceEl.classList.add("task-exit-success");
       showCoinFeedback(amount, "positive", sourceEl, { flash: false });
       scheduleRender(sourceEl ? 380 : 0);
-      showToast("习惯已完成");
+      showUndoToast({
+        type: "habit_completed",
+        historyId,
+        habitId: habit.id,
+        date: today,
+        amount,
+        previousProgress
+      }, {
+        icon: "checkmark.circle",
+        lines: [
+          `获得 ${formatCoinAmount(amount)} 金币`,
+          "习惯已完成",
+          `当前金币 ${formatCoinAmount(state.coins)}`
+        ],
+        undoLabel: "撤回",
+        duration: 5000,
+        iconTone: "positive"
+      });
     }
 
     function failTask(taskId, sourceEl = null) {
@@ -312,7 +357,7 @@
           `当前金币 ${formatCoinAmount(state.coins)}`
         ],
         undoLabel: "撤回",
-        duration: 7000
+        duration: 5000
       });
     }
 
@@ -322,38 +367,10 @@
       return state[collection][day];
     }
 
-    function showAutomaticFailureToast({ amount, reason, duration = 4200 }) {
-      clearPendingUndo(false);
-      clearTimeout(showToast.timer);
-      els.toast.textContent = "";
-      const toastMessage = document.createElement("span");
-      toastMessage.className = "toast-message toast-message-stacked";
-      const iconEl = document.createElement("span");
-      iconEl.className = "toast-icon action-icon";
-      iconEl.setAttribute("aria-hidden", "true");
-      iconEl.innerHTML = actionIcons["xmark.circle"];
-      toastMessage.append(iconEl);
-      [
-        `已自动扣除 ${formatCoinAmount(amount)} 金币`,
-        `原因：${reason}`,
-        `当前金币 ${formatCoinAmount(state.coins)}`
-      ].forEach(line => {
-        const lineEl = document.createElement("span");
-        lineEl.className = "toast-line";
-        lineEl.textContent = line;
-        toastMessage.append(lineEl);
-      });
-      els.toast.append(toastMessage);
-      els.toast.classList.remove("interactive");
-      els.toast.classList.add("show");
-      showToast.timer = setTimeout(() => {
-        els.toast.classList.remove("show");
-      }, duration);
-    }
-
     function settleMissedHabits(day = yesterdayKey()) {
       let totalPenalty = 0;
       let count = 0;
+      const entries = [];
       state.habits.forEach(habit => {
         if (!habitActiveOnDate(habit, day)) return;
         if (habitCompletedOnDate(habit.id, day)) return;
@@ -374,10 +391,16 @@
           reason: "habit_missed",
           timestamp: new Date().toISOString()
         });
+        entries.push({
+          historyId,
+          habitId: habit.id,
+          date: day,
+          amount
+        });
         totalPenalty = parseCoinAmount(totalPenalty + amount);
         count += 1;
       });
-      return { count, totalPenalty };
+      return { count, totalPenalty, entries };
     }
 
     function taskAutoFailedOnDate(taskId, day) {
@@ -391,8 +414,85 @@
         endTime: task.endTime || null,
         durationMinutes: task.durationMinutes ?? null,
         durationSeconds: task.durationSeconds ?? null,
-        earnedCoins: task.earnedCoins ?? null
+        earnedCoins: task.earnedCoins ?? null,
+        failedAt: task.failedAt || null
       };
+    }
+
+    function progressSnapshot(day, taskId = null) {
+      return {
+        taskResult: taskId ? state.taskResults?.[day]?.[taskId] || null : null,
+        taskCompletion: taskId ? Boolean(state.completions?.[day]?.[taskId]) : false,
+        streak: Number(state.streak) || 0,
+        lastCompletedDate: state.lastCompletedDate || null
+      };
+    }
+
+    function habitProgressSnapshot(day, habitId) {
+      return {
+        habitCompletion: Boolean(state.habitCompletions?.[day]?.[habitId]),
+        streak: Number(state.streak) || 0,
+        lastCompletedDate: state.lastCompletedDate || null
+      };
+    }
+
+    function removeDayValue(collection, day, id) {
+      if (!state[collection]?.[day]) return;
+      delete state[collection][day][id];
+      if (!Object.keys(state[collection][day]).length) {
+        delete state[collection][day];
+      }
+    }
+
+    function restoreStreakSnapshot(snapshot) {
+      if (!snapshot) return;
+      state.streak = Number(snapshot.streak) || 0;
+      state.lastCompletedDate = snapshot.lastCompletedDate || null;
+    }
+
+    function restoreTaskProgress(day, taskId, snapshot) {
+      if (snapshot?.taskCompletion) {
+        state.completions[day] = state.completions[day] || {};
+        state.completions[day][taskId] = true;
+      } else {
+        removeDayValue("completions", day, taskId);
+      }
+
+      if (snapshot?.taskResult) {
+        state.taskResults[day] = state.taskResults[day] || {};
+        state.taskResults[day][taskId] = snapshot.taskResult;
+      } else {
+        removeDayValue("taskResults", day, taskId);
+      }
+      restoreStreakSnapshot(snapshot);
+    }
+
+    function restoreHabitProgress(day, habitId, snapshot) {
+      if (snapshot?.habitCompletion) {
+        state.habitCompletions[day] = state.habitCompletions[day] || {};
+        state.habitCompletions[day][habitId] = true;
+      } else {
+        removeDayValue("habitCompletions", day, habitId);
+      }
+      restoreStreakSnapshot(snapshot);
+    }
+
+    function restoreTaskState(taskId, previousTask) {
+      state.tasks = state.tasks.map(task => (
+        task.id === taskId
+          ? {
+              ...task,
+              status: previousTask?.status || "pending",
+              startTime: previousTask?.startTime || null,
+              endTime: previousTask?.endTime || null,
+              durationMinutes: previousTask?.durationMinutes ?? null,
+              durationSeconds: previousTask?.durationSeconds ?? null,
+              earnedCoins: previousTask?.earnedCoins ?? null,
+              failedAt: previousTask?.failedAt || null,
+              updatedAt: new Date().toISOString()
+            }
+          : task
+      ));
     }
 
     function settleTimedTaskTimeouts(now = new Date()) {
@@ -459,26 +559,32 @@
       saveState();
       updatePrimaryReadouts();
 
-      if (shouldShowToast && taskResult.count > 0) {
+      if (shouldShowToast) {
+        const historyIds = [
+          ...taskResult.entries.map(entry => entry.historyId),
+          ...habitResult.entries.map(entry => entry.historyId)
+        ];
+        const totalPenalty = parseCoinAmount(taskResult.totalPenalty + habitResult.totalPenalty);
+        const reasons = [
+          taskResult.count > 0 ? "任务超时未完成" : "",
+          habitResult.count > 0 ? "习惯未完成" : ""
+        ].filter(Boolean).join(" / ");
+
         showUndoToast({
-          type: "task_auto_failed",
-          historyIds: taskResult.entries.map(entry => entry.historyId),
-          entries: taskResult.entries,
-          amount: taskResult.totalPenalty
+          type: "automatic_failures",
+          historyIds,
+          taskEntries: taskResult.entries,
+          habitEntries: habitResult.entries,
+          amount: totalPenalty
         }, {
           icon: "xmark.circle",
           lines: [
-            `已自动扣除 ${formatCoinAmount(taskResult.totalPenalty)} 金币`,
-            "原因：任务超时未完成",
+            `已自动扣除 ${formatCoinAmount(totalPenalty)} 金币`,
+            `原因：${reasons}`,
             `当前金币 ${formatCoinAmount(state.coins)}`
           ],
           undoLabel: "撤回",
-          duration: 7000
-        });
-      } else if (shouldShowToast && habitResult.count > 0) {
-        showAutomaticFailureToast({
-          amount: habitResult.totalPenalty,
-          reason: "习惯未完成"
+          duration: 5000
         });
       }
 
@@ -622,7 +728,21 @@
       delta.addEventListener("animationend", () => delta.remove(), { once: true });
     }
 
-    function showTaskRewardToast({ earnedCoins, durationSeconds = 0, currentCoins, showDuration = false }) {
+    function showTaskRewardToast({ earnedCoins, durationSeconds = 0, currentCoins, showDuration = false, undoData = null }) {
+      const lines = [`获得 ${formatCoinAmount(earnedCoins)} 金币`];
+      if (showDuration) lines.push(`用时 ${formatTaskDurationClock(durationSeconds)}`);
+      lines.push(`当前金币 ${formatCoinAmount(currentCoins)}`);
+      if (undoData) {
+        showUndoToast(undoData, {
+          icon: "checkmark.circle",
+          lines,
+          undoLabel: "撤回",
+          duration: 5000,
+          iconTone: "positive"
+        });
+        return;
+      }
+
       clearPendingUndo(false);
       clearTimeout(showToast.timer);
       els.toast.textContent = "";
@@ -633,9 +753,6 @@
       iconEl.setAttribute("aria-hidden", "true");
       iconEl.innerHTML = actionIcons["checkmark.circle"];
       toastMessage.append(iconEl);
-      const lines = [`赚了 ${formatCoinAmount(earnedCoins)} 金币`];
-      if (showDuration) lines.push(`用时 ${formatTaskDurationClock(durationSeconds)}`);
-      lines.push(`当前金币 ${formatCoinAmount(currentCoins)}`);
       lines.forEach(line => {
         const lineEl = document.createElement("span");
         lineEl.className = "toast-line";
@@ -667,8 +784,9 @@
         icon = "",
         message = "操作已执行",
         lines = null,
-        undoLabel = "撤销",
-        duration = 10000
+        undoLabel = "撤回",
+        duration = 5000,
+        iconTone = ""
       } = options;
       clearPendingUndo(false);
       clearTimeout(showToast.timer);
@@ -683,7 +801,7 @@
       toastMessage.className = "toast-message";
       if (icon && actionIcons[icon]) {
         const iconEl = document.createElement("span");
-        iconEl.className = "toast-icon action-icon";
+        iconEl.className = `toast-icon action-icon${iconTone ? ` ${iconTone}` : ""}`;
         iconEl.setAttribute("aria-hidden", "true");
         iconEl.innerHTML = actionIcons[icon];
         toastMessage.append(iconEl);
@@ -702,9 +820,8 @@
       const undoButton = document.createElement("button");
       undoButton.type = "button";
       undoButton.dataset.undoAction = "";
-      undoButton.className = "toast-icon-button";
-      undoButton.setAttribute("aria-label", undoLabel);
-      undoButton.innerHTML = actionIconHtml("xmark.circle");
+      undoButton.className = "toast-undo-button";
+      undoButton.textContent = undoLabel;
       els.toast.append(toastMessage, separatorEl, undoButton);
       els.toast.classList.add("interactive", "show");
     }
@@ -718,40 +835,39 @@
       const historyIds = new Set(undo.historyIds || (undo.historyId ? [undo.historyId] : []));
       const hasHistory = Array.from(historyIds).some(id => state.history.some(item => item.id === id));
       if (!hasHistory) {
-        showToast("无法撤销");
+        showToast("无法撤回");
         return;
       }
 
       state.history = state.history.filter(item => !historyIds.has(item.id));
-      if (undo.type === "task_failed" || undo.type === "task_auto_failed") {
-        const entries = undo.entries || [undo];
+      if (undo.type === "task_failed" || undo.type === "task_auto_failed" || undo.type === "automatic_failures") {
+        const entries = undo.taskEntries || undo.entries || (undo.taskId ? [undo] : []);
         let restoredAmount = 0;
         entries.forEach(entry => {
-          if (state.taskResults[entry.date]) {
-            delete state.taskResults[entry.date][entry.taskId];
-            if (!Object.keys(state.taskResults[entry.date]).length) {
-              delete state.taskResults[entry.date];
-            }
-          }
-          state.tasks = state.tasks.map(task => (
-            task.id === entry.taskId
-              ? {
-                  ...task,
-                  status: entry.previousTask?.status || "pending",
-                  startTime: entry.previousTask?.startTime || null,
-                  endTime: entry.previousTask?.endTime || null,
-                  durationMinutes: entry.previousTask?.durationMinutes ?? null,
-                  durationSeconds: entry.previousTask?.durationSeconds ?? null,
-                  earnedCoins: entry.previousTask?.earnedCoins ?? null,
-                  failedAt: null,
-                  updatedAt: new Date().toISOString()
-                }
-              : task
-          ));
+          removeDayValue("taskResults", entry.date, entry.taskId);
+          restoreTaskState(entry.taskId, entry.previousTask);
           restoredAmount = parseCoinAmount(restoredAmount + entry.amount);
         });
         state.coins = parseCoinAmount(state.coins + restoredAmount);
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
+      }
+      if (undo.type === "habit_auto_failed" || undo.type === "automatic_failures") {
+        const entries = undo.habitEntries || undo.entries || [];
+        const restoredAmount = entries.reduce((total, entry) => parseCoinAmount(total + entry.amount), 0);
+        state.coins = parseCoinAmount(state.coins + restoredAmount);
+        state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
+      }
+      if (undo.type === "task_completed") {
+        restoreTaskState(undo.taskId, undo.previousTask);
+        restoreTaskProgress(undo.date, undo.taskId, undo.previousProgress);
+        state.coins = parseCoinAmount(state.coins - undo.amount);
+        state.totals.completedTasks = Math.max(0, (Number(state.totals.completedTasks) || 0) - 1);
+        state.totals.taskDurationSeconds = Math.max(0, (Number(state.totals.taskDurationSeconds) || 0) - (Number(undo.durationSeconds) || 0));
+        state.totals.earnedTaskCoins = Math.max(0, parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) - undo.amount));
+      }
+      if (undo.type === "habit_completed") {
+        restoreHabitProgress(undo.date, undo.habitId, undo.previousProgress);
+        state.coins = parseCoinAmount(state.coins - undo.amount);
       }
       if (undo.type === "bad_habit") {
         state.coins = parseCoinAmount(state.coins + undo.amount);
@@ -761,8 +877,18 @@
         state.coins = parseCoinAmount(state.coins + undo.amount);
         state.totals.coinsSpent = Math.max(0, parseCoinAmount((Number(state.totals.coinsSpent) || 0) - undo.amount));
       }
+      if (undo.type === "review_reward") {
+        state.coins = parseCoinAmount(state.coins - undo.amount);
+        state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
+        delete state.reviewRewards[undo.date];
+        if (undo.hadPreviousReview) {
+          state.dailyReviews[undo.date] = undo.previousReview || {};
+        } else if (state.dailyReviews?.[undo.date]) {
+          delete state.dailyReviews[undo.date];
+        }
+      }
 
       saveState();
       render();
-      showToast("已撤销");
+      showToast("已撤回");
     }

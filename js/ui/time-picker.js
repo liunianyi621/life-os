@@ -45,6 +45,11 @@
       return timePartsFromMinutes((baseMinutes ?? 0) + minutes);
     }
 
+    function shiftTimeValue(value, minutes) {
+      const parts = parseTimeValue(value);
+      return parts ? formatTimeParts(shiftTimeParts(parts, minutes)) : "";
+    }
+
     function defaultTaskTimeRange() {
       const start = nextWholeHourTime();
       const end = shiftTimeParts(start, 60);

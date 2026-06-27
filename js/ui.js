@@ -508,7 +508,6 @@
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
       const dayDetailButton = event.target.closest("[data-day-detail]");
-      const closeButton = event.target.closest("[data-close-sheet]");
       const deleteTaskButton = event.target.closest("[data-delete-task]");
       const deleteHabitButton = event.target.closest("[data-delete-habit]");
       const deleteBadButton = event.target.closest("[data-delete-bad]");
@@ -594,7 +593,6 @@
         renderHeatmap();
       }
       if (dayDetailButton) openDayDetail(dayDetailButton.dataset.dayDetail);
-      if (closeButton) closeSheet();
       if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
       if (deleteHabitButton) deleteHabit(deleteHabitButton.dataset.deleteHabit);
       if (deleteBadButton) deleteBadHabit(deleteBadButton.dataset.deleteBad);
@@ -602,19 +600,15 @@
       if (deleteRewardButton) deleteReward(deleteRewardButton.dataset.deleteReward);
     });
 
-    els.closeSheetBtn.addEventListener("click", closeSheet);
     els.sheetBackdrop.addEventListener("click", event => {
       if (event.target === els.sheetBackdrop) closeSheet();
     });
-    els.closeDayDetailBtn.addEventListener("click", closeDayDetail);
     els.dayDetailBackdrop.addEventListener("click", event => {
       if (event.target === els.dayDetailBackdrop) closeDayDetail();
     });
-    els.closeMemoBtn.addEventListener("click", closeMemoSheet);
     els.memoBackdrop.addEventListener("click", event => {
       if (event.target === els.memoBackdrop) closeMemoSheet();
     });
-    els.confirmCancelBtn.addEventListener("click", () => closeConfirm(false));
     els.confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
     els.confirmBackdrop.addEventListener("click", event => {
       if (event.target === els.confirmBackdrop) closeConfirm(false);

@@ -7,15 +7,6 @@
       });
     }
 
-    function closeSheetButtonHtml() {
-      return iconActionButtonHtml({
-        className: "ghost-button icon-only-button",
-        icon: "xmark.circle",
-        label: "取消",
-        attrs: "data-close-sheet"
-      });
-    }
-
     function submitSheetButtonHtml(label) {
       return iconActionButtonHtml({
         className: "button icon-only-button",
@@ -31,11 +22,8 @@
       const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
       const defaultRange = defaultTaskTimeRange();
       const startTimeValue = task ? taskStartTimeValue(task) : defaultRange.start;
-      const endTimeValue = task ? taskEndTimeValue(task) : defaultRange.end;
       const parsedStartTime = parseTimeValue(startTimeValue);
-      const parsedEndTime = parseTimeValue(endTimeValue);
       const initialStartTimeValue = parsedStartTime ? formatTimeParts(parsedStartTime) : "";
-      const initialEndTimeValue = parsedEndTime ? formatTimeParts(parsedEndTime) : "";
       els.sheetTitle.textContent = task ? "编辑任务" : "新建任务";
       els.sheetForm.innerHTML = `
         <label class="field">
@@ -47,62 +35,34 @@
           <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${taskRewardInputValue(task)}" placeholder="默认 2">
           <span class="field-help">有时间任务按每小时计算；无时间任务按固定奖励计算。</span>
         </label>
-        <div class="task-time-range-fields">
-          <div class="field">
-            <span class="field-label">开始时间</span>
-            <div class="time-picker" data-time-picker data-time-role="start">
-              <input name="timeStart" type="hidden" value="${escapeAttr(initialStartTimeValue)}">
-              <div class="time-picker-header">
-                <span class="time-picker-value" data-time-value>${escapeHtml(initialStartTimeValue || "未设置")}</span>
-                ${iconActionButtonHtml({
-                  className: "time-clear icon-only-button",
-                  icon: "xmark.circle",
-                  label: "不设置开始时间",
-                  attrs: "data-clear-time"
-                })}
+        <div class="field">
+          <span class="field-label">开始时间</span>
+          <div class="time-picker" data-time-picker data-time-role="start">
+            <input name="timeStart" type="hidden" value="${escapeAttr(initialStartTimeValue)}">
+            <div class="time-picker-header">
+              <span class="time-picker-value" data-time-value>${escapeHtml(initialStartTimeValue || "未设置")}</span>
+              ${iconActionButtonHtml({
+                className: "time-clear icon-only-button",
+                icon: "xmark.circle",
+                label: "不设置开始时间",
+                attrs: "data-clear-time"
+              })}
+            </div>
+            <div class="time-wheels" aria-label="选择开始时间">
+              <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
+                ${timeOptionButtons("hour", parsedStartTime?.hour)}
               </div>
-              <div class="time-wheels" aria-label="选择开始时间">
-                <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
-                  ${timeOptionButtons("hour", parsedStartTime?.hour)}
-                </div>
-                <div class="time-wheel" data-time-wheel="minute" aria-label="分钟">
-                  ${timeOptionButtons("minute", parsedStartTime?.minute)}
-                </div>
-                <div class="time-wheel" data-time-wheel="period" aria-label="上午或下午">
-                  ${timeOptionButtons("period", parsedStartTime?.period)}
-                </div>
+              <div class="time-wheel" data-time-wheel="minute" aria-label="分钟">
+                ${timeOptionButtons("minute", parsedStartTime?.minute)}
+              </div>
+              <div class="time-wheel" data-time-wheel="period" aria-label="上午或下午">
+                ${timeOptionButtons("period", parsedStartTime?.period)}
               </div>
             </div>
           </div>
-          <div class="field">
-            <span class="field-label">结束时间</span>
-            <div class="time-picker" data-time-picker data-time-role="end">
-              <input name="timeEnd" type="hidden" value="${escapeAttr(initialEndTimeValue)}">
-              <div class="time-picker-header">
-                <span class="time-picker-value" data-time-value>${escapeHtml(initialEndTimeValue || "未设置")}</span>
-                ${iconActionButtonHtml({
-                  className: "time-clear icon-only-button",
-                  icon: "xmark.circle",
-                  label: "不设置结束时间",
-                  attrs: "data-clear-time"
-                })}
-              </div>
-              <div class="time-wheels" aria-label="选择结束时间">
-                <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
-                  ${timeOptionButtons("hour", parsedEndTime?.hour)}
-                </div>
-                <div class="time-wheel" data-time-wheel="minute" aria-label="分钟">
-                  ${timeOptionButtons("minute", parsedEndTime?.minute)}
-                </div>
-                <div class="time-wheel" data-time-wheel="period" aria-label="上午或下午">
-                  ${timeOptionButtons("period", parsedEndTime?.period)}
-                </div>
-              </div>
-            </div>
-          </div>
+          <span class="field-help">结束时间会自动设为开始时间后一小时。</span>
         </div>
         <div class="sheet-actions">
-          ${closeSheetButtonHtml()}
           ${submitSheetButtonHtml(task ? "保存任务" : "创建任务")}
         </div>
         <div class="delete-row ${task ? "" : "hidden"}">
@@ -129,7 +89,6 @@
           <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${habit?.coins ?? ""}" placeholder="0">
         </label>
         <div class="sheet-actions">
-          ${closeSheetButtonHtml()}
           ${submitSheetButtonHtml(habit ? "保存习惯" : "创建习惯")}
         </div>
         <div class="delete-row ${habit ? "" : "hidden"}">
@@ -155,7 +114,6 @@
           <input name="penalty" type="number" min="0" step="1" inputmode="numeric" value="${habit?.penalty ?? ""}" placeholder="0">
         </label>
         <div class="sheet-actions">
-          ${closeSheetButtonHtml()}
           ${submitSheetButtonHtml(habit ? "保存坏习惯" : "创建坏习惯")}
         </div>
         <div class="delete-row ${habit ? "" : "hidden"}">
@@ -177,7 +135,6 @@
           <textarea name="text" maxlength="500" placeholder="输入提醒内容" required>${escapeHtml(note?.text || "")}</textarea>
         </label>
         <div class="sheet-actions">
-          ${closeSheetButtonHtml()}
           ${submitSheetButtonHtml(note ? "保存笔记" : "创建笔记")}
         </div>
         <div class="delete-row ${note ? "" : "hidden"}">
@@ -203,7 +160,6 @@
           <input name="cost" type="number" min="0" step="1" inputmode="numeric" value="${reward?.cost ?? ""}" placeholder="0">
         </label>
         <div class="sheet-actions">
-          ${closeSheetButtonHtml()}
           ${submitSheetButtonHtml(reward ? "保存奖励" : "创建奖励")}
         </div>
         <div class="delete-row ${reward ? "" : "hidden"}">
@@ -249,7 +205,7 @@
         const taskCoinsInput = String(formData.get("coins") || "").trim();
         const taskCoins = taskCoinsInput === "" ? "" : parseCoinAmount(Math.max(0, Number(taskCoinsInput)));
         const timeStart = String(formData.get("timeStart") || "").trim();
-        const timeEnd = String(formData.get("timeEnd") || "").trim();
+        const timeEnd = timeStart ? shiftTimeValue(timeStart, 60) : "";
         saveTask({
           name: String(formData.get("name") || "").trim(),
           coins: taskCoins,
