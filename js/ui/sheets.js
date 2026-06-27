@@ -69,9 +69,9 @@
           ${deleteIconButtonHtml({ action: "task", id: task?.id, label: "移除任务" })}
         </div>
       `;
-      openSheet();
+      openSheet({ position: "top" });
       initTimePicker();
-      els.sheetForm.querySelector("input[name='name']").focus();
+      focusSheetField("input[name='name']");
     }
 
     function openHabitSheet(habitId = null) {
@@ -95,8 +95,8 @@
           ${deleteIconButtonHtml({ action: "habit", id: habit?.id, label: "移除习惯" })}
         </div>
       `;
-      openSheet();
-      els.sheetForm.querySelector("input[name='name']").focus();
+      openSheet({ position: "top" });
+      focusSheetField("input[name='name']");
     }
 
     function openBadHabitSheet(habitId = null) {
@@ -120,8 +120,8 @@
           ${deleteIconButtonHtml({ action: "bad", id: habit?.id, label: "移除坏习惯" })}
         </div>
       `;
-      openSheet();
-      els.sheetForm.querySelector("input[name='name']").focus();
+      openSheet({ position: "top" });
+      focusSheetField("input[name='name']");
     }
 
     function openNoteSheet(noteId = null) {
@@ -141,8 +141,8 @@
           ${deleteIconButtonHtml({ action: "note", id: note?.id, label: "移除笔记" })}
         </div>
       `;
-      openSheet();
-      els.sheetForm.querySelector("textarea[name='text']").focus();
+      openSheet({ position: "top" });
+      focusSheetField("textarea[name='text']");
     }
 
     function openRewardSheet(rewardId = null) {
@@ -171,9 +171,12 @@
     }
 
     function openSheet(options = {}) {
-      els.sheetBackdrop.dataset.sheetPosition = options.position || "bottom";
+      syncSheetViewport();
+      els.sheetBackdrop.dataset.sheetPosition = options.position || "top";
       els.sheetBackdrop.classList.remove("hidden");
       els.sheetBackdrop.setAttribute("aria-hidden", "false");
+      els.sheetForm.scrollTop = 0;
+      syncModalState();
     }
 
     function closeSheet() {
@@ -183,6 +186,7 @@
       sheetMode = null;
       editingId = null;
       els.sheetForm.innerHTML = "";
+      syncModalState();
     }
 
     function focusSheetField(selector) {
@@ -195,7 +199,7 @@
           target.focus();
         }
         target.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }, 80);
+      }, 150);
     }
 
     function handleSheetSubmit(event) {

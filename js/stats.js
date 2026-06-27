@@ -307,14 +307,17 @@
     function openDayDetail(day) {
       els.dayDetailTitle.textContent = formatFullDateKey(day);
       els.dayDetailContent.innerHTML = buildDayDetailHtml(day);
+      syncSheetViewport();
       els.dayDetailBackdrop.classList.remove("hidden");
       els.dayDetailBackdrop.setAttribute("aria-hidden", "false");
+      syncModalState();
     }
 
     function closeDayDetail() {
       els.dayDetailBackdrop.classList.add("hidden");
       els.dayDetailBackdrop.setAttribute("aria-hidden", "true");
       els.dayDetailContent.innerHTML = "";
+      syncModalState();
     }
 
     function renderHeatmap() {

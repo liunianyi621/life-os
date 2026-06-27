@@ -3,6 +3,40 @@
       scheduleRender.timer = setTimeout(render, delay);
     }
 
+    function syncSheetViewport() {
+      const viewport = window.visualViewport;
+      const viewportHeight = Math.max(320, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
+      const keyboardOffset = viewport
+        ? Math.max(0, Math.round((window.innerHeight || viewportHeight) - viewport.height - viewport.offsetTop))
+        : 0;
+      document.documentElement.style.setProperty("--sheet-viewport-height", `${viewportHeight}px`);
+      document.documentElement.style.setProperty("--sheet-keyboard-offset", `${keyboardOffset}px`);
+    }
+
+    function hasOpenModal() {
+      return [
+        els.sheetBackdrop,
+        els.dayDetailBackdrop,
+        els.memoBackdrop,
+        els.confirmBackdrop
+      ].some(backdrop => backdrop && !backdrop.classList.contains("hidden"));
+    }
+
+    function syncModalState() {
+      syncSheetViewport();
+      document.body.classList.toggle("modal-open", hasOpenModal());
+    }
+
+    function installSheetViewportSync() {
+      const update = () => {
+        if (document.body.classList.contains("modal-open")) syncSheetViewport();
+      };
+      window.visualViewport?.addEventListener("resize", update);
+      window.visualViewport?.addEventListener("scroll", update);
+      window.addEventListener("resize", update);
+      syncSheetViewport();
+    }
+
     function prepareActionCard(card) {
       if (!card) return;
       card.querySelectorAll("button").forEach(button => {
@@ -26,6 +60,7 @@
       confirmResolver = null;
       els.confirmBackdrop.classList.add("hidden");
       els.confirmBackdrop.setAttribute("aria-hidden", "true");
+      syncModalState();
       resolve(result);
     }
 
@@ -38,6 +73,7 @@
         els.confirmAcceptBtn.setAttribute("aria-label", confirmText || "确认");
         els.confirmBackdrop.classList.remove("hidden");
         els.confirmBackdrop.setAttribute("aria-hidden", "false");
+        syncModalState();
         window.setTimeout(() => els.confirmAcceptBtn.focus(), 0);
       });
     }

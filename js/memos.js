@@ -82,15 +82,25 @@
       clearMemoForm();
       renderMemoSummary();
       renderMemos();
+      syncSheetViewport();
       els.memoBackdrop.classList.remove("hidden");
       els.memoBackdrop.setAttribute("aria-hidden", "false");
-      window.setTimeout(() => els.memoInput?.focus(), 0);
+      syncModalState();
+      window.setTimeout(() => {
+        try {
+          els.memoInput?.focus({ preventScroll: true });
+        } catch {
+          els.memoInput?.focus();
+        }
+        els.memoInput?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }, 150);
     }
 
     function closeMemoSheet() {
       clearMemoForm();
       els.memoBackdrop.classList.add("hidden");
       els.memoBackdrop.setAttribute("aria-hidden", "true");
+      syncModalState();
     }
 
     function saveMemoText(text) {
@@ -131,7 +141,12 @@
       editingMemoId = memo.id;
       els.memoInput.value = memo.text || "";
       setMemoSubmitIcon("checkmark.circle", "保存备忘录");
-      els.memoInput.focus();
+      try {
+        els.memoInput.focus({ preventScroll: true });
+      } catch {
+        els.memoInput.focus();
+      }
+      els.memoInput.scrollIntoView({ block: "nearest", behavior: "smooth" });
       els.memoInput.setSelectionRange(els.memoInput.value.length, els.memoInput.value.length);
     }
 

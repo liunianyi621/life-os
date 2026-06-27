@@ -35,10 +35,14 @@
       --control-radius: 16px;
       --small-radius: 14px;
       --pill-radius: 999px;
+      --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --safe-left: env(safe-area-inset-left, 0px);
       --safe-right: env(safe-area-inset-right, 0px);
       --nav-base-height: 70px;
+      --sheet-viewport-height: 100dvh;
+      --sheet-keyboard-offset: 0px;
+      --sheet-top-gap: max(10px, calc(var(--safe-top) + 10px));
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
     }
 
@@ -67,6 +71,18 @@
 
     button {
       -webkit-tap-highlight-color: transparent;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    body.modal-open .sheet,
+    body.modal-open .sheet-form,
+    body.modal-open .memo-form,
+    body.modal-open .memo-list,
+    body.modal-open .day-detail-content {
+      touch-action: auto;
     }
 
     .app {
@@ -809,11 +825,14 @@
     }
 
     .memo-list {
+      min-height: 0;
+      flex: 1 1 auto;
       display: grid;
       gap: 10px;
-      max-height: min(50svh, 420px);
+      max-height: min(calc(var(--sheet-viewport-height) - 210px), 420px);
       overflow: auto;
       padding: 0 16px 18px;
+      overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
     }
 
@@ -1661,12 +1680,16 @@
       position: fixed;
       inset: 0;
       z-index: 40;
-      display: grid;
-      align-items: end;
-      justify-items: center;
-      padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+      height: var(--sheet-viewport-height);
+      max-height: var(--sheet-viewport-height);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: var(--sheet-top-gap) 14px max(10px, var(--safe-bottom));
       background: rgba(17, 24, 39, 0.28);
       opacity: 1;
+      overflow: hidden;
+      overscroll-behavior: contain;
       transition: opacity 0.18s ease;
     }
 
@@ -1676,18 +1699,17 @@
     }
 
     .sheet-backdrop[data-sheet-position="top"] {
-      align-items: start;
-      padding-top: max(14px, calc(12px + env(safe-area-inset-top)));
-      padding-bottom: calc(42svh + env(safe-area-inset-bottom));
-      overflow-y: auto;
-      overscroll-behavior: contain;
+      align-items: flex-start;
     }
 
     .sheet {
       width: min(100%, 448px);
-      max-height: min(82svh, 680px);
-      overflow: auto;
-      border-radius: 24px 24px 12px 12px;
+      max-height: min(calc(var(--sheet-viewport-height) - var(--sheet-top-gap) - max(10px, var(--safe-bottom)) - 8px), 680px);
+      min-height: min(360px, calc(var(--sheet-viewport-height) - var(--sheet-top-gap) - max(10px, var(--safe-bottom)) - 8px));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 22px;
       background: rgba(255, 255, 255, 0.94);
       box-shadow: 0 18px 60px rgba(17, 24, 39, 0.22);
       transform: translateY(0);
@@ -1695,7 +1717,7 @@
     }
 
     .sheet-backdrop[data-sheet-position="top"] .sheet {
-      max-height: min(56svh, 420px);
+      max-height: min(calc(var(--sheet-viewport-height) - var(--sheet-top-gap) - max(10px, var(--safe-bottom)) - 8px), 680px);
       border-radius: 22px;
     }
 
@@ -1758,14 +1780,26 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex: 0 0 auto;
       gap: 12px;
       padding: 16px 16px 8px;
     }
 
     .sheet-form {
-      display: grid;
+      min-height: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
       gap: 14px;
-      padding: 8px 16px 16px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 8px 16px calc(12px + var(--safe-bottom));
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .sheet-form::-webkit-scrollbar {
+      display: none;
     }
 
     .field {
@@ -1925,7 +1959,17 @@
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      margin-top: 4px;
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      margin-top: auto;
+      margin-right: -2px;
+      margin-left: -2px;
+      padding: 10px 2px 4px;
+      border-top: 1px solid rgba(230, 233, 238, 0.72);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.64), rgba(255, 255, 255, 0.96) 32%);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
     }
 
     .delete-row {
@@ -1938,9 +1982,14 @@
     }
 
     .day-detail-content {
+      min-height: 0;
+      flex: 1 1 auto;
       display: grid;
       gap: 12px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 8px 16px 18px;
+      -webkit-overflow-scrolling: touch;
     }
 
     .detail-summary-grid {

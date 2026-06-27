@@ -680,5 +680,6 @@
       }
     });
 
+    installSheetViewportSync();
     runAutomaticChecks({ renderAfter: false });
     render();
