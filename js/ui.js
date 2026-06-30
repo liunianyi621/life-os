@@ -58,6 +58,7 @@
       if (card.dataset.editCard === "bad") openBadHabitSheet(editId);
       if (card.dataset.editCard === "note") openNoteSheet(editId);
       if (card.dataset.editCard === "reward") openRewardSheet(editId);
+      if (card.dataset.editCard === "review") openReviewEditSheet(editId);
     }
 
     function triggerLongPressEdit(press) {
@@ -123,6 +124,68 @@
         }, 0);
       }
     }
+
+    function triggerReviewLongPress(press) {
+      if (!press?.card) return;
+      press.triggered = true;
+      suppressNextCardTap = true;
+      press.card.classList.add("long-press-active");
+      try {
+        if (navigator.vibrate) navigator.vibrate(10);
+      } catch (error) {
+        // Haptics are best-effort.
+      }
+      openReviewEditSheet(press.card.dataset.reviewCard);
+      window.setTimeout(() => {
+        press.card?.classList.remove("long-press-active");
+      }, 220);
+    }
+
+    function clearReviewPress() {
+      if (!activeReviewPress) return null;
+      const press = activeReviewPress;
+      activeReviewPress = null;
+      clearTimeout(press.timer);
+      press.card?.releasePointerCapture?.(press.pointerId);
+      return press;
+    }
+
+    function beginReviewPress(event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (event.target.closest("button, input, textarea, select, a")) return;
+      const card = event.target.closest("[data-review-card]");
+      if (!card) return;
+
+      activeReviewPress = {
+        card,
+        startX: event.clientX,
+        startY: event.clientY,
+        pointerId: event.pointerId,
+        triggered: false,
+        timer: window.setTimeout(() => {
+          if (activeReviewPress?.pointerId === event.pointerId) triggerReviewLongPress(activeReviewPress);
+        }, 580)
+      };
+      card.setPointerCapture?.(event.pointerId);
+    }
+
+    function moveReviewPress(event) {
+      if (!activeReviewPress || event.pointerId !== activeReviewPress.pointerId) return;
+      const deltaX = event.clientX - activeReviewPress.startX;
+      const deltaY = event.clientY - activeReviewPress.startY;
+      if (Math.hypot(deltaX, deltaY) > 12) clearReviewPress();
+    }
+
+    function endReviewPress(event) {
+      if (!activeReviewPress || event.pointerId !== activeReviewPress.pointerId) return;
+      const press = clearReviewPress();
+      if (press?.triggered) {
+        window.setTimeout(() => {
+          suppressNextCardTap = false;
+        }, 0);
+      }
+    }
+
     function render() {
       const activeCount = activeTasksToday().length;
       const visibleHabitCount = visibleHabitsToday().length;
@@ -134,7 +197,7 @@
       els.todayTaskCount.textContent = `${activeCount} 项`;
       els.badHabitCount.textContent = `${state.badHabits.length} 项`;
       els.noteCount.textContent = `${state.notes.length} 条`;
-      els.rewardCount.textContent = `${state.rewards.length} 项`;
+      els.rewardCount.textContent = `${state.rewards.length + 1} 项`;
 
       renderHabits();
       renderTasks();
@@ -413,7 +476,7 @@
       }
 
       els.reviewHistoryList.innerHTML = history.map(([day, review]) => `
-        <article class="card review-card">
+        <article class="card review-card" data-review-card="${escapeAttr(day)}" data-edit-card="review" data-edit-id="${escapeAttr(day)}" role="button" tabindex="0" aria-label="长按编辑复盘">
           <div class="review-card-header">
             <div class="review-date">
               <span class="review-date-label">日期</span>
@@ -428,9 +491,59 @@
       `).join("");
     }
 
+    function phoneTimerMetaHtml(status) {
+      if (status === "running") {
+        const startedAt = phoneTimerStartedAtLabel();
+        return `
+          <span class="pill green">进行中</span>
+          ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
+        `;
+      }
+      return `
+        <span class="pill coin-pill">${formatCoinAmount(PHONE_TIMER_RATE)} 金币/小时</span>
+        <span class="pill">计时扣除</span>
+      `;
+    }
+
+    function phoneTimerActionsHtml(status) {
+      return status === "running"
+        ? actionButtonHtml({
+            tone: "orange",
+            icon: "stop.circle",
+            label: "结束玩手机计时",
+            attrs: "data-stop-phone-timer"
+          })
+        : actionButtonHtml({
+            tone: "blue",
+            icon: "play.circle",
+            label: "开始玩手机计时",
+            attrs: "data-start-phone-timer"
+          });
+    }
+
+    function renderPhoneTimerCard() {
+      const status = phoneTimerStatus();
+      return swipeRowHtml({
+        attrs: "data-phone-timer-card",
+        actions: phoneTimerActionsHtml(status),
+        content: `
+          <div class="card-main">
+            <div class="title-wrap">
+              <h3>${escapeHtml(PHONE_TIMER_NAME)}</h3>
+              <div class="meta-row">
+                ${phoneTimerMetaHtml(status)}
+              </div>
+            </div>
+          </div>
+        `
+      });
+    }
+
     function renderRewards() {
+      const phoneTimerCard = renderPhoneTimerCard();
       if (!state.rewards.length) {
         els.rewardList.innerHTML = `
+          ${phoneTimerCard}
           <div class="empty-state">
             <strong>没有奖励</strong>
             <p>添加一个可以用金币兑换的奖励。</p>
@@ -445,7 +558,7 @@
         return;
       }
 
-      els.rewardList.innerHTML = state.rewards.map(reward => {
+      els.rewardList.innerHTML = phoneTimerCard + state.rewards.map(reward => {
         const cost = parseAmount(reward.cost);
         const affordable = state.coins >= cost;
         return swipeRowHtml({
@@ -474,15 +587,20 @@
     }
 
     document.addEventListener("pointerdown", beginSwipe);
+    document.addEventListener("pointerdown", beginReviewPress);
     document.addEventListener("pointermove", moveSwipe, { passive: false });
+    document.addEventListener("pointermove", moveReviewPress, { passive: false });
     document.addEventListener("pointerup", endSwipe);
+    document.addEventListener("pointerup", endReviewPress);
     document.addEventListener("pointercancel", endSwipe);
+    document.addEventListener("pointercancel", endReviewPress);
 
     document.addEventListener("click", event => {
       const undoButton = event.target.closest("[data-undo-action]");
       const swipeActionButton = event.target.closest(".swipe-action");
       const swipeContent = event.target.closest("[data-swipe-content]");
       const editCard = event.target.closest("[data-edit-card]");
+      const reviewCard = event.target.closest("[data-review-card]");
       const navButton = event.target.closest("[data-nav]");
       const openTaskButton = event.target.closest("[data-open-task]");
       const openHabitButton = event.target.closest("[data-open-habit]");
@@ -505,6 +623,8 @@
       const failTaskButton = event.target.closest("[data-fail-task]");
       const triggerBadButton = event.target.closest("[data-trigger-bad]");
       const redeemRewardButton = event.target.closest("[data-redeem-reward]");
+      const startPhoneTimerButton = event.target.closest("[data-start-phone-timer]");
+      const stopPhoneTimerButton = event.target.closest("[data-stop-phone-timer]");
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
       const dayDetailButton = event.target.closest("[data-day-detail]");
@@ -521,7 +641,7 @@
       if (!event.target.closest("[data-swipe-row]")) {
         closeOpenSwipeRows();
       }
-      if (suppressNextCardTap && (swipeContent || editCard)) {
+      if (suppressNextCardTap && (swipeContent || editCard || reviewCard)) {
         suppressNextCardTap = false;
         return;
       }
@@ -577,6 +697,12 @@
           redeemRewardButton.closest("[data-reward-card]"),
           redeemRewardButton
         );
+      }
+      if (startPhoneTimerButton) {
+        startPhoneTimer();
+      }
+      if (stopPhoneTimerButton) {
+        stopPhoneTimer(stopPhoneTimerButton.closest("[data-phone-timer-card]"));
       }
       if (statsRangeButton) {
         currentStatsRange = statsRangeButton.dataset.statsRange;
@@ -650,6 +776,7 @@
 
     document.addEventListener("keydown", event => {
       const noteEditCard = event.target.closest?.("[data-edit-card='note']");
+      const reviewEditCard = event.target.closest?.("[data-review-card]");
       const memoEditTarget = event.target.closest?.("[data-edit-memo]");
       if (memoEditTarget && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
@@ -659,6 +786,11 @@
       if (noteEditCard && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         handleEditCardTap(noteEditCard);
+        return;
+      }
+      if (reviewEditCard && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        openReviewEditSheet(reviewEditCard.dataset.reviewCard);
         return;
       }
       if (event.key === "Escape") {

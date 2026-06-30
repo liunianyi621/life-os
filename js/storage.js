@@ -21,6 +21,11 @@
       notes: [],
       memos: [],
       rewards: [],
+      phoneTimer: {
+        status: "idle",
+        startTime: null,
+        updatedAt: null
+      },
       dailyReviews: {},
       reviewRewards: {},
       history: [],
@@ -36,12 +41,14 @@
     let state = loadState();
     let sheetMode = null;
     let editingId = null;
+    let editingReviewDate = null;
     let currentStatsRange = "week";
     let currentHeatmapMonth = monthKey();
     let selectedReviewDate = dateKey();
     let pendingUndo = null;
     let confirmResolver = null;
     let activeSwipe = null;
+    let activeReviewPress = null;
     let suppressNextCardTap = false;
 
     function cloneEmptyState() {
@@ -61,6 +68,9 @@
           notes: Array.isArray(saved.notes) ? saved.notes : [],
           memos: Array.isArray(saved.memos) ? saved.memos : [],
           rewards: Array.isArray(saved.rewards) ? saved.rewards : [],
+          phoneTimer: saved.phoneTimer && typeof saved.phoneTimer === "object"
+            ? { ...cloneEmptyState().phoneTimer, ...saved.phoneTimer }
+            : cloneEmptyState().phoneTimer,
           dailyReviews: saved.dailyReviews && typeof saved.dailyReviews === "object" ? saved.dailyReviews : {},
           reviewRewards: saved.reviewRewards && typeof saved.reviewRewards === "object" ? saved.reviewRewards : {},
           history: Array.isArray(saved.history) ? saved.history : [],
@@ -311,4 +321,68 @@
       renderDailyReview();
       showReviewSavedStatus();
       showToast("✓ 复盘已保存", 2000);
+    }
+
+    function moveReviewRewardDate(fromDate, toDate) {
+      if (fromDate === toDate) return;
+      state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
+      const historyId = state.reviewRewards[fromDate];
+      if (!historyId) return;
+
+      delete state.reviewRewards[fromDate];
+      state.reviewRewards[toDate] = historyId;
+      const historyItem = state.history.find(item => item.id === historyId && item.type === "review_reward");
+      if (historyItem) {
+        historyItem.date = toDate;
+      }
+    }
+
+    async function saveEditedDailyReview(reviewData, originalDate = editingReviewDate) {
+      const previousDate = normalizeReviewDateKey(originalDate);
+      const reviewDate = normalizeReviewDateKey(reviewData.date);
+      const best = String(reviewData.best || "").trim();
+      const mistake = String(reviewData.mistake || "").trim();
+      const priority = String(reviewData.priority || "").trim();
+
+      if (!state.dailyReviews?.[previousDate]) {
+        showToast("找不到这条复盘");
+        return false;
+      }
+
+      if (!best && !mistake && !priority) {
+        showToast("至少填写一项复盘");
+        return false;
+      }
+
+      if (reviewDate !== previousDate && state.dailyReviews?.[reviewDate]) {
+        const confirmed = await askForConfirmation({
+          title: "覆盖已有复盘",
+          message: `${formatFullDateKey(reviewDate)} 已经有复盘。确认移动并覆盖这一天的复盘吗？`,
+          confirmText: "确认覆盖"
+        });
+        if (!confirmed) return false;
+      }
+
+      const now = new Date().toISOString();
+      const previous = state.dailyReviews[previousDate] || {};
+      state.dailyReviews[reviewDate] = {
+        ...previous,
+        date: reviewDate,
+        best,
+        mistake,
+        priority,
+        createdAt: previous.createdAt || now,
+        updatedAt: now
+      };
+      if (reviewDate !== previousDate) {
+        delete state.dailyReviews[previousDate];
+        moveReviewRewardDate(previousDate, reviewDate);
+        if (selectedReviewDate === previousDate) selectedReviewDate = reviewDate;
+      }
+
+      saveState();
+      closeSheet();
+      renderDailyReview();
+      showToast("复盘已更新");
+      return true;
     }

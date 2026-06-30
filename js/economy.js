@@ -1,3 +1,39 @@
+    const PHONE_TIMER_NAME = "玩手机";
+    const PHONE_TIMER_RATE = 2;
+
+    function ensurePhoneTimer() {
+      state.phoneTimer = state.phoneTimer && typeof state.phoneTimer === "object"
+        ? state.phoneTimer
+        : { status: "idle", startTime: null, updatedAt: null };
+      return state.phoneTimer;
+    }
+
+    function phoneTimerStatus() {
+      const timer = ensurePhoneTimer();
+      return timer.status === "running" && timer.startTime ? "running" : "idle";
+    }
+
+    function phoneTimerStartedAtLabel() {
+      const timer = ensurePhoneTimer();
+      if (!timer.startTime) return "";
+      const date = new Date(timer.startTime);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).format(date);
+    }
+
+    function phoneTimerDeductionPayload(startTime, endTime = new Date()) {
+      const payload = taskDurationPayload(startTime, endTime, PHONE_TIMER_RATE);
+      return {
+        durationSeconds: payload.durationSeconds,
+        durationMinutes: payload.durationMinutes,
+        deductedCoins: payload.earnedCoins
+      };
+    }
+
     function summaryTotals() {
       if (!state.history.length) {
         return {
@@ -23,6 +59,9 @@
         }
         if (item.type === "task_missed" || item.type === "bad_habit") {
           totals.coinsPenalty += parseAmount(item.coins);
+        }
+        if (item.type === "phone_timer") {
+          totals.coinsPenalty += parseCoinAmount(item.coins);
         }
         return totals;
       }, {
@@ -591,6 +630,76 @@
       return true;
     }
 
+    function startPhoneTimer() {
+      if (phoneTimerStatus() === "running") return;
+      const startedAt = new Date().toISOString();
+      state.phoneTimer = {
+        ...ensurePhoneTimer(),
+        status: "running",
+        startTime: startedAt,
+        updatedAt: startedAt
+      };
+      saveState();
+      render();
+    }
+
+    function stopPhoneTimer(sourceEl = null) {
+      const timer = ensurePhoneTimer();
+      if (phoneTimerStatus() !== "running") return;
+
+      const previousTimer = { ...timer };
+      const endedAt = new Date().toISOString();
+      const { durationSeconds, durationMinutes, deductedCoins } = phoneTimerDeductionPayload(timer.startTime, endedAt);
+      const amount = parseCoinAmount(deductedCoins);
+      const historyId = createId("history");
+
+      state.phoneTimer = {
+        status: "idle",
+        startTime: null,
+        updatedAt: endedAt,
+        lastStartTime: timer.startTime,
+        lastEndTime: endedAt,
+        lastDurationSeconds: durationSeconds,
+        lastDeductedCoins: amount
+      };
+      state.coins = parseCoinAmount(state.coins - amount);
+      state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
+      state.history.unshift({
+        id: historyId,
+        type: "phone_timer",
+        name: PHONE_TIMER_NAME,
+        coins: amount,
+        durationMinutes,
+        durationSeconds,
+        startTime: timer.startTime,
+        endTime: endedAt,
+        date: dateKey(),
+        timestamp: endedAt
+      });
+
+      saveState();
+      updatePrimaryReadouts();
+      prepareActionCard(sourceEl);
+      if (sourceEl) sourceEl.classList.add("task-exit-penalty");
+      showCoinFeedback(amount, "negative", sourceEl, { flash: false });
+      scheduleRender(sourceEl ? 380 : 0);
+      showUndoToast({
+        type: "phone_timer",
+        historyId,
+        amount,
+        previousTimer
+      }, {
+        icon: "minus.circle",
+        lines: [
+          `⊗ 扣除 ${formatCoinAmount(amount)} 金币`,
+          `${PHONE_TIMER_NAME} ${formatTaskDurationClock(durationSeconds)}`,
+          `当前金币 ${formatCoinAmount(state.coins)}`
+        ],
+        undoLabel: "撤回",
+        duration: 5000
+      });
+    }
+
     function updateStreakForCompletion(today) {
       if (state.lastCompletedDate === today) return;
       state.streak = state.lastCompletedDate === yesterdayKey() ? state.streak + 1 : 1;
@@ -872,6 +981,11 @@
       if (undo.type === "bad_habit") {
         state.coins = parseCoinAmount(state.coins + undo.amount);
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - undo.amount));
+      }
+      if (undo.type === "phone_timer") {
+        state.coins = parseCoinAmount(state.coins + undo.amount);
+        state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - undo.amount));
+        state.phoneTimer = undo.previousTimer || { status: "idle", startTime: null, updatedAt: new Date().toISOString() };
       }
       if (undo.type === "reward_redeemed") {
         state.coins = parseCoinAmount(state.coins + undo.amount);

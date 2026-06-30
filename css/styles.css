@@ -971,6 +971,15 @@
       gap: 13px;
       padding: 16px;
       background: rgba(255, 255, 255, 0.82);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .review-card.long-press-active {
+      transform: scale(0.985);
+      border-color: rgba(10, 132, 255, 0.2);
+      background: rgba(255, 255, 255, 0.9);
     }
 
     .review-card-header {

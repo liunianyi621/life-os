@@ -170,6 +170,43 @@
       focusSheetField("input[name='name']");
     }
 
+    function openReviewEditSheet(day) {
+      const reviewDate = normalizeReviewDateKey(day);
+      const review = state.dailyReviews?.[reviewDate];
+      if (!review) {
+        showToast("找不到这条复盘");
+        return;
+      }
+
+      sheetMode = "review-edit";
+      editingId = null;
+      editingReviewDate = reviewDate;
+      els.sheetTitle.textContent = "编辑复盘";
+      els.sheetForm.innerHTML = `
+        <label class="field">
+          <span class="field-label">日期</span>
+          <input name="date" type="date" max="${escapeAttr(dateKey())}" value="${escapeAttr(reviewDate)}" required>
+        </label>
+        <label class="field">
+          <span class="field-label">今天做得最好的事情是什么？</span>
+          <textarea name="best" maxlength="500" placeholder="写下值得保留的部分">${escapeHtml(review.best || "")}</textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">今天最大的失误是什么？</span>
+          <textarea name="mistake" maxlength="500" placeholder="写下需要调整的部分">${escapeHtml(review.mistake || "")}</textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">明天最重要的一件事是什么？</span>
+          <textarea name="priority" maxlength="500" placeholder="写下下一步">${escapeHtml(review.priority || "")}</textarea>
+        </label>
+        <div class="sheet-actions">
+          ${submitSheetButtonHtml("保存复盘")}
+        </div>
+      `;
+      openSheet({ position: "top" });
+      focusSheetField("textarea[name='best']");
+    }
+
     function openSheet(options = {}) {
       syncSheetViewport();
       els.sheetBackdrop.dataset.sheetPosition = options.position || "top";
@@ -185,6 +222,7 @@
       delete els.sheetBackdrop.dataset.sheetPosition;
       sheetMode = null;
       editingId = null;
+      editingReviewDate = null;
       els.sheetForm.innerHTML = "";
       syncModalState();
     }
@@ -202,7 +240,7 @@
       }, 150);
     }
 
-    function handleSheetSubmit(event) {
+    async function handleSheetSubmit(event) {
       event.preventDefault();
       const formData = new FormData(els.sheetForm);
       if (sheetMode === "task") {
@@ -242,6 +280,14 @@
           name: String(formData.get("name") || "").trim(),
           cost: parseAmount(formData.get("cost"))
         });
+      }
+      if (sheetMode === "review-edit") {
+        await saveEditedDailyReview({
+          date: formData.get("date"),
+          best: formData.get("best"),
+          mistake: formData.get("mistake"),
+          priority: formData.get("priority")
+        }, editingReviewDate);
       }
     }
 
