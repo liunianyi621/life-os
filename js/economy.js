@@ -1,11 +1,27 @@
     const PHONE_TIMER_NAME = "玩手机";
     const PHONE_TIMER_RATE = 2;
+    const NO_BAD_HABIT_BONUS = 2;
+    const BREAK_DURATION_MINUTES = 20;
 
     function ensurePhoneTimer() {
       state.phoneTimer = state.phoneTimer && typeof state.phoneTimer === "object"
         ? state.phoneTimer
         : { status: "idle", startTime: null, updatedAt: null };
       return state.phoneTimer;
+    }
+
+    function ensureBreakTimer() {
+      state.breakTimer = state.breakTimer && typeof state.breakTimer === "object"
+        ? state.breakTimer
+        : { status: "idle", startedAt: null, endTime: null, notifiedEndTime: null };
+      return state.breakTimer;
+    }
+
+    function ensureNoBadHabitBonuses() {
+      state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object"
+        ? state.noBadHabitBonuses
+        : {};
+      return state.noBadHabitBonuses;
     }
 
     function phoneTimerStatus() {
@@ -194,6 +210,8 @@
         date: today,
         timestamp: new Date().toISOString()
       });
+      const previousBreakTimer = { ...ensureBreakTimer() };
+      const breakStarted = startBreakTimerIfNeeded(new Date(endTime));
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -213,7 +231,9 @@
           amount: earnedCoins,
           durationSeconds,
           previousTask,
-          previousProgress
+          previousProgress,
+          previousBreakTimer,
+          breakStarted
         }
       });
     }
@@ -267,6 +287,8 @@
         date: today,
         timestamp: completedAt
       });
+      const previousBreakTimer = { ...ensureBreakTimer() };
+      const breakStarted = startBreakTimerIfNeeded(new Date(completedAt));
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -284,7 +306,9 @@
           amount: earnedCoins,
           durationSeconds: 0,
           previousTask,
-          previousProgress
+          previousProgress,
+          previousBreakTimer,
+          breakStarted
         }
       });
     }
@@ -310,6 +334,8 @@
         date: today,
         timestamp: new Date().toISOString()
       });
+      const previousBreakTimer = { ...ensureBreakTimer() };
+      const breakStarted = startBreakTimerIfNeeded();
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -322,7 +348,9 @@
         habitId: habit.id,
         date: today,
         amount,
-        previousProgress
+        previousProgress,
+        previousBreakTimer,
+        breakStarted
       }, {
         icon: "checkmark.circle",
         lines: [
@@ -588,20 +616,194 @@
       return { count: entries.length, totalPenalty, entries };
     }
 
+    function badHabitRecordedOnDate(day) {
+      return state.history.some(item => item.type === "bad_habit" && item.date === day);
+    }
+
+    function noBadHabitBonusSettled(day) {
+      return Boolean(ensureNoBadHabitBonuses()[day]);
+    }
+
+    function settleNoBadHabitBonuses(now = new Date()) {
+      const today = dateKey(now);
+      const lastDayToCheck = shiftDateKey(today, -1);
+      let checkedThrough = state.noBadHabitBonusCheckedThroughDate || shiftDateKey(lastDayToCheck, -1);
+      const previousCheckedThrough = checkedThrough;
+      const entries = [];
+      let totalBonus = 0;
+
+      while (checkedThrough < lastDayToCheck) {
+        const day = shiftDateKey(checkedThrough, 1);
+        checkedThrough = day;
+
+        if (noBadHabitBonusSettled(day)) continue;
+        if (badHabitRecordedOnDate(day)) continue;
+
+        const historyId = createId("history");
+        const awardedAt = now.toISOString();
+        ensureNoBadHabitBonuses()[day] = {
+          status: "awarded",
+          historyId,
+          awardedAt
+        };
+        state.coins = parseCoinAmount(state.coins + NO_BAD_HABIT_BONUS);
+        state.history.unshift({
+          id: historyId,
+          type: "no_bad_habit_bonus",
+          name: "无坏习惯奖励",
+          coins: NO_BAD_HABIT_BONUS,
+          date: day,
+          timestamp: awardedAt
+        });
+        entries.push({
+          historyId,
+          date: day,
+          amount: NO_BAD_HABIT_BONUS
+        });
+        totalBonus = parseCoinAmount(totalBonus + NO_BAD_HABIT_BONUS);
+      }
+
+      state.noBadHabitBonusCheckedThroughDate = lastDayToCheck;
+      return {
+        count: entries.length,
+        totalBonus,
+        entries,
+        checkedThroughChanged: previousCheckedThrough !== lastDayToCheck
+      };
+    }
+
+    function noBadHabitBonusToastLines(result) {
+      const firstEntry = result.entries[0];
+      const firstLine = result.count === 1 && firstEntry?.date === yesterdayKey()
+        ? "✓ 昨天没有坏习惯"
+        : result.count === 1
+          ? `✓ ${formatFullDateKey(firstEntry.date)} 没有坏习惯`
+          : `✓ ${formatNumber(result.count)} 天没有坏习惯`;
+      return [
+        firstLine,
+        `获得 ${formatNumber(result.totalBonus)} 金币`
+      ];
+    }
+
+    function showNoBadHabitBonusToast(result) {
+      if (!result.count) return;
+      showUndoToast({
+        type: "no_bad_habit_bonus",
+        historyIds: result.entries.map(entry => entry.historyId),
+        bonusEntries: result.entries,
+        amount: result.totalBonus
+      }, {
+        icon: "checkmark.circle",
+        lines: noBadHabitBonusToastLines(result),
+        undoLabel: "撤回",
+        duration: 5000,
+        iconTone: "positive"
+      });
+    }
+
+    function breakEndTimeValue() {
+      const timer = ensureBreakTimer();
+      if (!timer.endTime || timer.notifiedEndTime === timer.endTime) return 0;
+      const value = new Date(timer.endTime).getTime();
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function breakTimerActive(now = new Date()) {
+      const endTime = breakEndTimeValue();
+      return Boolean(ensureBreakTimer().status === "running" && endTime && endTime > now.getTime());
+    }
+
+    function requestBreakNotificationPermission() {
+      if (typeof window === "undefined" || !("Notification" in window)) return;
+      const timer = ensureBreakTimer();
+      if (window.Notification.permission !== "default" || timer.permissionRequestedAt) return;
+      timer.permissionRequestedAt = new Date().toISOString();
+      try {
+        const permissionRequest = window.Notification.requestPermission();
+        if (permissionRequest?.catch) permissionRequest.catch(() => {});
+      } catch (error) {
+        // Notification permission is optional and must never break the app.
+      }
+    }
+
+    function sendBreakSystemNotification() {
+      if (typeof window === "undefined" || !("Notification" in window)) return;
+      if (window.Notification.permission !== "granted") return;
+      try {
+        new window.Notification("休息结束", {
+          body: "可以开始下一件事了"
+        });
+      } catch (error) {
+        // Some iOS/PWA contexts expose Notification but still block construction.
+      }
+    }
+
+    function scheduleBreakReminder() {
+      clearTimeout(scheduleBreakReminder.timer);
+      const endTime = breakEndTimeValue();
+      if (!endTime) return;
+      const delay = endTime - Date.now();
+      scheduleBreakReminder.timer = window.setTimeout(() => {
+        checkBreakReminder();
+      }, Math.max(0, Math.min(delay, 2147483647)));
+    }
+
+    function startBreakTimerIfNeeded(now = new Date()) {
+      if (breakEndTimeValue() && !breakTimerActive(now)) {
+        checkBreakReminder();
+      }
+      if (breakTimerActive(now)) return false;
+      const startedAt = now.toISOString();
+      const end = new Date(now.getTime() + BREAK_DURATION_MINUTES * 60 * 1000);
+      const previousPermissionRequest = ensureBreakTimer().permissionRequestedAt || null;
+      state.breakTimer = {
+        status: "running",
+        startedAt,
+        endTime: end.toISOString(),
+        notifiedEndTime: null,
+        permissionRequestedAt: previousPermissionRequest
+      };
+      requestBreakNotificationPermission();
+      scheduleBreakReminder();
+      return true;
+    }
+
+    function checkBreakReminder() {
+      const timer = ensureBreakTimer();
+      const endTime = breakEndTimeValue();
+      if (!endTime) return false;
+      if (endTime > Date.now()) {
+        scheduleBreakReminder();
+        return false;
+      }
+
+      timer.status = "ended";
+      timer.notifiedEndTime = timer.endTime;
+      timer.updatedAt = new Date().toISOString();
+      saveState();
+      renderBreakStatus();
+      sendBreakSystemNotification();
+      openBreakReminderDialog();
+      return true;
+    }
+
     function runAutomaticChecks(options = {}) {
       const { showToast: shouldShowToast = true } = options;
       const habitResult = settleMissedHabits();
       const taskResult = settleTimedTaskTimeouts();
-      const changed = habitResult.count > 0 || taskResult.count > 0;
+      const bonusResult = settleNoBadHabitBonuses();
+      const changed = habitResult.count > 0 || taskResult.count > 0 || bonusResult.count > 0 || bonusResult.checkedThroughChanged;
+      checkBreakReminder();
       if (!changed) return false;
 
       saveState();
       updatePrimaryReadouts();
 
-      if (shouldShowToast) {
+      if (shouldShowToast && (habitResult.count > 0 || taskResult.count > 0)) {
         const historyIds = [
           ...taskResult.entries.map(entry => entry.historyId),
-          ...habitResult.entries.map(entry => entry.historyId)
+          ...habitResult.entries.map(entry => entry.historyId),
+          ...bonusResult.entries.map(entry => entry.historyId)
         ];
         const totalPenalty = parseCoinAmount(taskResult.totalPenalty + habitResult.totalPenalty);
         const reasons = [
@@ -614,17 +816,22 @@
           historyIds,
           taskEntries: taskResult.entries,
           habitEntries: habitResult.entries,
+          bonusEntries: bonusResult.entries,
+          bonusAmount: bonusResult.totalBonus,
           amount: totalPenalty
         }, {
           icon: "xmark.circle",
           lines: [
             `已自动扣除 ${formatCoinAmount(totalPenalty)} 金币`,
+            bonusResult.count > 0 ? `同时获得 ${formatCoinAmount(bonusResult.totalBonus)} 金币` : "",
             `原因：${reasons}`,
             `当前金币 ${formatCoinAmount(state.coins)}`
-          ],
+          ].filter(Boolean),
           undoLabel: "撤回",
           duration: 5000
         });
+      } else if (shouldShowToast && bonusResult.count > 0) {
+        showNoBadHabitBonusToast(bonusResult);
       }
 
       return true;
@@ -959,6 +1166,17 @@
         });
         state.coins = parseCoinAmount(state.coins + restoredAmount);
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
+        if (undo.type === "automatic_failures" && undo.bonusEntries?.length) {
+          const bonusAmount = undo.bonusEntries.reduce((total, entry) => parseCoinAmount(total + (entry.amount || 0)), 0);
+          state.coins = parseCoinAmount(state.coins - bonusAmount);
+          state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
+          undo.bonusEntries.forEach(entry => {
+            state.noBadHabitBonuses[entry.date] = {
+              status: "dismissed",
+              dismissedAt: new Date().toISOString()
+            };
+          });
+        }
       }
       if (undo.type === "habit_auto_failed" || undo.type === "automatic_failures") {
         const entries = undo.habitEntries || undo.entries || [];
@@ -973,10 +1191,18 @@
         state.totals.completedTasks = Math.max(0, (Number(state.totals.completedTasks) || 0) - 1);
         state.totals.taskDurationSeconds = Math.max(0, (Number(state.totals.taskDurationSeconds) || 0) - (Number(undo.durationSeconds) || 0));
         state.totals.earnedTaskCoins = Math.max(0, parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) - undo.amount));
+        if (undo.breakStarted) {
+          state.breakTimer = undo.previousBreakTimer || cloneEmptyState().breakTimer;
+          scheduleBreakReminder();
+        }
       }
       if (undo.type === "habit_completed") {
         restoreHabitProgress(undo.date, undo.habitId, undo.previousProgress);
         state.coins = parseCoinAmount(state.coins - undo.amount);
+        if (undo.breakStarted) {
+          state.breakTimer = undo.previousBreakTimer || cloneEmptyState().breakTimer;
+          scheduleBreakReminder();
+        }
       }
       if (undo.type === "bad_habit") {
         state.coins = parseCoinAmount(state.coins + undo.amount);
@@ -986,6 +1212,18 @@
         state.coins = parseCoinAmount(state.coins + undo.amount);
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - undo.amount));
         state.phoneTimer = undo.previousTimer || { status: "idle", startTime: null, updatedAt: new Date().toISOString() };
+      }
+      if (undo.type === "no_bad_habit_bonus") {
+        const entries = undo.bonusEntries || (undo.date ? [undo] : []);
+        const restoredAmount = entries.reduce((total, entry) => parseCoinAmount(total + (entry.amount || 0)), 0);
+        state.coins = parseCoinAmount(state.coins - restoredAmount);
+        state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
+        entries.forEach(entry => {
+          state.noBadHabitBonuses[entry.date] = {
+            status: "dismissed",
+            dismissedAt: new Date().toISOString()
+          };
+        });
       }
       if (undo.type === "reward_redeemed") {
         state.coins = parseCoinAmount(state.coins + undo.amount);

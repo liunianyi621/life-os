@@ -277,7 +277,8 @@
     .summary-card,
     .card,
     .stat-card,
-    .reset-card {
+    .reset-card,
+    .break-status {
       border-radius: var(--card-radius);
       border: 1px solid var(--card-border);
       background: rgba(255, 255, 255, 0.82);
@@ -307,6 +308,32 @@
       outline: 0;
       border-color: rgba(10, 132, 255, 0.34);
       box-shadow: var(--shadow), 0 0 0 4px rgba(10, 132, 255, 0.1);
+    }
+
+    .break-status {
+      margin: -2px 0 16px;
+      padding: 13px 15px;
+      border-color: rgba(86, 129, 180, 0.18);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(246, 248, 251, 0.72));
+    }
+
+    .break-status.hidden {
+      display: none;
+    }
+
+    .break-status strong {
+      display: block;
+      color: #4b6f9f;
+      font-size: 0.95rem;
+      font-weight: 860;
+    }
+
+    .break-status p {
+      margin-top: 4px;
+      color: var(--quiet);
+      font-size: 0.78rem;
+      font-weight: 680;
+      line-height: 1.35;
     }
 
     .balance-strip {
@@ -1783,6 +1810,11 @@
       display: flex;
       justify-content: flex-end;
       gap: 10px;
+    }
+
+    .break-reminder-button {
+      min-width: 86px;
+      border-radius: 999px;
     }
 
     .sheet-header {

@@ -26,8 +26,16 @@
         startTime: null,
         updatedAt: null
       },
+      breakTimer: {
+        status: "idle",
+        startedAt: null,
+        endTime: null,
+        notifiedEndTime: null
+      },
       dailyReviews: {},
       reviewRewards: {},
+      noBadHabitBonuses: {},
+      noBadHabitBonusCheckedThroughDate: null,
       history: [],
       totals: {
         completedTasks: 0,
@@ -71,8 +79,13 @@
           phoneTimer: saved.phoneTimer && typeof saved.phoneTimer === "object"
             ? { ...cloneEmptyState().phoneTimer, ...saved.phoneTimer }
             : cloneEmptyState().phoneTimer,
+          breakTimer: saved.breakTimer && typeof saved.breakTimer === "object"
+            ? { ...cloneEmptyState().breakTimer, ...saved.breakTimer }
+            : cloneEmptyState().breakTimer,
           dailyReviews: saved.dailyReviews && typeof saved.dailyReviews === "object" ? saved.dailyReviews : {},
           reviewRewards: saved.reviewRewards && typeof saved.reviewRewards === "object" ? saved.reviewRewards : {},
+          noBadHabitBonuses: saved.noBadHabitBonuses && typeof saved.noBadHabitBonuses === "object" ? saved.noBadHabitBonuses : {},
+          noBadHabitBonusCheckedThroughDate: saved.noBadHabitBonusCheckedThroughDate || null,
           history: Array.isArray(saved.history) ? saved.history : [],
           completions: saved.completions && typeof saved.completions === "object" ? saved.completions : {},
           taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {},
@@ -93,11 +106,15 @@
         if (!merged.settledThroughDate) {
           merged.settledThroughDate = yesterdayKey();
         }
+        if (!merged.noBadHabitBonusCheckedThroughDate) {
+          merged.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
+        }
 
         return merged;
       } catch {
         const fresh = cloneEmptyState();
         fresh.settledThroughDate = yesterdayKey();
+        fresh.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
         return fresh;
       }
     }
@@ -138,6 +155,12 @@
     function yesterdayKey() {
       const date = new Date();
       date.setDate(date.getDate() - 1);
+      return dateKey(date);
+    }
+
+    function shiftDateKey(key, offset) {
+      const date = dateFromKey(key || dateKey());
+      date.setDate(date.getDate() + offset);
       return dateKey(date);
     }
 
@@ -217,6 +240,7 @@
       OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
       state = cloneEmptyState();
       state.settledThroughDate = yesterdayKey();
+      state.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
       selectedReviewDate = dateKey();
       saveState();
       render();

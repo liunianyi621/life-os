@@ -34,6 +34,9 @@
         if (item.type === "review_reward") {
           row.earned += parseCoinAmount(item.coins);
         }
+        if (item.type === "no_bad_habit_bonus") {
+          row.earned += parseCoinAmount(item.coins);
+        }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
           row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
@@ -97,6 +100,9 @@
           row.earned += item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
         }
         if (item.type === "review_reward") {
+          row.earned += parseCoinAmount(item.coins);
+        }
+        if (item.type === "no_bad_habit_bonus") {
           row.earned += parseCoinAmount(item.coins);
         }
         if (item.type === "task_completed") {
@@ -184,9 +190,11 @@
       const phoneTimers = dayEntries(day, item => item.type === "phone_timer");
       const rewards = dayEntries(day, item => item.type === "reward_redeemed");
       const reviewRewards = dayEntries(day, item => item.type === "review_reward");
+      const noBadHabitBonuses = dayEntries(day, item => item.type === "no_bad_habit_bonus");
       const earned = completed.reduce((sum, item) => sum + taskEarnedCoinsFromItem(item), 0)
         + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
-        + reviewRewards.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0);
+        + reviewRewards.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
+        + noBadHabitBonuses.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0);
       const deducted = failed.reduce((sum, item) => sum + (item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), 0)
         + failedHabits.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
@@ -201,6 +209,7 @@
         phoneTimers,
         rewards,
         reviewRewards,
+        noBadHabitBonuses,
         earned,
         deducted,
         net: earned - deducted
@@ -313,6 +322,11 @@
           "复盘奖励",
           summary.reviewRewards.length,
           detailListHtml(summary.reviewRewards, "当天没有复盘奖励。", item => parseCoinAmount(item.coins))
+        )}
+        ${detailSectionHtml(
+          "无坏习惯奖励",
+          summary.noBadHabitBonuses.length,
+          detailListHtml(summary.noBadHabitBonuses, "当天没有无坏习惯奖励。", item => parseCoinAmount(item.coins))
         )}
         ${detailSectionHtml("每日复盘", state.dailyReviews?.[day] ? 1 : 0, dayReviewDetailHtml(day))}
       `;

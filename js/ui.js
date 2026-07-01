@@ -193,6 +193,7 @@
       els.todayDate.textContent = formatDate();
       updatePrimaryReadouts();
       renderMemoSummary();
+      renderBreakStatus();
       els.habitCount.textContent = `${visibleHabitCount} 项`;
       els.todayTaskCount.textContent = `${activeCount} 项`;
       els.badHabitCount.textContent = `${state.badHabits.length} 项`;
@@ -207,6 +208,15 @@
       renderRewards();
       if (!els.memoBackdrop.classList.contains("hidden")) renderMemos();
       renderStatsVisuals();
+    }
+
+    function renderBreakStatus() {
+      if (!els.breakStatus) return;
+      const active = breakTimerActive();
+      els.breakStatus.classList.toggle("hidden", !active);
+      if (els.breakStatusTitle) {
+        els.breakStatusTitle.textContent = active ? `休息中 ${formatNumber(BREAK_DURATION_MINUTES)} 分钟` : "";
+      }
     }
 
     function renderHabits() {
@@ -739,6 +749,10 @@
     els.confirmBackdrop.addEventListener("click", event => {
       if (event.target === els.confirmBackdrop) closeConfirm(false);
     });
+    els.breakReminderDoneBtn?.addEventListener("click", closeBreakReminderDialog);
+    els.breakReminderBackdrop?.addEventListener("click", event => {
+      if (event.target === els.breakReminderBackdrop) closeBreakReminderDialog();
+    });
     els.sheetForm.addEventListener("submit", handleSheetSubmit);
     els.memoForm.addEventListener("submit", handleMemoSubmit);
     els.reviewDateButton.addEventListener("click", () => {
@@ -794,6 +808,10 @@
         return;
       }
       if (event.key === "Escape") {
+        if (!els.breakReminderBackdrop?.classList.contains("hidden")) {
+          closeBreakReminderDialog();
+          return;
+        }
         if (!els.confirmBackdrop.classList.contains("hidden")) {
           closeConfirm(false);
           return;

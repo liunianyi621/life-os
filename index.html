@@ -43,6 +43,13 @@
           </button>
         </section>
 
+        <section class="break-status hidden" id="breakStatus" role="status" aria-live="polite">
+          <div>
+            <strong id="breakStatusTitle">休息中 20 分钟</strong>
+            <p>第一次使用休息提醒时，如果浏览器询问通知权限，请选择允许。</p>
+          </div>
+        </section>
+
         <div class="section-heading">
           <h2>今日任务</h2>
           <span id="todayTaskCount">0 项</span>
@@ -296,6 +303,18 @@
       </div>
       <div class="confirm-actions">
         <button class="danger-button icon-only-button" type="button" id="confirmAcceptBtn" aria-label="确认" data-icon-button="checkmark.circle"></button>
+      </div>
+    </section>
+  </div>
+
+  <div class="confirm-backdrop hidden" id="breakReminderBackdrop" aria-hidden="true">
+    <section class="confirm-dialog break-reminder-dialog" role="dialog" aria-modal="true" aria-labelledby="breakReminderTitle">
+      <div>
+        <h2 id="breakReminderTitle">休息结束</h2>
+        <p>可以开始下一件事了</p>
+      </div>
+      <div class="confirm-actions">
+        <button class="button break-reminder-button" type="button" id="breakReminderDoneBtn">知道了</button>
       </div>
     </section>
   </div>

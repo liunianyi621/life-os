@@ -82,6 +82,8 @@
       homeStreak: document.getElementById("homeStreak"),
       memoSummaryCard: document.getElementById("memoSummaryCard"),
       homeMemoCount: document.getElementById("homeMemoCount"),
+      breakStatus: document.getElementById("breakStatus"),
+      breakStatusTitle: document.getElementById("breakStatusTitle"),
       habitCount: document.getElementById("habitCount"),
       habitList: document.getElementById("habitList"),
       todayTaskCount: document.getElementById("todayTaskCount"),
@@ -129,6 +131,8 @@
       confirmTitle: document.getElementById("confirmTitle"),
       confirmMessage: document.getElementById("confirmMessage"),
       confirmAcceptBtn: document.getElementById("confirmAcceptBtn"),
+      breakReminderBackdrop: document.getElementById("breakReminderBackdrop"),
+      breakReminderDoneBtn: document.getElementById("breakReminderDoneBtn"),
       toast: document.getElementById("toast")
     };
 

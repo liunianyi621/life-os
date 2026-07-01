@@ -18,7 +18,8 @@
         els.sheetBackdrop,
         els.dayDetailBackdrop,
         els.memoBackdrop,
-        els.confirmBackdrop
+        els.confirmBackdrop,
+        els.breakReminderBackdrop
       ].some(backdrop => backdrop && !backdrop.classList.contains("hidden"));
     }
 
@@ -76,6 +77,21 @@
         syncModalState();
         window.setTimeout(() => els.confirmAcceptBtn.focus(), 0);
       });
+    }
+
+    function openBreakReminderDialog() {
+      if (!els.breakReminderBackdrop) return;
+      els.breakReminderBackdrop.classList.remove("hidden");
+      els.breakReminderBackdrop.setAttribute("aria-hidden", "false");
+      syncModalState();
+      window.setTimeout(() => els.breakReminderDoneBtn?.focus(), 0);
+    }
+
+    function closeBreakReminderDialog() {
+      if (!els.breakReminderBackdrop) return;
+      els.breakReminderBackdrop.classList.add("hidden");
+      els.breakReminderBackdrop.setAttribute("aria-hidden", "true");
+      syncModalState();
     }
 
     function showToast(message, duration = 1800) {
