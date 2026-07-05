@@ -193,12 +193,12 @@
       els.todayDate.textContent = formatDate();
       updatePrimaryReadouts();
       renderMemoSummary();
-      renderBreakStatus();
+      renderNextStepCard();
       els.habitCount.textContent = `${visibleHabitCount} 项`;
       els.todayTaskCount.textContent = `${activeCount} 项`;
       els.badHabitCount.textContent = `${state.badHabits.length} 项`;
       els.noteCount.textContent = `${state.notes.length} 条`;
-      els.rewardCount.textContent = `${state.rewards.length + 1} 项`;
+      els.rewardCount.textContent = `${state.rewards.length} 项`;
 
       renderHabits();
       renderTasks();
@@ -210,13 +210,12 @@
       renderStatsVisuals();
     }
 
-    function renderBreakStatus() {
-      if (!els.breakStatus) return;
-      const active = breakTimerActive();
-      els.breakStatus.classList.toggle("hidden", !active);
-      if (els.breakStatusTitle) {
-        els.breakStatusTitle.textContent = active ? `休息中 ${formatNumber(BREAK_DURATION_MINUTES)} 分钟` : "";
-      }
+    function renderNextStepCard() {
+      if (!els.nextStepCard) return;
+      normalizeNextStep(true);
+      const task = nextStepTask();
+      els.nextStepCard.classList.toggle("hidden", !task);
+      if (els.nextStepTitle) els.nextStepTitle.textContent = task?.name || "";
     }
 
     function renderHabits() {
@@ -501,66 +500,61 @@
       `).join("");
     }
 
-    function phoneTimerMetaHtml(status) {
-      if (status === "running") {
-        const startedAt = phoneTimerStartedAtLabel();
-        return `
-          <span class="pill green">进行中</span>
-          ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
-        `;
-      }
+    function nextStepOptionHtml(task) {
+      const timeLabel = taskTimeRangeLabel(task);
       return `
-        <span class="pill coin-pill">${formatCoinAmount(PHONE_TIMER_RATE)} 金币/小时</span>
-        <span class="pill">计时扣除</span>
+        <button class="next-step-option" type="button" data-select-next-step="${escapeAttr(task.id)}">
+          <span>
+            <strong>${escapeHtml(task.name)}</strong>
+            ${timeLabel ? `<small>${escapeHtml(timeLabel)}</small>` : ""}
+          </span>
+          ${actionIconHtml("checkmark.circle")}
+        </button>
       `;
     }
 
-    function phoneTimerActionsHtml(status) {
-      return status === "running"
-        ? actionButtonHtml({
-            tone: "orange",
-            icon: "stop.circle",
-            label: "结束玩手机计时",
-            attrs: "data-stop-phone-timer"
-          })
-        : actionButtonHtml({
-            tone: "blue",
-            icon: "play.circle",
-            label: "开始玩手机计时",
-            attrs: "data-start-phone-timer"
-          });
+    function renderNextStepPanel() {
+      const tasks = activeTasksToday();
+      els.nextStepTaskList.innerHTML = tasks.length
+        ? `
+          <span class="next-step-label">从今日任务选择</span>
+          ${tasks.map(nextStepOptionHtml).join("")}
+        `
+        : `
+          <div class="next-step-empty">
+            <strong>当前没有未完成任务</strong>
+            <p>可以直接新建一个下一步任务。</p>
+          </div>
+        `;
     }
 
-    function renderPhoneTimerCard() {
-      const status = phoneTimerStatus();
-      return swipeRowHtml({
-        attrs: "data-phone-timer-card",
-        actions: phoneTimerActionsHtml(status),
-        content: `
-          <div class="card-main">
-            <div class="title-wrap">
-              <h3>${escapeHtml(PHONE_TIMER_NAME)}</h3>
-              <div class="meta-row">
-                ${phoneTimerMetaHtml(status)}
-              </div>
-            </div>
-          </div>
-        `
-      });
+    function openNextStepPanel() {
+      if (!els.nextStepBackdrop) return;
+      renderNextStepPanel();
+      syncSheetViewport();
+      els.nextStepBackdrop.classList.remove("hidden");
+      els.nextStepBackdrop.setAttribute("aria-hidden", "false");
+      syncModalState();
+    }
+
+    function closeNextStepPanel() {
+      if (!els.nextStepBackdrop) return;
+      els.nextStepBackdrop.classList.add("hidden");
+      els.nextStepBackdrop.setAttribute("aria-hidden", "true");
+      if (els.nextStepInput) els.nextStepInput.value = "";
+      syncModalState();
     }
 
     function renderRewards() {
-      const phoneTimerCard = renderPhoneTimerCard();
       if (!state.rewards.length) {
         els.rewardList.innerHTML = `
-          ${phoneTimerCard}
           <div class="empty-state">
             <strong>没有奖励</strong>
-            <p>添加一个可以用金币兑换的奖励。</p>
+            <p>添加一个值得长期投入的主线基金。</p>
             ${iconActionButtonHtml({
               className: "button icon-only-button empty-action",
               icon: "plus",
-              label: "新建奖励",
+              label: "新建基金",
               attrs: "data-open-reward"
             })}
           </div>
@@ -568,9 +562,10 @@
         return;
       }
 
-      els.rewardList.innerHTML = phoneTimerCard + state.rewards.map(reward => {
+      els.rewardList.innerHTML = state.rewards.map(reward => {
         const cost = parseAmount(reward.cost);
         const affordable = state.coins >= cost;
+        const mapping = String(reward.mapping || "").trim();
         return swipeRowHtml({
           attrs: `data-reward-card="${escapeAttr(reward.id)}"`,
           editType: "reward",
@@ -578,7 +573,7 @@
           actions: actionButtonHtml({
             tone: "blue",
             icon: "gift",
-            label: affordable ? "使用奖励" : "金币不足",
+            label: affordable ? "基金拨款" : "金币不足",
             attrs: `data-redeem-reward="${escapeAttr(reward.id)}"`,
             disabled: !affordable
           }),
@@ -589,6 +584,7 @@
                 <div class="meta-row">
                   <span class="pill coin-pill">${formatNumber(cost)} 金币</span>
                 </div>
+                ${mapping ? `<p class="reward-mapping">${escapeHtml(mapping)}</p>` : ""}
               </div>
             </div>
           `
@@ -633,8 +629,7 @@
       const failTaskButton = event.target.closest("[data-fail-task]");
       const triggerBadButton = event.target.closest("[data-trigger-bad]");
       const redeemRewardButton = event.target.closest("[data-redeem-reward]");
-      const startPhoneTimerButton = event.target.closest("[data-start-phone-timer]");
-      const stopPhoneTimerButton = event.target.closest("[data-stop-phone-timer]");
+      const selectNextStepButton = event.target.closest("[data-select-next-step]");
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
       const dayDetailButton = event.target.closest("[data-day-detail]");
@@ -708,11 +703,10 @@
           redeemRewardButton
         );
       }
-      if (startPhoneTimerButton) {
-        startPhoneTimer();
-      }
-      if (stopPhoneTimerButton) {
-        stopPhoneTimer(stopPhoneTimerButton.closest("[data-phone-timer-card]"));
+      if (selectNextStepButton) {
+        if (setNextStepTask(selectNextStepButton.dataset.selectNextStep)) {
+          closeNextStepPanel();
+        }
       }
       if (statsRangeButton) {
         currentStatsRange = statsRangeButton.dataset.statsRange;
@@ -745,16 +739,20 @@
     els.memoBackdrop.addEventListener("click", event => {
       if (event.target === els.memoBackdrop) closeMemoSheet();
     });
+    els.nextStepBackdrop?.addEventListener("click", event => {
+      if (event.target === els.nextStepBackdrop) closeNextStepPanel();
+    });
     els.confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
     els.confirmBackdrop.addEventListener("click", event => {
       if (event.target === els.confirmBackdrop) closeConfirm(false);
     });
-    els.breakReminderDoneBtn?.addEventListener("click", closeBreakReminderDialog);
-    els.breakReminderBackdrop?.addEventListener("click", event => {
-      if (event.target === els.breakReminderBackdrop) closeBreakReminderDialog();
-    });
     els.sheetForm.addEventListener("submit", handleSheetSubmit);
     els.memoForm.addEventListener("submit", handleMemoSubmit);
+    els.nextStepForm?.addEventListener("submit", event => {
+      event.preventDefault();
+      const task = createNextStepTask(els.nextStepInput?.value || "");
+      if (task) closeNextStepPanel();
+    });
     els.reviewDateButton.addEventListener("click", () => {
       if (!els.reviewDateInput) return;
       els.reviewDateInput.value = selectedReviewDate;
@@ -808,8 +806,8 @@
         return;
       }
       if (event.key === "Escape") {
-        if (!els.breakReminderBackdrop?.classList.contains("hidden")) {
-          closeBreakReminderDialog();
+        if (!els.nextStepBackdrop?.classList.contains("hidden")) {
+          closeNextStepPanel();
           return;
         }
         if (!els.confirmBackdrop.classList.contains("hidden")) {

@@ -21,16 +21,9 @@
       notes: [],
       memos: [],
       rewards: [],
-      phoneTimer: {
-        status: "idle",
-        startTime: null,
+      nextStep: {
+        taskId: null,
         updatedAt: null
-      },
-      breakTimer: {
-        status: "idle",
-        startedAt: null,
-        endTime: null,
-        notifiedEndTime: null
       },
       dailyReviews: {},
       reviewRewards: {},
@@ -63,9 +56,41 @@
       return JSON.parse(JSON.stringify(emptyState));
     }
 
+    function defaultFundRewards() {
+      const now = new Date().toISOString();
+      return [
+        ["冰岛基金", 300, "转 £30 到冰岛基金"],
+        ["苏格兰自驾基金", 100, "转 £10 到苏格兰自驾基金"],
+        ["相机升级基金", 500, "给相机升级预算"],
+        ["南极基金", 800, "转 £80 到南极基金"],
+        ["下一次独立旅行基金", 300, "转 £30 到独立旅行基金"],
+        ["个人摄影项目基金", 500, "给摄影项目制作预算"],
+        ["电影节基金", 300, "给电影节报名与观影预算"],
+        ["机票基金", 100, "转 £10 到机票基金"]
+      ].map(([name, cost, mapping], index) => ({
+        id: `reward-fund-${index + 1}`,
+        name,
+        cost,
+        mapping,
+        createdAt: now,
+        updatedAt: now
+      }));
+    }
+
+    function normalizeRewards(rewards) {
+      return (Array.isArray(rewards) ? rewards : []).filter(reward => (
+        String(reward?.name || "").trim() !== "玩手机"
+      ));
+    }
+
     function loadState() {
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        const needsLegacyCleanup = Boolean(saved && (
+          Object.prototype.hasOwnProperty.call(saved, "phoneTimer")
+          || Object.prototype.hasOwnProperty.call(saved, "breakTimer")
+          || (Array.isArray(saved.rewards) && saved.rewards.some(reward => String(reward?.name || "").trim() === "玩手机"))
+        ));
         const merged = saved ? {
           ...cloneEmptyState(),
           ...saved,
@@ -75,13 +100,10 @@
           badHabits: Array.isArray(saved.badHabits) ? saved.badHabits : [],
           notes: Array.isArray(saved.notes) ? saved.notes : [],
           memos: Array.isArray(saved.memos) ? saved.memos : [],
-          rewards: Array.isArray(saved.rewards) ? saved.rewards : [],
-          phoneTimer: saved.phoneTimer && typeof saved.phoneTimer === "object"
-            ? { ...cloneEmptyState().phoneTimer, ...saved.phoneTimer }
-            : cloneEmptyState().phoneTimer,
-          breakTimer: saved.breakTimer && typeof saved.breakTimer === "object"
-            ? { ...cloneEmptyState().breakTimer, ...saved.breakTimer }
-            : cloneEmptyState().breakTimer,
+          rewards: Array.isArray(saved.rewards) ? normalizeRewards(saved.rewards) : defaultFundRewards(),
+          nextStep: saved.nextStep && typeof saved.nextStep === "object"
+            ? { ...cloneEmptyState().nextStep, ...saved.nextStep }
+            : cloneEmptyState().nextStep,
           dailyReviews: saved.dailyReviews && typeof saved.dailyReviews === "object" ? saved.dailyReviews : {},
           reviewRewards: saved.reviewRewards && typeof saved.reviewRewards === "object" ? saved.reviewRewards : {},
           noBadHabitBonuses: saved.noBadHabitBonuses && typeof saved.noBadHabitBonuses === "object" ? saved.noBadHabitBonuses : {},
@@ -92,7 +114,13 @@
           habitCompletions: saved.habitCompletions && typeof saved.habitCompletions === "object" ? saved.habitCompletions : {},
           habitFailures: saved.habitFailures && typeof saved.habitFailures === "object" ? saved.habitFailures : {},
           taskAutoFailures: saved.taskAutoFailures && typeof saved.taskAutoFailures === "object" ? saved.taskAutoFailures : {}
-        } : cloneEmptyState();
+        } : {
+          ...cloneEmptyState(),
+          rewards: defaultFundRewards()
+        };
+
+        delete merged.phoneTimer;
+        delete merged.breakTimer;
 
         if (!Object.keys(merged.taskResults).length && Object.keys(merged.completions).length) {
           Object.entries(merged.completions).forEach(([day, tasks]) => {
@@ -109,10 +137,14 @@
         if (!merged.noBadHabitBonusCheckedThroughDate) {
           merged.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
         }
+        if (needsLegacyCleanup) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        }
 
         return merged;
       } catch {
         const fresh = cloneEmptyState();
+        fresh.rewards = defaultFundRewards();
         fresh.settledThroughDate = yesterdayKey();
         fresh.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
         return fresh;
@@ -239,6 +271,7 @@
       localStorage.removeItem(STORAGE_KEY);
       OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
       state = cloneEmptyState();
+      state.rewards = defaultFundRewards();
       state.settledThroughDate = yesterdayKey();
       state.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
       selectedReviewDate = dateKey();

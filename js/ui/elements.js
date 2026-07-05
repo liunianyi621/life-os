@@ -82,8 +82,8 @@
       homeStreak: document.getElementById("homeStreak"),
       memoSummaryCard: document.getElementById("memoSummaryCard"),
       homeMemoCount: document.getElementById("homeMemoCount"),
-      breakStatus: document.getElementById("breakStatus"),
-      breakStatusTitle: document.getElementById("breakStatusTitle"),
+      nextStepCard: document.getElementById("nextStepCard"),
+      nextStepTitle: document.getElementById("nextStepTitle"),
       habitCount: document.getElementById("habitCount"),
       habitList: document.getElementById("habitList"),
       todayTaskCount: document.getElementById("todayTaskCount"),
@@ -127,12 +127,14 @@
       memoInput: document.getElementById("memoInput"),
       saveMemoBtn: document.getElementById("saveMemoBtn"),
       memoList: document.getElementById("memoList"),
+      nextStepBackdrop: document.getElementById("nextStepBackdrop"),
+      nextStepTaskList: document.getElementById("nextStepTaskList"),
+      nextStepForm: document.getElementById("nextStepForm"),
+      nextStepInput: document.getElementById("nextStepInput"),
       confirmBackdrop: document.getElementById("confirmBackdrop"),
       confirmTitle: document.getElementById("confirmTitle"),
       confirmMessage: document.getElementById("confirmMessage"),
       confirmAcceptBtn: document.getElementById("confirmAcceptBtn"),
-      breakReminderBackdrop: document.getElementById("breakReminderBackdrop"),
-      breakReminderDoneBtn: document.getElementById("breakReminderDoneBtn"),
       toast: document.getElementById("toast")
     };
 

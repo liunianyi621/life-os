@@ -49,9 +49,6 @@
           row.badHabits += 1;
           row.deducted += parseAmount(item.coins);
         }
-        if (item.type === "phone_timer") {
-          row.deducted += parseCoinAmount(item.coins);
-        }
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);
         }
@@ -116,9 +113,6 @@
         if (item.type === "bad_habit") {
           row.badHabits += 1;
           row.deducted += parseAmount(item.coins);
-        }
-        if (item.type === "phone_timer") {
-          row.deducted += parseCoinAmount(item.coins);
         }
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);
@@ -187,7 +181,6 @@
       const failed = dayEntries(day, item => item.type === "task_failed" || item.type === "task_missed");
       const failedHabits = dayEntries(day, item => item.type === "habit_failed");
       const badHabits = dayEntries(day, item => item.type === "bad_habit");
-      const phoneTimers = dayEntries(day, item => item.type === "phone_timer");
       const rewards = dayEntries(day, item => item.type === "reward_redeemed");
       const reviewRewards = dayEntries(day, item => item.type === "review_reward");
       const noBadHabitBonuses = dayEntries(day, item => item.type === "no_bad_habit_bonus");
@@ -198,7 +191,6 @@
       const deducted = failed.reduce((sum, item) => sum + (item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), 0)
         + failedHabits.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
-        + phoneTimers.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
         + rewards.reduce((sum, item) => sum + parseAmount(item.cost), 0);
       return {
         completed,
@@ -206,7 +198,6 @@
         failed,
         failedHabits,
         badHabits,
-        phoneTimers,
         rewards,
         reviewRewards,
         noBadHabitBonuses,
@@ -309,14 +300,9 @@
           detailListHtml(summary.badHabits, "当天没有坏习惯记录。", item => -parseAmount(item.coins))
         )}
         ${detailSectionHtml(
-          "玩手机计时",
-          summary.phoneTimers.length,
-          detailListHtml(summary.phoneTimers, "当天没有玩手机计时记录。", item => -parseCoinAmount(item.coins))
-        )}
-        ${detailSectionHtml(
-          "奖励兑换",
+          "基金拨款",
           summary.rewards.length,
-          detailListHtml(summary.rewards, "当天没有奖励兑换记录。", item => -parseAmount(item.cost))
+          detailListHtml(summary.rewards, "当天没有基金拨款记录。", item => -parseAmount(item.cost))
         )}
         ${detailSectionHtml(
           "复盘奖励",

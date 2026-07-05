@@ -81,6 +81,8 @@
     body.modal-open .sheet-form,
     body.modal-open .memo-form,
     body.modal-open .memo-list,
+    body.modal-open .next-step-content,
+    body.modal-open .next-step-form,
     body.modal-open .day-detail-content {
       touch-action: auto;
     }
@@ -278,7 +280,7 @@
     .card,
     .stat-card,
     .reset-card,
-    .break-status {
+    .next-step-card {
       border-radius: var(--card-radius);
       border: 1px solid var(--card-border);
       background: rgba(255, 255, 255, 0.82);
@@ -310,30 +312,30 @@
       box-shadow: var(--shadow), 0 0 0 4px rgba(10, 132, 255, 0.1);
     }
 
-    .break-status {
-      margin: -2px 0 16px;
+    .next-step-card {
+      margin: -2px 0 14px;
       padding: 13px 15px;
-      border-color: rgba(86, 129, 180, 0.18);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(246, 248, 251, 0.72));
+      display: grid;
+      gap: 4px;
+      border-color: rgba(86, 129, 180, 0.16);
+      background: rgba(255, 255, 255, 0.84);
     }
 
-    .break-status.hidden {
+    .next-step-card.hidden {
       display: none;
     }
 
-    .break-status strong {
-      display: block;
-      color: #4b6f9f;
-      font-size: 0.95rem;
-      font-weight: 860;
+    .next-step-card span {
+      color: var(--quiet);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0;
     }
 
-    .break-status p {
-      margin-top: 4px;
-      color: var(--quiet);
-      font-size: 0.78rem;
-      font-weight: 680;
-      line-height: 1.35;
+    .next-step-card strong {
+      color: var(--ink);
+      font-size: 1rem;
+      font-weight: 860;
     }
 
     .balance-strip {
@@ -641,6 +643,10 @@
       line-height: 1.45;
     }
 
+    .reward-mapping {
+      max-width: 100%;
+    }
+
     .meta-row {
       display: flex;
       flex-wrap: wrap;
@@ -861,6 +867,107 @@
       padding: 0 16px 18px;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
+    }
+
+    .next-step-sheet {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .next-step-content {
+      min-height: 0;
+      flex: 1 1 auto;
+      display: grid;
+      gap: 14px;
+      max-height: min(calc(var(--sheet-viewport-height) - 160px), 500px);
+      overflow: auto;
+      padding: 4px 16px calc(16px + var(--safe-bottom));
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .next-step-options {
+      display: grid;
+      gap: 10px;
+    }
+
+    .next-step-label {
+      color: var(--quiet);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .next-step-option {
+      width: 100%;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--text);
+      text-align: left;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .next-step-option strong,
+    .next-step-empty strong {
+      display: block;
+      font-size: 0.96rem;
+      font-weight: 850;
+    }
+
+    .next-step-option small,
+    .next-step-empty p {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 680;
+    }
+
+    .next-step-option .action-icon {
+      flex: 0 0 auto;
+      color: var(--green);
+    }
+
+    .next-step-empty {
+      padding: 14px;
+      border: 1px dashed rgba(151, 160, 174, 0.36);
+      border-radius: 18px;
+      background: rgba(249, 250, 251, 0.7);
+    }
+
+    .next-step-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 48px;
+      gap: 10px;
+      position: sticky;
+      bottom: 0;
+      padding-top: 10px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.96) 32%);
+    }
+
+    .next-step-form input {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: var(--control-radius);
+      padding: 11px 13px;
+      background: rgba(249, 250, 251, 0.86);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+
+    .next-step-form input:focus {
+      border-color: rgba(10, 132, 255, 0.52);
+      background: var(--surface);
+      box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.11);
     }
 
     .memo-item {
@@ -1810,11 +1917,6 @@
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-    }
-
-    .break-reminder-button {
-      min-width: 86px;
-      border-radius: 999px;
     }
 
     .sheet-header {

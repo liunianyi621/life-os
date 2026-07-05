@@ -149,21 +149,25 @@
       sheetMode = "reward";
       editingId = rewardId;
       const reward = rewardId ? state.rewards.find(item => item.id === rewardId) : null;
-      els.sheetTitle.textContent = reward ? "编辑奖励" : "新建奖励";
+      els.sheetTitle.textContent = reward ? "编辑基金" : "新建基金";
       els.sheetForm.innerHTML = `
         <label class="field">
-          <span class="field-label">奖励名称</span>
-          <input name="name" type="text" maxlength="80" value="${escapeAttr(reward?.name || "")}" placeholder="输入奖励名称" required>
+          <span class="field-label">基金名称</span>
+          <input name="name" type="text" maxlength="80" value="${escapeAttr(reward?.name || "")}" placeholder="输入基金名称" required>
         </label>
         <label class="field">
           <span class="field-label">金币成本</span>
           <input name="cost" type="number" min="0" step="1" inputmode="numeric" value="${reward?.cost ?? ""}" placeholder="0">
         </label>
+        <label class="field">
+          <span class="field-label">现实映射说明</span>
+          <input name="mapping" type="text" maxlength="120" value="${escapeAttr(reward?.mapping || "")}" placeholder="例如：转 £10 到旅行基金">
+        </label>
         <div class="sheet-actions">
-          ${submitSheetButtonHtml(reward ? "保存奖励" : "创建奖励")}
+          ${submitSheetButtonHtml(reward ? "保存基金" : "创建基金")}
         </div>
         <div class="delete-row ${reward ? "" : "hidden"}">
-          ${deleteIconButtonHtml({ action: "reward", id: reward?.id, label: "移除奖励" })}
+          ${deleteIconButtonHtml({ action: "reward", id: reward?.id, label: "移除基金" })}
         </div>
       `;
       openSheet({ position: "top" });
@@ -278,7 +282,8 @@
       if (sheetMode === "reward") {
         saveReward({
           name: String(formData.get("name") || "").trim(),
-          cost: parseAmount(formData.get("cost"))
+          cost: parseAmount(formData.get("cost")),
+          mapping: String(formData.get("mapping") || "").trim()
         });
       }
       if (sheetMode === "review-edit") {
@@ -319,7 +324,7 @@
 
     function saveReward(rewardData) {
       if (!rewardData.name) {
-        showToast("请输入奖励名称");
+        showToast("请输入基金名称");
         return;
       }
       if (editingId) {
@@ -328,7 +333,7 @@
             ? { ...reward, ...rewardData, updatedAt: new Date().toISOString() }
             : reward
         ));
-        showToast("奖励已更新");
+        showToast("基金已更新");
       } else {
         state.rewards.push({
           id: createId("reward"),
@@ -336,7 +341,7 @@
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
-        showToast("奖励已创建");
+        showToast("基金已创建");
       }
       saveState();
       closeSheet();
@@ -356,5 +361,5 @@
       saveState();
       closeSheet();
       render();
-      showToast("奖励已移除");
+      showToast("基金已移除");
     }

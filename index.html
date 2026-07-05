@@ -43,17 +43,14 @@
           </button>
         </section>
 
-        <section class="break-status hidden" id="breakStatus" role="status" aria-live="polite">
-          <div>
-            <strong id="breakStatusTitle">休息中 20 分钟</strong>
-            <p>第一次使用休息提醒时，如果浏览器询问通知权限，请选择允许。</p>
-          </div>
-        </section>
-
         <div class="section-heading">
           <h2>今日任务</h2>
           <span id="todayTaskCount">0 项</span>
         </div>
+        <section class="next-step-card hidden" id="nextStepCard" aria-live="polite">
+          <span>下一步</span>
+          <strong id="nextStepTitle"></strong>
+        </section>
         <div class="list" id="todayTaskList"></div>
 
         <div class="section-heading">
@@ -147,10 +144,10 @@
       <section class="view" data-view="rewards">
         <header class="header">
           <div>
-            <span class="eyebrow">自定义兑换</span>
-            <h1>奖励</h1>
+            <span class="eyebrow">人生主线基金</span>
+            <h1>主线基金</h1>
           </div>
-          <button class="icon-button" data-open-reward aria-label="新建奖励" data-icon-button="plus"></button>
+          <button class="icon-button" data-open-reward aria-label="新建基金" data-icon-button="plus"></button>
         </header>
 
         <section class="balance-strip" aria-label="当前金币">
@@ -160,7 +157,7 @@
         </section>
 
         <div class="section-heading">
-          <h2>奖励</h2>
+          <h2>基金</h2>
           <span id="rewardCount">0 项</span>
         </div>
         <div class="list" id="rewardList"></div>
@@ -295,6 +292,24 @@
     </section>
   </div>
 
+  <div class="sheet-backdrop hidden" id="nextStepBackdrop" aria-hidden="true">
+    <section class="sheet next-step-sheet" role="dialog" aria-modal="true" aria-labelledby="nextStepSheetTitle">
+      <div class="sheet-header">
+        <div>
+          <span class="eyebrow">继续做下一件事</span>
+          <h2 id="nextStepSheetTitle">你接下来要做什么？</h2>
+        </div>
+      </div>
+      <div class="next-step-content">
+        <div class="next-step-options" id="nextStepTaskList"></div>
+        <form class="next-step-form" id="nextStepForm">
+          <input id="nextStepInput" name="nextStepName" type="text" maxlength="80" placeholder="快速新建下一步任务" autocomplete="off">
+          <button class="button icon-only-button" type="submit" aria-label="创建下一步任务" data-icon-button="plus"></button>
+        </form>
+      </div>
+    </section>
+  </div>
+
   <div class="confirm-backdrop hidden" id="confirmBackdrop" aria-hidden="true">
     <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
       <div>
@@ -303,18 +318,6 @@
       </div>
       <div class="confirm-actions">
         <button class="danger-button icon-only-button" type="button" id="confirmAcceptBtn" aria-label="确认" data-icon-button="checkmark.circle"></button>
-      </div>
-    </section>
-  </div>
-
-  <div class="confirm-backdrop hidden" id="breakReminderBackdrop" aria-hidden="true">
-    <section class="confirm-dialog break-reminder-dialog" role="dialog" aria-modal="true" aria-labelledby="breakReminderTitle">
-      <div>
-        <h2 id="breakReminderTitle">休息结束</h2>
-        <p>可以开始下一件事了</p>
-      </div>
-      <div class="confirm-actions">
-        <button class="button break-reminder-button" type="button" id="breakReminderDoneBtn">知道了</button>
       </div>
     </section>
   </div>

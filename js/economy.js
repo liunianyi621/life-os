@@ -1,53 +1,10 @@
-    const PHONE_TIMER_NAME = "玩手机";
-    const PHONE_TIMER_RATE = 2;
     const NO_BAD_HABIT_BONUS = 2;
-    const BREAK_DURATION_MINUTES = 20;
-
-    function ensurePhoneTimer() {
-      state.phoneTimer = state.phoneTimer && typeof state.phoneTimer === "object"
-        ? state.phoneTimer
-        : { status: "idle", startTime: null, updatedAt: null };
-      return state.phoneTimer;
-    }
-
-    function ensureBreakTimer() {
-      state.breakTimer = state.breakTimer && typeof state.breakTimer === "object"
-        ? state.breakTimer
-        : { status: "idle", startedAt: null, endTime: null, notifiedEndTime: null };
-      return state.breakTimer;
-    }
 
     function ensureNoBadHabitBonuses() {
       state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object"
         ? state.noBadHabitBonuses
         : {};
       return state.noBadHabitBonuses;
-    }
-
-    function phoneTimerStatus() {
-      const timer = ensurePhoneTimer();
-      return timer.status === "running" && timer.startTime ? "running" : "idle";
-    }
-
-    function phoneTimerStartedAtLabel() {
-      const timer = ensurePhoneTimer();
-      if (!timer.startTime) return "";
-      const date = new Date(timer.startTime);
-      if (Number.isNaN(date.getTime())) return "";
-      return new Intl.DateTimeFormat("zh-CN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
-      }).format(date);
-    }
-
-    function phoneTimerDeductionPayload(startTime, endTime = new Date()) {
-      const payload = taskDurationPayload(startTime, endTime, PHONE_TIMER_RATE);
-      return {
-        durationSeconds: payload.durationSeconds,
-        durationMinutes: payload.durationMinutes,
-        deductedCoins: payload.earnedCoins
-      };
     }
 
     function summaryTotals() {
@@ -75,9 +32,6 @@
         }
         if (item.type === "task_missed" || item.type === "bad_habit") {
           totals.coinsPenalty += parseAmount(item.coins);
-        }
-        if (item.type === "phone_timer") {
-          totals.coinsPenalty += parseCoinAmount(item.coins);
         }
         return totals;
       }, {
@@ -133,6 +87,11 @@
       if (els.statSpent) els.statSpent.textContent = formatNumber(totals.coinsSpent);
       if (els.statPenalty) els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
       if (els.statFocusDuration) els.statFocusDuration.textContent = formatFocusDuration(totals.taskDurationSeconds);
+    }
+
+    function promptNextStepAfterCompletion() {
+      if (typeof openNextStepPanel !== "function") return;
+      window.setTimeout(() => openNextStepPanel(), 0);
     }
     function startTask(taskId, sourceEl = null) {
       const task = todayTasks().find(item => item.id === taskId);
@@ -210,8 +169,7 @@
         date: today,
         timestamp: new Date().toISOString()
       });
-      const previousBreakTimer = { ...ensureBreakTimer() };
-      const breakStarted = startBreakTimerIfNeeded(new Date(endTime));
+      clearNextStepForTask(taskId);
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -231,11 +189,10 @@
           amount: earnedCoins,
           durationSeconds,
           previousTask,
-          previousProgress,
-          previousBreakTimer,
-          breakStarted
+          previousProgress
         }
       });
+      promptNextStepAfterCompletion();
     }
 
     function completeTask(taskId, sourceEl = null) {
@@ -287,8 +244,7 @@
         date: today,
         timestamp: completedAt
       });
-      const previousBreakTimer = { ...ensureBreakTimer() };
-      const breakStarted = startBreakTimerIfNeeded(new Date(completedAt));
+      clearNextStepForTask(taskId);
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -306,11 +262,10 @@
           amount: earnedCoins,
           durationSeconds: 0,
           previousTask,
-          previousProgress,
-          previousBreakTimer,
-          breakStarted
+          previousProgress
         }
       });
+      promptNextStepAfterCompletion();
     }
 
     function completeHabit(habitId, sourceEl = null) {
@@ -334,8 +289,6 @@
         date: today,
         timestamp: new Date().toISOString()
       });
-      const previousBreakTimer = { ...ensureBreakTimer() };
-      const breakStarted = startBreakTimerIfNeeded();
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -348,9 +301,7 @@
         habitId: habit.id,
         date: today,
         amount,
-        previousProgress,
-        previousBreakTimer,
-        breakStarted
+        previousProgress
       }, {
         icon: "checkmark.circle",
         lines: [
@@ -362,6 +313,7 @@
         duration: 5000,
         iconTone: "positive"
       });
+      promptNextStepAfterCompletion();
     }
 
     function failTask(taskId, sourceEl = null) {
@@ -701,99 +653,12 @@
       });
     }
 
-    function breakEndTimeValue() {
-      const timer = ensureBreakTimer();
-      if (!timer.endTime || timer.notifiedEndTime === timer.endTime) return 0;
-      const value = new Date(timer.endTime).getTime();
-      return Number.isFinite(value) ? value : 0;
-    }
-
-    function breakTimerActive(now = new Date()) {
-      const endTime = breakEndTimeValue();
-      return Boolean(ensureBreakTimer().status === "running" && endTime && endTime > now.getTime());
-    }
-
-    function requestBreakNotificationPermission() {
-      if (typeof window === "undefined" || !("Notification" in window)) return;
-      const timer = ensureBreakTimer();
-      if (window.Notification.permission !== "default" || timer.permissionRequestedAt) return;
-      timer.permissionRequestedAt = new Date().toISOString();
-      try {
-        const permissionRequest = window.Notification.requestPermission();
-        if (permissionRequest?.catch) permissionRequest.catch(() => {});
-      } catch (error) {
-        // Notification permission is optional and must never break the app.
-      }
-    }
-
-    function sendBreakSystemNotification() {
-      if (typeof window === "undefined" || !("Notification" in window)) return;
-      if (window.Notification.permission !== "granted") return;
-      try {
-        new window.Notification("休息结束", {
-          body: "可以开始下一件事了"
-        });
-      } catch (error) {
-        // Some iOS/PWA contexts expose Notification but still block construction.
-      }
-    }
-
-    function scheduleBreakReminder() {
-      clearTimeout(scheduleBreakReminder.timer);
-      const endTime = breakEndTimeValue();
-      if (!endTime) return;
-      const delay = endTime - Date.now();
-      scheduleBreakReminder.timer = window.setTimeout(() => {
-        checkBreakReminder();
-      }, Math.max(0, Math.min(delay, 2147483647)));
-    }
-
-    function startBreakTimerIfNeeded(now = new Date()) {
-      if (breakEndTimeValue() && !breakTimerActive(now)) {
-        checkBreakReminder();
-      }
-      if (breakTimerActive(now)) return false;
-      const startedAt = now.toISOString();
-      const end = new Date(now.getTime() + BREAK_DURATION_MINUTES * 60 * 1000);
-      const previousPermissionRequest = ensureBreakTimer().permissionRequestedAt || null;
-      state.breakTimer = {
-        status: "running",
-        startedAt,
-        endTime: end.toISOString(),
-        notifiedEndTime: null,
-        permissionRequestedAt: previousPermissionRequest
-      };
-      requestBreakNotificationPermission();
-      scheduleBreakReminder();
-      return true;
-    }
-
-    function checkBreakReminder() {
-      const timer = ensureBreakTimer();
-      const endTime = breakEndTimeValue();
-      if (!endTime) return false;
-      if (endTime > Date.now()) {
-        scheduleBreakReminder();
-        return false;
-      }
-
-      timer.status = "ended";
-      timer.notifiedEndTime = timer.endTime;
-      timer.updatedAt = new Date().toISOString();
-      saveState();
-      renderBreakStatus();
-      sendBreakSystemNotification();
-      openBreakReminderDialog();
-      return true;
-    }
-
     function runAutomaticChecks(options = {}) {
       const { showToast: shouldShowToast = true } = options;
       const habitResult = settleMissedHabits();
       const taskResult = settleTimedTaskTimeouts();
       const bonusResult = settleNoBadHabitBonuses();
       const changed = habitResult.count > 0 || taskResult.count > 0 || bonusResult.count > 0 || bonusResult.checkedThroughChanged;
-      checkBreakReminder();
       if (!changed) return false;
 
       saveState();
@@ -835,76 +700,6 @@
       }
 
       return true;
-    }
-
-    function startPhoneTimer() {
-      if (phoneTimerStatus() === "running") return;
-      const startedAt = new Date().toISOString();
-      state.phoneTimer = {
-        ...ensurePhoneTimer(),
-        status: "running",
-        startTime: startedAt,
-        updatedAt: startedAt
-      };
-      saveState();
-      render();
-    }
-
-    function stopPhoneTimer(sourceEl = null) {
-      const timer = ensurePhoneTimer();
-      if (phoneTimerStatus() !== "running") return;
-
-      const previousTimer = { ...timer };
-      const endedAt = new Date().toISOString();
-      const { durationSeconds, durationMinutes, deductedCoins } = phoneTimerDeductionPayload(timer.startTime, endedAt);
-      const amount = parseCoinAmount(deductedCoins);
-      const historyId = createId("history");
-
-      state.phoneTimer = {
-        status: "idle",
-        startTime: null,
-        updatedAt: endedAt,
-        lastStartTime: timer.startTime,
-        lastEndTime: endedAt,
-        lastDurationSeconds: durationSeconds,
-        lastDeductedCoins: amount
-      };
-      state.coins = parseCoinAmount(state.coins - amount);
-      state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
-      state.history.unshift({
-        id: historyId,
-        type: "phone_timer",
-        name: PHONE_TIMER_NAME,
-        coins: amount,
-        durationMinutes,
-        durationSeconds,
-        startTime: timer.startTime,
-        endTime: endedAt,
-        date: dateKey(),
-        timestamp: endedAt
-      });
-
-      saveState();
-      updatePrimaryReadouts();
-      prepareActionCard(sourceEl);
-      if (sourceEl) sourceEl.classList.add("task-exit-penalty");
-      showCoinFeedback(amount, "negative", sourceEl, { flash: false });
-      scheduleRender(sourceEl ? 380 : 0);
-      showUndoToast({
-        type: "phone_timer",
-        historyId,
-        amount,
-        previousTimer
-      }, {
-        icon: "minus.circle",
-        lines: [
-          `⊗ 扣除 ${formatCoinAmount(amount)} 金币`,
-          `${PHONE_TIMER_NAME} ${formatTaskDurationClock(durationSeconds)}`,
-          `当前金币 ${formatCoinAmount(state.coins)}`
-        ],
-        undoLabel: "撤回",
-        duration: 5000
-      });
     }
 
     function updateStreakForCompletion(today) {
@@ -959,9 +754,9 @@
         return;
       }
       const confirmed = await askForConfirmation({
-        title: "确认兑换奖励",
-        message: `将消耗 ${formatNumber(amount)} 金币。确认兑换「${reward.name}」吗？`,
-        confirmText: "确认"
+        title: "确认基金拨款",
+        message: `将拨出 ${formatNumber(amount)} 金币到「${reward.name}」。`,
+        confirmText: "确认拨款"
       });
       if (!confirmed) return;
       if (!state.rewards.some(item => item.id === rewardId)) return;
@@ -980,6 +775,7 @@
         rewardId: reward.id,
         name: reward.name,
         cost: amount,
+        mapping: reward.mapping || "",
         date: dateKey(),
         timestamp: new Date().toISOString()
       });
@@ -1005,13 +801,21 @@
         type: "reward_redeemed",
         historyId,
         amount
+      }, {
+        icon: "gift",
+        lines: [
+          `已拨款：${reward.name}`,
+          `-${formatNumber(amount)} 金币`
+        ],
+        undoLabel: "撤回",
+        duration: 5000
       });
     }
     function showRewardRedeemedFeedback(sourceEl = null) {
       const rect = sourceEl ? sourceEl.getBoundingClientRect() : els.rewardCoins.getBoundingClientRect();
       const message = document.createElement("span");
       message.className = "floating-reward-message";
-      message.textContent = "Reward redeemed";
+      message.textContent = "已拨款";
       message.style.left = `${rect.left + rect.width / 2}px`;
       message.style.top = `${rect.top + 12}px`;
       document.body.appendChild(message);
@@ -1191,27 +995,14 @@
         state.totals.completedTasks = Math.max(0, (Number(state.totals.completedTasks) || 0) - 1);
         state.totals.taskDurationSeconds = Math.max(0, (Number(state.totals.taskDurationSeconds) || 0) - (Number(undo.durationSeconds) || 0));
         state.totals.earnedTaskCoins = Math.max(0, parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) - undo.amount));
-        if (undo.breakStarted) {
-          state.breakTimer = undo.previousBreakTimer || cloneEmptyState().breakTimer;
-          scheduleBreakReminder();
-        }
       }
       if (undo.type === "habit_completed") {
         restoreHabitProgress(undo.date, undo.habitId, undo.previousProgress);
         state.coins = parseCoinAmount(state.coins - undo.amount);
-        if (undo.breakStarted) {
-          state.breakTimer = undo.previousBreakTimer || cloneEmptyState().breakTimer;
-          scheduleBreakReminder();
-        }
       }
       if (undo.type === "bad_habit") {
         state.coins = parseCoinAmount(state.coins + undo.amount);
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - undo.amount));
-      }
-      if (undo.type === "phone_timer") {
-        state.coins = parseCoinAmount(state.coins + undo.amount);
-        state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - undo.amount));
-        state.phoneTimer = undo.previousTimer || { status: "idle", startTime: null, updatedAt: new Date().toISOString() };
       }
       if (undo.type === "no_bad_habit_bonus") {
         const entries = undo.bonusEntries || (undo.date ? [undo] : []);

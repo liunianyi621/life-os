@@ -197,6 +197,93 @@
         return status !== "completed" && status !== "failed";
       });
     }
+
+    function ensureNextStep() {
+      state.nextStep = state.nextStep && typeof state.nextStep === "object"
+        ? { taskId: null, updatedAt: null, ...state.nextStep }
+        : { taskId: null, updatedAt: null };
+      return state.nextStep;
+    }
+
+    function nextStepTask() {
+      const taskId = ensureNextStep().taskId;
+      if (!taskId) return null;
+      const task = todayTasks().find(item => item.id === taskId);
+      if (!task || taskResultToday(taskId)) return null;
+      return task;
+    }
+
+    function clearNextStep(save = false) {
+      const current = ensureNextStep();
+      if (!current.taskId) return false;
+      state.nextStep = {
+        taskId: null,
+        updatedAt: new Date().toISOString()
+      };
+      if (save) saveState();
+      return true;
+    }
+
+    function clearNextStepForTask(taskId) {
+      if (ensureNextStep().taskId !== taskId) return false;
+      return clearNextStep(false);
+    }
+
+    function normalizeNextStep(save = false) {
+      const current = ensureNextStep();
+      if (!current.taskId) return false;
+      if (nextStepTask()) return false;
+      return clearNextStep(save);
+    }
+
+    function setNextStepTask(taskId) {
+      const task = activeTasksToday().find(item => item.id === taskId);
+      if (!task) {
+        showToast("请选择未完成任务");
+        return false;
+      }
+      state.nextStep = {
+        taskId: task.id,
+        updatedAt: new Date().toISOString()
+      };
+      saveState();
+      render();
+      showToast("已设为下一步");
+      return true;
+    }
+
+    function createNextStepTask(name) {
+      const taskName = String(name || "").trim();
+      if (!taskName) {
+        showToast("请输入任务名称");
+        return null;
+      }
+      const today = dateKey();
+      const task = {
+        id: createId("task"),
+        name: taskName,
+        coins: "",
+        hourlyReward: "",
+        reward: "",
+        timeStart: "",
+        timeEnd: "",
+        time: "",
+        date: today,
+        createdDate: today,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      state.tasks.push(task);
+      state.nextStep = {
+        taskId: task.id,
+        updatedAt: new Date().toISOString()
+      };
+      saveState();
+      render();
+      showToast("已设为下一步");
+      return task;
+    }
+
     function timeToMinutes(value) {
       const parts = parseTimeValue(value);
       return timePartsToMinutes(parts);
@@ -242,6 +329,7 @@
       return groups;
     }
     function deleteTask(taskId) {
+      clearNextStepForTask(taskId);
       state.tasks = state.tasks.filter(task => task.id !== taskId);
       saveState();
       closeSheet();
