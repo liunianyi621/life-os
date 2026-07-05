@@ -1,6 +1,7 @@
     function renderStatsVisuals() {
       const rows = buildStatsRows(currentStatsRange);
       renderHeatmap();
+      renderAchievements();
       renderHabitTrend(rows);
     }
 
@@ -51,6 +52,9 @@
         }
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);
+        }
+        if (item.type === "fund_deposit") {
+          row.deducted += parseCoinAmount(item.amount);
         }
       });
 
@@ -117,6 +121,9 @@
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);
         }
+        if (item.type === "fund_deposit") {
+          row.deducted += parseCoinAmount(item.amount);
+        }
       });
 
       rows.forEach(row => {
@@ -181,7 +188,7 @@
       const failed = dayEntries(day, item => item.type === "task_failed" || item.type === "task_missed");
       const failedHabits = dayEntries(day, item => item.type === "habit_failed");
       const badHabits = dayEntries(day, item => item.type === "bad_habit");
-      const rewards = dayEntries(day, item => item.type === "reward_redeemed");
+      const rewards = dayEntries(day, item => item.type === "reward_redeemed" || item.type === "fund_deposit");
       const reviewRewards = dayEntries(day, item => item.type === "review_reward");
       const noBadHabitBonuses = dayEntries(day, item => item.type === "no_bad_habit_bonus");
       const earned = completed.reduce((sum, item) => sum + taskEarnedCoinsFromItem(item), 0)
@@ -191,7 +198,7 @@
       const deducted = failed.reduce((sum, item) => sum + (item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), 0)
         + failedHabits.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
-        + rewards.reduce((sum, item) => sum + parseAmount(item.cost), 0);
+        + rewards.reduce((sum, item) => sum + (item.type === "fund_deposit" ? parseCoinAmount(item.amount) : parseAmount(item.cost)), 0);
       return {
         completed,
         habits,
@@ -300,9 +307,9 @@
           detailListHtml(summary.badHabits, "当天没有坏习惯记录。", item => -parseAmount(item.coins))
         )}
         ${detailSectionHtml(
-          "基金拨款",
+          "基金注入",
           summary.rewards.length,
-          detailListHtml(summary.rewards, "当天没有基金拨款记录。", item => -parseAmount(item.cost))
+          detailListHtml(summary.rewards, "当天没有基金注入记录。", item => -(item.type === "fund_deposit" ? parseCoinAmount(item.amount) : parseAmount(item.cost)))
         )}
         ${detailSectionHtml(
           "复盘奖励",
@@ -332,6 +339,35 @@
       els.dayDetailBackdrop.setAttribute("aria-hidden", "true");
       els.dayDetailContent.innerHTML = "";
       syncModalState();
+    }
+
+    function achievementDateLabel(achievement) {
+      const key = achievement.date || dateKey(new Date(achievement.completedAt || Date.now()));
+      const { month, day } = datePartsFromKey(key);
+      return month && day ? `${month}月${day}日` : key;
+    }
+
+    function renderAchievements() {
+      if (!els.achievementsList) return;
+      const achievements = (Array.isArray(state.achievements) ? state.achievements : [])
+        .slice()
+        .sort((left, right) => String(right.completedAt).localeCompare(String(left.completedAt)));
+      if (!achievements.length) {
+        els.achievementsList.innerHTML = `
+          <div class="achievement-empty">
+            <strong>还没有成就</strong>
+            <p>完成人生主线基金后会记录在这里。</p>
+          </div>
+        `;
+        return;
+      }
+      els.achievementsList.innerHTML = achievements.map(achievement => `
+        <article class="achievement-item">
+          <span>${escapeHtml(achievementDateLabel(achievement))}</span>
+          <strong>完成：${escapeHtml(achievement.name)}</strong>
+          <small>${formatFundCoins(achievement.totalCoins)} 金币</small>
+        </article>
+      `).join("");
     }
 
     function renderHeatmap() {

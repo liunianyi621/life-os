@@ -27,6 +27,9 @@
         if (item.type === "reward_redeemed") {
           totals.coinsSpent += parseAmount(item.cost);
         }
+        if (item.type === "fund_deposit") {
+          totals.coinsSpent += parseCoinAmount(item.amount);
+        }
         if (item.type === "task_failed" || item.type === "habit_failed") {
           totals.coinsPenalty += parseCoinAmount(item.coins);
         }
@@ -86,7 +89,6 @@
       if (els.statCoins) els.statCoins.textContent = formatCoinAmount(state.coins);
       if (els.statSpent) els.statSpent.textContent = formatNumber(totals.coinsSpent);
       if (els.statPenalty) els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
-      if (els.statFocusDuration) els.statFocusDuration.textContent = formatFocusDuration(totals.taskDurationSeconds);
     }
 
     function promptNextStepAfterCompletion() {
@@ -745,44 +747,78 @@
       );
     }
 
-    async function redeemReward(rewardId, sourceEl = null, buttonEl = null) {
-      const reward = state.rewards.find(item => item.id === rewardId);
-      if (!reward) return;
-      const amount = parseAmount(reward.cost);
-      if (state.coins < amount) {
-        showToast("金币不足");
+    function depositFund(rewardId, sourceEl = null, buttonEl = null) {
+      const fund = state.rewards.find(item => item.id === rewardId);
+      if (!fund) return;
+      const totalCoins = fundTotalCoins(fund);
+      const currentCoins = fundCurrentCoins(fund);
+      if (fundCompleted(fund)) {
+        showInfoToast(["基金已完成", fund.name], 2200, "checkmark.circle");
         return;
       }
-      const confirmed = await askForConfirmation({
-        title: "确认基金拨款",
-        message: `将拨出 ${formatNumber(amount)} 金币到「${reward.name}」。`,
-        confirmText: "确认拨款"
-      });
-      if (!confirmed) return;
-      if (!state.rewards.some(item => item.id === rewardId)) return;
+
+      const amountPerDeposit = fundAmountPerDeposit(fund);
+      const amount = parseCoinAmount(Math.min(amountPerDeposit, totalCoins - currentCoins));
+      if (amount <= 0) return;
       if (state.coins < amount) {
-        showToast("金币不足");
+        showInfoToast([
+          "金币不足",
+          `还差 ${formatCoinAmount(amount - state.coins)} 金币`
+        ], 2400);
         return;
       }
 
       const previousCoins = state.coins;
-      state.coins -= amount;
-      state.totals.coinsSpent += amount;
+      const now = new Date().toISOString();
+      const nextCoins = parseCoinAmount(currentCoins + amount);
+      const completedNow = nextCoins >= totalCoins;
+      const achievementId = completedNow ? createId("achievement") : null;
+      state.achievements = Array.isArray(state.achievements) ? state.achievements : [];
+      state.rewards = state.rewards.map(item => (
+        item.id === rewardId
+          ? {
+              ...item,
+              totalCoins,
+              amountPerDeposit,
+              currentCoins: nextCoins,
+              completedAt: completedNow ? now : item.completedAt || null,
+              achievementId: completedNow ? achievementId : item.achievementId || null,
+              updatedAt: now
+            }
+          : item
+      ));
+      if (completedNow) {
+        state.achievements.unshift({
+          id: achievementId,
+          type: "fund_completed",
+          rewardId,
+          name: fund.name,
+          totalCoins,
+          completedAt: now,
+          date: dateKey(new Date(now))
+        });
+      }
+      state.coins = parseCoinAmount(state.coins - amount);
+      state.totals.coinsSpent = parseCoinAmount((Number(state.totals.coinsSpent) || 0) + amount);
       const historyId = createId("history");
       state.history.unshift({
         id: historyId,
-        type: "reward_redeemed",
-        rewardId: reward.id,
-        name: reward.name,
-        cost: amount,
-        mapping: reward.mapping || "",
+        type: "fund_deposit",
+        rewardId,
+        name: fund.name,
+        amount,
+        totalCoins,
+        currentCoinsBefore: currentCoins,
+        currentCoinsAfter: nextCoins,
+        completed: completedNow,
+        achievementId,
         date: dateKey(),
-        timestamp: new Date().toISOString()
+        timestamp: now
       });
       saveState();
       const totals = summaryTotals();
-      if (els.statSpent) els.statSpent.textContent = formatNumber(totals.coinsSpent);
-      if (els.statPenalty) els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
+      if (els.statSpent) els.statSpent.textContent = formatCoinAmount(totals.coinsSpent);
+      if (els.statPenalty) els.statPenalty.textContent = formatCoinAmount(totals.coinsPenalty);
       if (sourceEl) {
         prepareActionCard(sourceEl);
         sourceEl.classList.remove("reward-redeemed");
@@ -795,27 +831,44 @@
         buttonEl.classList.add("reward-button-spend");
       }
       animateCoinBalance(previousCoins, state.coins);
-      showRewardRedeemedFeedback(sourceEl);
+      showFundDepositFeedback(sourceEl);
       scheduleRender(840);
       showUndoToast({
-        type: "reward_redeemed",
+        type: "fund_deposit",
         historyId,
-        amount
+        rewardId,
+        amount,
+        currentCoinsBefore: currentCoins,
+        currentCoinsAfter: nextCoins,
+        completed: completedNow,
+        achievementId
       }, {
-        icon: "gift",
+        icon: completedNow ? "checkmark.circle" : "plus.circle",
         lines: [
-          `已拨款：${reward.name}`,
-          `-${formatNumber(amount)} 金币`
+          `✓ 已注入 ${formatCoinAmount(amount)} 金币`,
+          fund.name,
+          `进度：${formatFundCoins(nextCoins)} / ${formatFundCoins(totalCoins)}`
         ],
         undoLabel: "撤回",
-        duration: 5000
+        duration: 5000,
+        iconTone: completedNow ? "positive" : ""
       });
+      if (completedNow && typeof openFundCelebrationDialog === "function") {
+        window.setTimeout(() => {
+          const liveFund = state.rewards.find(item => item.id === rewardId);
+          const achievementExists = (Array.isArray(state.achievements) ? state.achievements : [])
+            .some(item => item.id === achievementId);
+          if (liveFund && fundCompleted(liveFund) && achievementExists) {
+            openFundCelebrationDialog(fund.name);
+          }
+        }, 520);
+      }
     }
-    function showRewardRedeemedFeedback(sourceEl = null) {
+    function showFundDepositFeedback(sourceEl = null) {
       const rect = sourceEl ? sourceEl.getBoundingClientRect() : els.rewardCoins.getBoundingClientRect();
       const message = document.createElement("span");
       message.className = "floating-reward-message";
-      message.textContent = "已拨款";
+      message.textContent = "已注入";
       message.style.left = `${rect.left + rect.width / 2}px`;
       message.style.top = `${rect.top + 12}px`;
       document.body.appendChild(message);
@@ -885,6 +938,34 @@
       showToast.timer = setTimeout(() => {
         els.toast.classList.remove("show");
       }, 3600);
+    }
+
+    function showInfoToast(lines, duration = 2200, icon = "") {
+      if (pendingUndo) return;
+      clearPendingUndo(false);
+      clearTimeout(showToast.timer);
+      els.toast.textContent = "";
+      const toastMessage = document.createElement("span");
+      toastMessage.className = "toast-message toast-message-stacked";
+      if (icon && actionIcons[icon]) {
+        const iconEl = document.createElement("span");
+        iconEl.className = "toast-icon action-icon positive";
+        iconEl.setAttribute("aria-hidden", "true");
+        iconEl.innerHTML = actionIcons[icon];
+        toastMessage.append(iconEl);
+      }
+      lines.forEach(line => {
+        const lineEl = document.createElement("span");
+        lineEl.className = "toast-line";
+        lineEl.textContent = line;
+        toastMessage.append(lineEl);
+      });
+      els.toast.append(toastMessage);
+      els.toast.classList.remove("interactive");
+      els.toast.classList.add("show");
+      showToast.timer = setTimeout(() => {
+        els.toast.classList.remove("show");
+      }, duration);
     }
 
     function clearPendingUndo(hideToast = false) {
@@ -1019,6 +1100,28 @@
       if (undo.type === "reward_redeemed") {
         state.coins = parseCoinAmount(state.coins + undo.amount);
         state.totals.coinsSpent = Math.max(0, parseCoinAmount((Number(state.totals.coinsSpent) || 0) - undo.amount));
+      }
+      if (undo.type === "fund_deposit") {
+        state.coins = parseCoinAmount(state.coins + undo.amount);
+        state.totals.coinsSpent = Math.max(0, parseCoinAmount((Number(state.totals.coinsSpent) || 0) - undo.amount));
+        state.rewards = state.rewards.map(fund => (
+          fund.id === undo.rewardId
+            ? {
+                ...fund,
+                currentCoins: fundCurrentCoins({ ...fund, currentCoins: undo.currentCoinsBefore }),
+                completedAt: undo.completed ? null : fund.completedAt || null,
+                achievementId: undo.completed ? null : fund.achievementId || null,
+                updatedAt: new Date().toISOString()
+              }
+            : fund
+        ));
+        if (undo.achievementId) {
+          state.achievements = (Array.isArray(state.achievements) ? state.achievements : [])
+            .filter(item => item.id !== undo.achievementId);
+        }
+        if (undo.completed && typeof closeFundCelebrationDialog === "function") {
+          closeFundCelebrationDialog();
+        }
       }
       if (undo.type === "review_reward") {
         state.coins = parseCoinAmount(state.coins - undo.amount);

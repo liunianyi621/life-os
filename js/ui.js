@@ -563,28 +563,34 @@
       }
 
       els.rewardList.innerHTML = state.rewards.map(reward => {
-        const cost = parseAmount(reward.cost);
-        const affordable = state.coins >= cost;
-        const mapping = String(reward.mapping || "").trim();
+        const totalCoins = fundTotalCoins(reward);
+        const currentCoins = fundCurrentCoins(reward);
+        const percent = fundProgressPercent(reward);
+        const completed = fundCompleted(reward);
         return swipeRowHtml({
           attrs: `data-reward-card="${escapeAttr(reward.id)}"`,
+          extraClass: completed ? "fund-completed" : "",
           editType: "reward",
           editId: reward.id,
           actions: actionButtonHtml({
-            tone: "blue",
-            icon: "gift",
-            label: affordable ? "基金拨款" : "金币不足",
-            attrs: `data-redeem-reward="${escapeAttr(reward.id)}"`,
-            disabled: !affordable
+            tone: completed ? "green" : "blue",
+            icon: completed ? "checkmark.circle" : "plus.circle",
+            label: completed ? "已完成" : "注入金币",
+            attrs: completed ? "" : `data-deposit-fund="${escapeAttr(reward.id)}"`,
+            disabled: completed
           }),
           content: `
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(reward.name)}</h3>
-                <div class="meta-row">
-                  <span class="pill coin-pill">${formatNumber(cost)} 金币</span>
+                <div class="fund-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${escapeAttr(totalCoins)}" aria-valuenow="${escapeAttr(currentCoins)}" aria-label="${escapeAttr(`${reward.name} 进度`)}">
+                  <span class="fund-progress-fill" style="width: ${percent}%;"></span>
                 </div>
-                ${mapping ? `<p class="reward-mapping">${escapeHtml(mapping)}</p>` : ""}
+                <div class="fund-progress-meta">
+                  <span>${formatFundCoins(currentCoins)} / ${formatFundCoins(totalCoins)} 金币</span>
+                  <strong>${formatNumber(percent)}%</strong>
+                </div>
+                ${completed ? `<span class="fund-complete-pill">已完成</span>` : ""}
               </div>
             </div>
           `
@@ -628,7 +634,7 @@
       const completeHabitButton = event.target.closest("[data-complete-habit]");
       const failTaskButton = event.target.closest("[data-fail-task]");
       const triggerBadButton = event.target.closest("[data-trigger-bad]");
-      const redeemRewardButton = event.target.closest("[data-redeem-reward]");
+      const depositFundButton = event.target.closest("[data-deposit-fund]");
       const selectNextStepButton = event.target.closest("[data-select-next-step]");
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
@@ -696,11 +702,11 @@
       if (triggerBadButton) {
         triggerBadHabit(triggerBadButton.dataset.triggerBad, triggerBadButton.closest("[data-habit-card]"));
       }
-      if (redeemRewardButton) {
-        redeemReward(
-          redeemRewardButton.dataset.redeemReward,
-          redeemRewardButton.closest("[data-reward-card]"),
-          redeemRewardButton
+      if (depositFundButton) {
+        depositFund(
+          depositFundButton.dataset.depositFund,
+          depositFundButton.closest("[data-reward-card]"),
+          depositFundButton
         );
       }
       if (selectNextStepButton) {
@@ -745,6 +751,10 @@
     els.confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
     els.confirmBackdrop.addEventListener("click", event => {
       if (event.target === els.confirmBackdrop) closeConfirm(false);
+    });
+    els.fundCelebrationDoneBtn?.addEventListener("click", closeFundCelebrationDialog);
+    els.fundCelebrationBackdrop?.addEventListener("click", event => {
+      if (event.target === els.fundCelebrationBackdrop) closeFundCelebrationDialog();
     });
     els.sheetForm.addEventListener("submit", handleSheetSubmit);
     els.memoForm.addEventListener("submit", handleMemoSubmit);
@@ -806,6 +816,10 @@
         return;
       }
       if (event.key === "Escape") {
+        if (!els.fundCelebrationBackdrop?.classList.contains("hidden")) {
+          closeFundCelebrationDialog();
+          return;
+        }
         if (!els.nextStepBackdrop?.classList.contains("hidden")) {
           closeNextStepPanel();
           return;

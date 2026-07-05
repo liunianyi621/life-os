@@ -18,6 +18,13 @@
           <path d="M8.6 12h6.8"></path>
         </svg>
       `,
+      "plus.circle": `
+        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+          <circle cx="12" cy="12" r="8.25"></circle>
+          <path d="M12 8.6v6.8"></path>
+          <path d="M8.6 12h6.8"></path>
+        </svg>
+      `,
       "play.circle": `
         <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
           <circle cx="12" cy="12" r="8.25"></circle>
@@ -109,7 +116,7 @@
       statStreak: document.getElementById("statStreak"),
       statCompleted: document.getElementById("statCompleted"),
       statCoins: document.getElementById("statCoins"),
-      statFocusDuration: document.getElementById("statFocusDuration"),
+      achievementsList: document.getElementById("achievementsList"),
       statSpent: document.getElementById("statSpent"),
       statPenalty: document.getElementById("statPenalty"),
       heatmapMonthLabel: document.getElementById("heatmapMonthLabel"),
@@ -135,6 +142,9 @@
       confirmTitle: document.getElementById("confirmTitle"),
       confirmMessage: document.getElementById("confirmMessage"),
       confirmAcceptBtn: document.getElementById("confirmAcceptBtn"),
+      fundCelebrationBackdrop: document.getElementById("fundCelebrationBackdrop"),
+      fundCelebrationName: document.getElementById("fundCelebrationName"),
+      fundCelebrationDoneBtn: document.getElementById("fundCelebrationDoneBtn"),
       toast: document.getElementById("toast")
     };
 

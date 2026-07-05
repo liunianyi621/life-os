@@ -643,8 +643,59 @@
       line-height: 1.45;
     }
 
-    .reward-mapping {
-      max-width: 100%;
+    .fund-progress {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 999px;
+      border: 1px solid rgba(147, 157, 171, 0.16);
+      background: rgba(235, 239, 245, 0.86);
+    }
+
+    .fund-progress-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      min-width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(91, 168, 120, 0.72), rgba(10, 132, 255, 0.55));
+      transition: width 0.28s ease;
+    }
+
+    .fund-progress-meta {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 720;
+    }
+
+    .fund-progress-meta strong {
+      color: var(--text);
+      font-size: 0.88rem;
+      font-weight: 850;
+    }
+
+    .fund-complete-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      margin-top: 10px;
+      border-radius: var(--pill-radius);
+      padding: 5px 10px;
+      background: var(--green-soft);
+      color: var(--green-ink);
+      font-size: 0.8rem;
+      font-weight: 820;
+    }
+
+    .swipe-row.fund-completed .swipe-card {
+      border-color: var(--green-line);
+      background: rgba(248, 253, 249, 0.88);
     }
 
     .meta-row {
@@ -1182,6 +1233,56 @@
 
     .stat-card-wide {
       grid-column: 1 / -1;
+    }
+
+    .achievement-card {
+      min-height: 138px;
+      justify-content: flex-start;
+    }
+
+    .achievement-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .achievement-item {
+      display: grid;
+      gap: 4px;
+      padding: 11px 12px;
+      border: 1px solid rgba(147, 157, 171, 0.18);
+      border-radius: 16px;
+      background: rgba(249, 250, 252, 0.72);
+    }
+
+    .achievement-item span,
+    .achievement-item small,
+    .achievement-empty p {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 680;
+    }
+
+    .achievement-item strong {
+      color: var(--text);
+      font-size: 0.94rem;
+      font-weight: 850;
+      line-height: 1.35;
+    }
+
+    .achievement-empty {
+      display: grid;
+      gap: 4px;
+      padding: 12px;
+      border: 1px dashed rgba(151, 160, 174, 0.34);
+      border-radius: 16px;
+      background: rgba(249, 250, 252, 0.62);
+    }
+
+    .achievement-empty strong {
+      color: var(--text);
+      font-size: 0.94rem;
+      font-weight: 850;
     }
 
     .stat-value-compact {
@@ -1911,6 +2012,38 @@
       color: var(--muted);
       font-size: 0.94rem;
       line-height: 1.52;
+    }
+
+    .fund-celebration-dialog {
+      justify-items: center;
+      text-align: center;
+      border-radius: 26px;
+      padding: 22px 18px 18px;
+    }
+
+    .fund-celebration-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      border: 1px solid var(--green-line);
+      background: var(--green-soft);
+      color: var(--green-ink);
+      box-shadow: var(--soft-shadow);
+    }
+
+    .fund-celebration-dialog strong {
+      display: block;
+      margin-top: 7px;
+      color: var(--text);
+      font-size: 1.08rem;
+      font-weight: 860;
+      line-height: 1.25;
+    }
+
+    .fund-celebration-button {
+      min-width: 96px;
     }
 
     .confirm-actions {

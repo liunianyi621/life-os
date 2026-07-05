@@ -19,7 +19,8 @@
         els.dayDetailBackdrop,
         els.memoBackdrop,
         els.nextStepBackdrop,
-        els.confirmBackdrop
+        els.confirmBackdrop,
+        els.fundCelebrationBackdrop
       ].some(backdrop => backdrop && !backdrop.classList.contains("hidden"));
     }
 
@@ -77,6 +78,22 @@
         syncModalState();
         window.setTimeout(() => els.confirmAcceptBtn.focus(), 0);
       });
+    }
+
+    function openFundCelebrationDialog(fundName) {
+      if (!els.fundCelebrationBackdrop) return;
+      if (els.fundCelebrationName) els.fundCelebrationName.textContent = fundName || "主线基金";
+      els.fundCelebrationBackdrop.classList.remove("hidden");
+      els.fundCelebrationBackdrop.setAttribute("aria-hidden", "false");
+      syncModalState();
+      window.setTimeout(() => els.fundCelebrationDoneBtn?.focus(), 0);
+    }
+
+    function closeFundCelebrationDialog() {
+      if (!els.fundCelebrationBackdrop) return;
+      els.fundCelebrationBackdrop.classList.add("hidden");
+      els.fundCelebrationBackdrop.setAttribute("aria-hidden", "true");
+      syncModalState();
     }
 
     function showToast(message, duration = 1800) {

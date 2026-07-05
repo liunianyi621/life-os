@@ -21,6 +21,7 @@
       notes: [],
       memos: [],
       rewards: [],
+      achievements: [],
       nextStep: {
         taskId: null,
         updatedAt: null
@@ -39,48 +40,134 @@
       }
     };
 
-    let state = loadState();
-    let sheetMode = null;
-    let editingId = null;
-    let editingReviewDate = null;
-    let currentStatsRange = "week";
-    let currentHeatmapMonth = monthKey();
-    let selectedReviewDate = dateKey();
-    let pendingUndo = null;
-    let confirmResolver = null;
-    let activeSwipe = null;
-    let activeReviewPress = null;
-    let suppressNextCardTap = false;
-
     function cloneEmptyState() {
       return JSON.parse(JSON.stringify(emptyState));
     }
 
+    const DEFAULT_FUND_REWARDS = [
+      { name: "冰岛基金", totalCoins: 3000, amountPerDeposit: 100 },
+      { name: "苏格兰自驾基金", totalCoins: 2000, amountPerDeposit: 100 },
+      { name: "相机升级基金", totalCoins: 2500, amountPerDeposit: 100 },
+      { name: "南极基金", totalCoins: 5000, amountPerDeposit: 100 },
+      { name: "下一次独立旅行基金", totalCoins: 1500, amountPerDeposit: 100 },
+      { name: "个人摄影项目基金", totalCoins: 2000, amountPerDeposit: 100 },
+      { name: "电影节基金", totalCoins: 800, amountPerDeposit: 100 },
+      { name: "机票基金", totalCoins: 1200, amountPerDeposit: 100 }
+    ];
+
+    function firstAvailableValue(values, fallback = "") {
+      const found = values.find(value => value !== undefined && value !== null && value !== "");
+      return found === undefined ? fallback : found;
+    }
+
+    function positiveCoinValue(value, fallback = 0) {
+      const parsed = parseCoinAmount(value);
+      const fallbackValue = parseCoinAmount(fallback);
+      return parsed > 0 ? parsed : fallbackValue;
+    }
+
+    function clampCoinValue(value, min, max) {
+      const parsed = parseCoinAmount(value);
+      return Math.min(max, Math.max(min, parsed));
+    }
+
     function defaultFundRewards() {
       const now = new Date().toISOString();
-      return [
-        ["冰岛基金", 300, "转 £30 到冰岛基金"],
-        ["苏格兰自驾基金", 100, "转 £10 到苏格兰自驾基金"],
-        ["相机升级基金", 500, "给相机升级预算"],
-        ["南极基金", 800, "转 £80 到南极基金"],
-        ["下一次独立旅行基金", 300, "转 £30 到独立旅行基金"],
-        ["个人摄影项目基金", 500, "给摄影项目制作预算"],
-        ["电影节基金", 300, "给电影节报名与观影预算"],
-        ["机票基金", 100, "转 £10 到机票基金"]
-      ].map(([name, cost, mapping], index) => ({
+      return DEFAULT_FUND_REWARDS.map((fund, index) => ({
         id: `reward-fund-${index + 1}`,
-        name,
-        cost,
-        mapping,
+        name: fund.name,
+        totalCoins: fund.totalCoins,
+        amountPerDeposit: fund.amountPerDeposit,
+        currentCoins: 0,
+        completedAt: null,
+        achievementId: null,
         createdAt: now,
         updatedAt: now
       }));
     }
 
+    function normalizeFundReward(reward = {}, index = 0) {
+      const seed = DEFAULT_FUND_REWARDS[index] || DEFAULT_FUND_REWARDS[0];
+      const now = new Date().toISOString();
+      const name = String(reward.name || seed.name || "主线基金").trim() || "主线基金";
+      const totalCoins = positiveCoinValue(
+        firstAvailableValue([reward.totalCoins, reward.targetCoins], seed.totalCoins),
+        seed.totalCoins
+      );
+      const amountPerDeposit = Math.min(
+        totalCoins,
+        positiveCoinValue(
+          firstAvailableValue([reward.amountPerDeposit, reward.depositCoins, reward.cost], seed.amountPerDeposit),
+          seed.amountPerDeposit
+        )
+      );
+      const currentCoins = clampCoinValue(
+        firstAvailableValue([reward.currentCoins, reward.depositedCoins], 0),
+        0,
+        totalCoins
+      );
+      const isComplete = currentCoins >= totalCoins;
+      return {
+        id: reward.id || `reward-fund-${index + 1}`,
+        name,
+        totalCoins,
+        amountPerDeposit,
+        currentCoins,
+        completedAt: isComplete ? reward.completedAt || reward.finishedAt || null : null,
+        achievementId: isComplete ? reward.achievementId || null : null,
+        createdAt: reward.createdAt || now,
+        updatedAt: reward.updatedAt || now
+      };
+    }
+
     function normalizeRewards(rewards) {
-      return (Array.isArray(rewards) ? rewards : []).filter(reward => (
+      const cleaned = (Array.isArray(rewards) ? rewards : []).filter(reward => (
         String(reward?.name || "").trim() !== "玩手机"
       ));
+      const hasFundShape = cleaned.some(reward => (
+        Object.prototype.hasOwnProperty.call(reward || {}, "totalCoins")
+        || Object.prototype.hasOwnProperty.call(reward || {}, "amountPerDeposit")
+        || Object.prototype.hasOwnProperty.call(reward || {}, "currentCoins")
+      ));
+      if (!cleaned.length || !hasFundShape) return defaultFundRewards();
+      return cleaned.map(normalizeFundReward);
+    }
+
+    function fundTotalCoins(fund) {
+      return positiveCoinValue(fund?.totalCoins, 1000);
+    }
+
+    function fundAmountPerDeposit(fund) {
+      return Math.min(fundTotalCoins(fund), positiveCoinValue(fund?.amountPerDeposit, 100));
+    }
+
+    function fundCurrentCoins(fund) {
+      return clampCoinValue(fund?.currentCoins, 0, fundTotalCoins(fund));
+    }
+
+    function fundProgressPercent(fund) {
+      const total = fundTotalCoins(fund);
+      return total > 0 ? Math.min(100, Math.round((fundCurrentCoins(fund) / total) * 100)) : 0;
+    }
+
+    function fundCompleted(fund) {
+      return fundCurrentCoins(fund) >= fundTotalCoins(fund);
+    }
+
+    function normalizeAchievements(achievements) {
+      return (Array.isArray(achievements) ? achievements : [])
+        .filter(item => String(item?.name || "").trim())
+        .map(item => ({
+          id: item.id || createId("achievement"),
+          type: "fund_completed",
+          rewardId: item.rewardId || null,
+          name: String(item.name || "").trim(),
+          totalCoins: positiveCoinValue(item.totalCoins, 0),
+          completedAt: item.completedAt || item.timestamp || new Date().toISOString(),
+          date: normalizeReviewDateKey(item.date || dateKey(new Date(item.completedAt || item.timestamp || Date.now())))
+        }))
+        .filter(item => item.totalCoins > 0)
+        .sort((left, right) => String(right.completedAt).localeCompare(String(left.completedAt)));
     }
 
     function loadState() {
@@ -89,7 +176,13 @@
         const needsLegacyCleanup = Boolean(saved && (
           Object.prototype.hasOwnProperty.call(saved, "phoneTimer")
           || Object.prototype.hasOwnProperty.call(saved, "breakTimer")
-          || (Array.isArray(saved.rewards) && saved.rewards.some(reward => String(reward?.name || "").trim() === "玩手机"))
+          || (Array.isArray(saved.rewards) && saved.rewards.some(reward => (
+            String(reward?.name || "").trim() === "玩手机"
+            || Object.prototype.hasOwnProperty.call(reward || {}, "mapping")
+            || Object.prototype.hasOwnProperty.call(reward || {}, "realWorldNote")
+            || Object.prototype.hasOwnProperty.call(reward || {}, "cost")
+            || !Object.prototype.hasOwnProperty.call(reward || {}, "totalCoins")
+          )))
         ));
         const merged = saved ? {
           ...cloneEmptyState(),
@@ -101,6 +194,7 @@
           notes: Array.isArray(saved.notes) ? saved.notes : [],
           memos: Array.isArray(saved.memos) ? saved.memos : [],
           rewards: Array.isArray(saved.rewards) ? normalizeRewards(saved.rewards) : defaultFundRewards(),
+          achievements: normalizeAchievements(saved.achievements),
           nextStep: saved.nextStep && typeof saved.nextStep === "object"
             ? { ...cloneEmptyState().nextStep, ...saved.nextStep }
             : cloneEmptyState().nextStep,
@@ -150,6 +244,19 @@
         return fresh;
       }
     }
+
+    let state = loadState();
+    let sheetMode = null;
+    let editingId = null;
+    let editingReviewDate = null;
+    let currentStatsRange = "week";
+    let currentHeatmapMonth = monthKey();
+    let selectedReviewDate = dateKey();
+    let pendingUndo = null;
+    let confirmResolver = null;
+    let activeSwipe = null;
+    let activeReviewPress = null;
+    let suppressNextCardTap = false;
 
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -257,6 +364,11 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       }).format(parseCoinAmount(value));
+    }
+
+    function formatFundCoins(value) {
+      const amount = parseCoinAmount(value);
+      return Number.isInteger(amount) ? formatNumber(amount) : formatCoinAmount(amount);
     }
 
     function currentStreak() {

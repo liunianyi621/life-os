@@ -156,12 +156,12 @@
           <input name="name" type="text" maxlength="80" value="${escapeAttr(reward?.name || "")}" placeholder="输入基金名称" required>
         </label>
         <label class="field">
-          <span class="field-label">金币成本</span>
-          <input name="cost" type="number" min="0" step="1" inputmode="numeric" value="${reward?.cost ?? ""}" placeholder="0">
+          <span class="field-label">目标金币</span>
+          <input name="totalCoins" type="number" min="1" step="1" inputmode="numeric" value="${reward ? fundTotalCoins(reward) : ""}" placeholder="2000">
         </label>
         <label class="field">
-          <span class="field-label">现实映射说明</span>
-          <input name="mapping" type="text" maxlength="120" value="${escapeAttr(reward?.mapping || "")}" placeholder="例如：转 £10 到旅行基金">
+          <span class="field-label">每次注入金币</span>
+          <input name="amountPerDeposit" type="number" min="1" step="1" inputmode="numeric" value="${reward ? fundAmountPerDeposit(reward) : ""}" placeholder="100">
         </label>
         <div class="sheet-actions">
           ${submitSheetButtonHtml(reward ? "保存基金" : "创建基金")}
@@ -282,8 +282,8 @@
       if (sheetMode === "reward") {
         saveReward({
           name: String(formData.get("name") || "").trim(),
-          cost: parseAmount(formData.get("cost")),
-          mapping: String(formData.get("mapping") || "").trim()
+          totalCoins: parseCoinAmount(formData.get("totalCoins")),
+          amountPerDeposit: parseCoinAmount(formData.get("amountPerDeposit"))
         });
       }
       if (sheetMode === "review-edit") {
@@ -327,20 +327,41 @@
         showToast("请输入基金名称");
         return;
       }
+      if (rewardData.totalCoins <= 0) {
+        showToast("请输入目标金币");
+        return;
+      }
+      if (rewardData.amountPerDeposit <= 0) {
+        showToast("请输入每次注入金币");
+        return;
+      }
       if (editingId) {
-        state.rewards = state.rewards.map(reward => (
-          reward.id === editingId
-            ? { ...reward, ...rewardData, updatedAt: new Date().toISOString() }
-            : reward
-        ));
+        state.rewards = state.rewards.map((reward, index) => {
+          if (reward.id !== editingId) return reward;
+          const merged = normalizeFundReward({
+            ...reward,
+            ...rewardData,
+            currentCoins: Math.min(fundCurrentCoins(reward), rewardData.totalCoins),
+            updatedAt: new Date().toISOString()
+          }, index);
+          const stillComplete = fundCompleted(merged);
+          if (!stillComplete && reward.achievementId) {
+            state.achievements = (Array.isArray(state.achievements) ? state.achievements : [])
+              .filter(item => item.id !== reward.achievementId);
+            merged.completedAt = null;
+            merged.achievementId = null;
+          }
+          return merged;
+        });
         showToast("基金已更新");
       } else {
-        state.rewards.push({
+        state.rewards.push(normalizeFundReward({
           id: createId("reward"),
           ...rewardData,
+          currentCoins: 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        });
+        }, state.rewards.length));
         showToast("基金已创建");
       }
       saveState();

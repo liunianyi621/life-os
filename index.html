@@ -180,9 +180,9 @@
             <span class="stat-label">当前金库</span>
             <strong class="stat-value" id="statCoins">0</strong>
           </div>
-          <div class="stat-card stat-card-wide">
-            <span class="stat-label">累计专注时长</span>
-            <strong class="stat-value stat-value-compact" id="statFocusDuration">0 分钟</strong>
+          <div class="stat-card stat-card-wide achievement-card">
+            <span class="stat-label">成就</span>
+            <div class="achievement-list" id="achievementsList"></div>
           </div>
         </div>
 
@@ -318,6 +318,20 @@
       </div>
       <div class="confirm-actions">
         <button class="danger-button icon-only-button" type="button" id="confirmAcceptBtn" aria-label="确认" data-icon-button="checkmark.circle"></button>
+      </div>
+    </section>
+  </div>
+
+  <div class="confirm-backdrop hidden" id="fundCelebrationBackdrop" aria-hidden="true">
+    <section class="confirm-dialog fund-celebration-dialog" role="dialog" aria-modal="true" aria-labelledby="fundCelebrationTitle">
+      <span class="fund-celebration-icon" data-icon-button="checkmark.circle" aria-hidden="true"></span>
+      <div>
+        <h2 id="fundCelebrationTitle">基金完成</h2>
+        <strong id="fundCelebrationName">主线基金</strong>
+        <p>你离想要的生活又近了一步。</p>
+      </div>
+      <div class="confirm-actions">
+        <button class="button fund-celebration-button" type="button" id="fundCelebrationDoneBtn">知道了</button>
       </div>
     </section>
   </div>
