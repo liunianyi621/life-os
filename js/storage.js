@@ -22,6 +22,7 @@
       memos: [],
       rewards: [],
       achievements: [],
+      priorityTaskByDate: {},
       nextStep: {
         taskId: null,
         updatedAt: null
@@ -170,6 +171,29 @@
         .sort((left, right) => String(right.completedAt).localeCompare(String(left.completedAt)));
     }
 
+    function normalizePriorityTasks(priorityTasks) {
+      const entries = priorityTasks && typeof priorityTasks === "object" ? Object.entries(priorityTasks) : [];
+      return entries.reduce((normalized, [day, task]) => {
+        const date = normalizeReviewDateKey(task?.date || day);
+        const title = String(task?.title || task?.name || "").trim();
+        if (!title) return normalized;
+        const status = ["pending", "done", "failed"].includes(task?.status) ? task.status : "pending";
+        normalized[date] = {
+          date,
+          title,
+          status,
+          completedAt: task?.completedAt || null,
+          failedAt: task?.failedAt || null,
+          settledPenalty: Boolean(task?.settledPenalty),
+          rewardHistoryId: task?.rewardHistoryId || null,
+          penaltyHistoryId: task?.penaltyHistoryId || null,
+          createdAt: task?.createdAt || new Date().toISOString(),
+          updatedAt: task?.updatedAt || new Date().toISOString()
+        };
+        return normalized;
+      }, {});
+    }
+
     function loadState() {
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -195,6 +219,7 @@
           memos: Array.isArray(saved.memos) ? saved.memos : [],
           rewards: Array.isArray(saved.rewards) ? normalizeRewards(saved.rewards) : defaultFundRewards(),
           achievements: normalizeAchievements(saved.achievements),
+          priorityTaskByDate: normalizePriorityTasks(saved.priorityTaskByDate),
           nextStep: saved.nextStep && typeof saved.nextStep === "object"
             ? { ...cloneEmptyState().nextStep, ...saved.nextStep }
             : cloneEmptyState().nextStep,
@@ -379,6 +404,54 @@
       }
       return 0;
     }
+
+    function ensurePriorityTasks() {
+      state.priorityTaskByDate = state.priorityTaskByDate && typeof state.priorityTaskByDate === "object"
+        ? state.priorityTaskByDate
+        : {};
+      return state.priorityTaskByDate;
+    }
+
+    function priorityTaskForDate(day = dateKey()) {
+      return ensurePriorityTasks()[normalizeReviewDateKey(day)] || null;
+    }
+
+    function priorityTaskToday() {
+      return priorityTaskForDate(dateKey());
+    }
+
+    function priorityTaskSnapshot(task) {
+      return task ? { ...task } : null;
+    }
+
+    function setPriorityTaskForDate(day, title) {
+      const date = normalizeReviewDateKey(day);
+      const now = new Date().toISOString();
+      const previous = priorityTaskForDate(date);
+      ensurePriorityTasks()[date] = {
+        date,
+        title: String(title || "").trim(),
+        status: previous?.status || "pending",
+        completedAt: previous?.completedAt || null,
+        failedAt: previous?.failedAt || null,
+        settledPenalty: Boolean(previous?.settledPenalty),
+        rewardHistoryId: previous?.rewardHistoryId || null,
+        penaltyHistoryId: previous?.penaltyHistoryId || null,
+        createdAt: previous?.createdAt || now,
+        updatedAt: now
+      };
+      return ensurePriorityTasks()[date];
+    }
+
+    function restorePriorityTask(day, snapshot) {
+      const date = normalizeReviewDateKey(day);
+      if (snapshot) {
+        ensurePriorityTasks()[date] = { ...snapshot };
+      } else {
+        delete ensurePriorityTasks()[date];
+      }
+    }
+
     function resetAllData() {
       localStorage.removeItem(STORAGE_KEY);
       OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));

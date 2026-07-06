@@ -16,6 +16,28 @@
       });
     }
 
+    function openPrioritySheet(day = dateKey()) {
+      const priorityDate = normalizeReviewDateKey(day);
+      const task = priorityTaskForDate(priorityDate);
+      sheetMode = "priority";
+      editingId = priorityDate;
+      els.sheetTitle.textContent = task ? "编辑重点" : "设定重点";
+      els.sheetForm.innerHTML = `
+        <label class="field">
+          <span class="field-label">今天最重要的一件事</span>
+          <input name="title" type="text" maxlength="80" value="${escapeAttr(task?.title || "")}" placeholder="只写一件最重要的事" required>
+        </label>
+        <div class="sheet-actions">
+          ${submitSheetButtonHtml(task ? "保存重点" : "设定重点")}
+        </div>
+        <div class="delete-row ${task ? "" : "hidden"}">
+          ${deleteIconButtonHtml({ action: "priority", id: priorityDate, label: "移除重点" })}
+        </div>
+      `;
+      openSheet({ position: "top" });
+      focusSheetField("input[name='title']");
+    }
+
     function openTaskSheet(taskId = null) {
       sheetMode = "task";
       editingId = taskId;
@@ -262,6 +284,11 @@
           time: timeStart
         });
       }
+      if (sheetMode === "priority") {
+        savePriorityTask({
+          title: String(formData.get("title") || "").trim()
+        });
+      }
       if (sheetMode === "habit") {
         saveHabit({
           name: String(formData.get("name") || "").trim(),
@@ -294,6 +321,25 @@
           priority: formData.get("priority")
         }, editingReviewDate);
       }
+    }
+
+    function savePriorityTask(priorityData) {
+      const title = String(priorityData.title || "").trim();
+      if (!title) {
+        showToast("请输入今天最重要的一件事");
+        return;
+      }
+      const day = normalizeReviewDateKey(editingId || dateKey());
+      const existing = priorityTaskForDate(day);
+      if (existing && existing.status !== "pending") {
+        showToast("已结算，不能编辑");
+        return;
+      }
+      setPriorityTaskForDate(day, title);
+      saveState();
+      closeSheet();
+      render();
+      showToast(existing ? "重点已更新" : "重点已设定");
     }
 
     function saveNote(noteData) {
@@ -383,4 +429,19 @@
       closeSheet();
       render();
       showToast("基金已移除");
+    }
+
+    function deletePriorityTask(day) {
+      const date = normalizeReviewDateKey(day);
+      const task = priorityTaskForDate(date);
+      if (!task) return;
+      if (task.status !== "pending") {
+        showToast("已结算，不能删除");
+        return;
+      }
+      delete ensurePriorityTasks()[date];
+      saveState();
+      closeSheet();
+      render();
+      showToast("重点已移除");
     }

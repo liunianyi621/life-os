@@ -35,6 +35,9 @@
         if (item.type === "review_reward") {
           row.earned += parseCoinAmount(item.coins);
         }
+        if (item.type === "priority_task_reward") {
+          row.earned += parseCoinAmount(item.coins);
+        }
         if (item.type === "no_bad_habit_bonus") {
           row.earned += parseCoinAmount(item.coins);
         }
@@ -45,6 +48,10 @@
         if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
           row.failed += 1;
           row.deducted += item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
+        }
+        if (item.type === "priority_task_penalty") {
+          row.failed += 1;
+          row.deducted += parseCoinAmount(item.coins);
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
@@ -103,6 +110,9 @@
         if (item.type === "review_reward") {
           row.earned += parseCoinAmount(item.coins);
         }
+        if (item.type === "priority_task_reward") {
+          row.earned += parseCoinAmount(item.coins);
+        }
         if (item.type === "no_bad_habit_bonus") {
           row.earned += parseCoinAmount(item.coins);
         }
@@ -113,6 +123,10 @@
         if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
           row.failed += 1;
           row.deducted += item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
+        }
+        if (item.type === "priority_task_penalty") {
+          row.failed += 1;
+          row.deducted += parseCoinAmount(item.coins);
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
@@ -190,13 +204,17 @@
       const badHabits = dayEntries(day, item => item.type === "bad_habit");
       const rewards = dayEntries(day, item => item.type === "reward_redeemed" || item.type === "fund_deposit");
       const reviewRewards = dayEntries(day, item => item.type === "review_reward");
+      const priorityRewards = dayEntries(day, item => item.type === "priority_task_reward");
+      const priorityPenalties = dayEntries(day, item => item.type === "priority_task_penalty");
       const noBadHabitBonuses = dayEntries(day, item => item.type === "no_bad_habit_bonus");
       const earned = completed.reduce((sum, item) => sum + taskEarnedCoinsFromItem(item), 0)
         + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
         + reviewRewards.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
+        + priorityRewards.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
         + noBadHabitBonuses.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0);
       const deducted = failed.reduce((sum, item) => sum + (item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), 0)
         + failedHabits.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
+        + priorityPenalties.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
         + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
         + rewards.reduce((sum, item) => sum + (item.type === "fund_deposit" ? parseCoinAmount(item.amount) : parseAmount(item.cost)), 0);
       return {
@@ -207,6 +225,8 @@
         badHabits,
         rewards,
         reviewRewards,
+        priorityRewards,
+        priorityPenalties,
         noBadHabitBonuses,
         earned,
         deducted,
@@ -214,7 +234,7 @@
       };
     }
 
-    function detailListHtml(items, emptyText, amountForItem) {
+    function detailListHtml(items, emptyText, amountForItem, actionForItem = null) {
       if (!items.length) {
         return `<p class="detail-empty">${escapeHtml(emptyText)}</p>`;
       }
@@ -224,16 +244,28 @@
             const time = historyTimeLabel(item.timestamp);
             return `
               <div class="detail-item">
-                <span>
+                <span class="detail-item-main">
                   ${escapeHtml(item.name || "未命名")}
                   ${time ? `<small>${escapeHtml(time)}</small>` : ""}
                 </span>
-                ${signedAmountHtml(amountForItem(item))}
+                <span class="detail-item-side">
+                  ${signedAmountHtml(amountForItem(item))}
+                  ${actionForItem ? actionForItem(item) : ""}
+                </span>
               </div>
             `;
           }).join("")}
         </div>
       `;
+    }
+
+    function badHabitCorrectionButtonHtml(item) {
+      return iconActionButtonHtml({
+        className: "detail-action-button icon-only-button",
+        icon: "trash",
+        label: "删除错误坏习惯记录",
+        attrs: `data-delete-bad-history="${escapeAttr(item.id)}"`
+      });
     }
 
     function detailSectionHtml(title, count, body) {
@@ -245,6 +277,34 @@
           </div>
           ${body}
         </section>
+      `;
+    }
+
+    function priorityTaskDetailHtml(day) {
+      const task = priorityTaskForDate(day);
+      if (!task) {
+        return `<p class="detail-empty">当天没有设置今天最重要的一件事。</p>`;
+      }
+      const statusLabel = task.status === "done"
+        ? "已完成"
+        : task.status === "failed"
+          ? "未完成，已扣除"
+          : "未完成";
+      const amount = task.status === "done"
+        ? PRIORITY_TASK_REWARD
+        : task.status === "failed"
+          ? -PRIORITY_TASK_PENALTY
+          : 0;
+      return `
+        <div class="detail-list">
+          <div class="detail-item">
+            <span class="detail-item-main">
+              ${escapeHtml(task.title)}
+              <small>${escapeHtml(statusLabel)}</small>
+            </span>
+            ${amount ? signedAmountHtml(amount) : `<span class="detail-amount">0.00</span>`}
+          </div>
+        </div>
       `;
     }
 
@@ -292,6 +352,11 @@
           detailListHtml(summary.habits, "当天没有完成习惯。", item => parseAmount(item.coins))
         )}
         ${detailSectionHtml(
+          "今天最重要的一件事",
+          priorityTaskForDate(day) ? 1 : 0,
+          priorityTaskDetailHtml(day)
+        )}
+        ${detailSectionHtml(
           "失败任务",
           summary.failed.length,
           detailListHtml(summary.failed, "当天没有失败任务。", item => -(item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)))
@@ -304,7 +369,12 @@
         ${detailSectionHtml(
           "坏习惯记录",
           summary.badHabits.length,
-          detailListHtml(summary.badHabits, "当天没有坏习惯记录。", item => -parseAmount(item.coins))
+          detailListHtml(
+            summary.badHabits,
+            "当天没有坏习惯记录。",
+            item => -parseAmount(item.coins),
+            badHabitCorrectionButtonHtml
+          )
         )}
         ${detailSectionHtml(
           "基金注入",

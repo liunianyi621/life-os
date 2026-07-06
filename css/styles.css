@@ -280,6 +280,7 @@
     .card,
     .stat-card,
     .reset-card,
+    .priority-card,
     .next-step-card {
       border-radius: var(--card-radius);
       border: 1px solid var(--card-border);
@@ -310,6 +311,57 @@
       outline: 0;
       border-color: rgba(10, 132, 255, 0.34);
       box-shadow: var(--shadow), 0 0 0 4px rgba(10, 132, 255, 0.1);
+    }
+
+    .priority-task-slot {
+      margin: -2px 0 16px;
+    }
+
+    .priority-card {
+      padding: 15px;
+    }
+
+    .priority-empty {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .priority-label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 820;
+    }
+
+    .priority-card h2,
+    .priority-card h3 {
+      color: var(--text);
+      font-size: 1rem;
+      line-height: 1.28;
+      font-weight: 860;
+    }
+
+    .priority-card p {
+      margin-top: 6px;
+      color: var(--quiet);
+      font-size: 0.82rem;
+      font-weight: 680;
+      line-height: 1.42;
+    }
+
+    .priority-set-button {
+      flex: 0 0 auto;
+      min-height: 40px;
+      border-radius: 999px;
+      padding: 9px 15px;
+      white-space: nowrap;
+    }
+
+    .priority-main {
+      width: 100%;
     }
 
     .next-step-card {
@@ -2341,6 +2393,17 @@
       line-height: 1.42;
     }
 
+    .detail-item-main {
+      min-width: 0;
+    }
+
+    .detail-item-side {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 8px;
+    }
+
     .detail-item small {
       display: block;
       margin-top: 3px;
@@ -2360,6 +2423,13 @@
     }
 
     .detail-amount.negative {
+      color: var(--red-ink);
+    }
+
+    .detail-action-button {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
       color: var(--red-ink);
     }
 

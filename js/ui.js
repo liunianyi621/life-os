@@ -59,6 +59,7 @@
       if (card.dataset.editCard === "note") openNoteSheet(editId);
       if (card.dataset.editCard === "reward") openRewardSheet(editId);
       if (card.dataset.editCard === "review") openReviewEditSheet(editId);
+      if (card.dataset.editCard === "priority") openPrioritySheet(editId);
     }
 
     function triggerLongPressEdit(press) {
@@ -193,6 +194,7 @@
       els.todayDate.textContent = formatDate();
       updatePrimaryReadouts();
       renderMemoSummary();
+      renderPriorityTask();
       renderNextStepCard();
       els.habitCount.textContent = `${visibleHabitCount} 项`;
       els.todayTaskCount.textContent = `${activeCount} 项`;
@@ -216,6 +218,53 @@
       const task = nextStepTask();
       els.nextStepCard.classList.toggle("hidden", !task);
       if (els.nextStepTitle) els.nextStepTitle.textContent = task?.name || "";
+    }
+
+    function renderPriorityTask() {
+      if (!els.priorityTaskCard) return;
+      const task = priorityTaskToday();
+      if (!task) {
+        els.priorityTaskCard.innerHTML = `
+          <section class="priority-card priority-empty">
+            <div>
+              <span class="priority-label">今天最重要的一件事</span>
+              <h2>今天只放一件最重要的事</h2>
+              <p>完成 +10，未完成 -100</p>
+            </div>
+            <button class="button priority-set-button" type="button" data-open-priority>设定</button>
+          </section>
+        `;
+        return;
+      }
+
+      const done = task.status === "done";
+      const failed = task.status === "failed";
+      els.priorityTaskCard.innerHTML = swipeRowHtml({
+        attrs: `data-priority-card="${escapeAttr(task.date)}"`,
+        editType: "priority",
+        editId: task.date,
+        actions: actionButtonHtml({
+          tone: done ? "green" : failed ? "red" : "green",
+          icon: done ? "checkmark.circle" : failed ? "xmark.circle" : "checkmark.circle",
+          label: done ? "已完成" : failed ? "已失败" : "完成今天最重要的一件事",
+          attrs: task.status === "pending" ? `data-complete-priority="${escapeAttr(task.date)}"` : "",
+          disabled: task.status !== "pending"
+        }),
+        content: `
+          <div class="card-main priority-main">
+            <div class="title-wrap">
+              <span class="priority-label">今天最重要的一件事</span>
+              <h3>${escapeHtml(task.title)}</h3>
+              <div class="meta-row">
+                <span class="pill green">完成 +10</span>
+                <span class="pill red">未完成 -100</span>
+                ${done ? `<span class="pill green">已完成</span>` : ""}
+                ${failed ? `<span class="pill red">已扣除</span>` : ""}
+              </div>
+            </div>
+          </div>
+        `
+      });
     }
 
     function renderHabits() {
@@ -615,6 +664,7 @@
       const reviewCard = event.target.closest("[data-review-card]");
       const navButton = event.target.closest("[data-nav]");
       const openTaskButton = event.target.closest("[data-open-task]");
+      const openPriorityButton = event.target.closest("[data-open-priority]");
       const openHabitButton = event.target.closest("[data-open-habit]");
       const openBadButton = event.target.closest("[data-open-bad]");
       const openNoteButton = event.target.closest("[data-open-note]");
@@ -629,6 +679,7 @@
       const editNoteButton = event.target.closest("[data-edit-note]");
       const editRewardButton = event.target.closest("[data-edit-reward]");
       const completeTaskButton = event.target.closest("[data-complete-task]");
+      const completePriorityButton = event.target.closest("[data-complete-priority]");
       const startTaskButton = event.target.closest("[data-start-task]");
       const stopTaskButton = event.target.closest("[data-stop-task]");
       const completeHabitButton = event.target.closest("[data-complete-habit]");
@@ -639,7 +690,9 @@
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
       const dayDetailButton = event.target.closest("[data-day-detail]");
+      const deleteBadHistoryButton = event.target.closest("[data-delete-bad-history]");
       const deleteTaskButton = event.target.closest("[data-delete-task]");
+      const deletePriorityButton = event.target.closest("[data-delete-priority]");
       const deleteHabitButton = event.target.closest("[data-delete-habit]");
       const deleteBadButton = event.target.closest("[data-delete-bad]");
       const deleteNoteButton = event.target.closest("[data-delete-note]");
@@ -647,6 +700,10 @@
 
       if (undoButton) {
         undoLastAction();
+        return;
+      }
+      if (deleteBadHistoryButton) {
+        deleteBadHabitRecord(deleteBadHistoryButton.dataset.deleteBadHistory);
         return;
       }
       if (!event.target.closest("[data-swipe-row]")) {
@@ -661,6 +718,7 @@
         if (runAutomaticChecks()) render();
       }
       if (openTaskButton) openTaskSheet();
+      if (openPriorityButton) openPrioritySheet();
       if (openHabitButton) openHabitSheet();
       if (openBadButton) openBadHabitSheet();
       if (openNoteButton) openNoteSheet();
@@ -686,6 +744,9 @@
       if (editRewardButton) openRewardSheet(editRewardButton.dataset.editReward);
       if (completeTaskButton) {
         completeTask(completeTaskButton.dataset.completeTask, completeTaskButton.closest("[data-task-card]"));
+      }
+      if (completePriorityButton) {
+        completePriorityTask(completePriorityButton.dataset.completePriority, completePriorityButton.closest("[data-priority-card]"));
       }
       if (startTaskButton) {
         startTask(startTaskButton.dataset.startTask, startTaskButton.closest("[data-task-card]"));
@@ -730,6 +791,7 @@
       }
       if (dayDetailButton) openDayDetail(dayDetailButton.dataset.dayDetail);
       if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
+      if (deletePriorityButton) deletePriorityTask(deletePriorityButton.dataset.deletePriority);
       if (deleteHabitButton) deleteHabit(deleteHabitButton.dataset.deleteHabit);
       if (deleteBadButton) deleteBadHabit(deleteBadButton.dataset.deleteBad);
       if (deleteNoteButton) deleteNote(deleteNoteButton.dataset.deleteNote);

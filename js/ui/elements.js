@@ -89,6 +89,7 @@
       homeStreak: document.getElementById("homeStreak"),
       memoSummaryCard: document.getElementById("memoSummaryCard"),
       homeMemoCount: document.getElementById("homeMemoCount"),
+      priorityTaskCard: document.getElementById("priorityTaskCard"),
       nextStepCard: document.getElementById("nextStepCard"),
       nextStepTitle: document.getElementById("nextStepTitle"),
       habitCount: document.getElementById("habitCount"),
