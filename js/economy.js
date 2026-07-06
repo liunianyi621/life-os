@@ -9,6 +9,45 @@
       return state.noBadHabitBonuses;
     }
 
+    function applyCoinBalanceDelta(amount) {
+      state.coins = parseCoinAmount((Number(state.coins) || 0) + parseCoinAmount(amount));
+      return state.coins;
+    }
+
+    function removeCoinHistoryByIds(historyIds = []) {
+      const ids = historyIds instanceof Set ? historyIds : new Set(historyIds);
+      if (!ids.size) return;
+      state.history = state.history.filter(item => !ids.has(item.id));
+    }
+
+    function recordCoinEvent({ type, amount = 0, date = dateKey(), timestamp = new Date().toISOString(), history = {} }) {
+      const historyId = history.id || createId("history");
+      const coinDelta = parseCoinAmount(amount);
+      const entry = {
+        ...history,
+        id: historyId,
+        type,
+        coinDelta,
+        date: history.date || date,
+        timestamp: history.timestamp || timestamp
+      };
+      applyCoinBalanceDelta(coinDelta);
+      state.history.unshift(entry);
+      return {
+        historyId,
+        entry,
+        amount: coinDelta,
+        date: entry.date,
+        timestamp: entry.timestamp
+      };
+    }
+
+    function undoCoinEvent({ coinDelta = 0, historyIds = null, historyId = null, removeHistory = true }) {
+      const ids = historyIds || (historyId ? [historyId] : []);
+      if (removeHistory) removeCoinHistoryByIds(ids);
+      return applyCoinBalanceDelta(-parseCoinAmount(coinDelta));
+    }
+
     function summaryTotals() {
       if (!state.history.length) {
         return {
@@ -156,26 +195,26 @@
       state.completions[today][taskId] = true;
       state.taskResults[today] = state.taskResults[today] || {};
       state.taskResults[today][taskId] = "completed";
-      state.coins = parseCoinAmount(state.coins + earnedCoins);
       state.totals.completedTasks = (Number(state.totals.completedTasks) || 0) + 1;
       state.totals.taskDurationSeconds = (Number(state.totals.taskDurationSeconds) || 0) + durationSeconds;
       state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + earnedCoins);
       updateStreakForCompletion(today);
-      const historyId = createId("history");
-      state.history.unshift({
-        id: historyId,
+      const coinEvent = recordCoinEvent({
         type: "task_completed",
-        taskId: task.id,
-        name: task.name,
-        coins: earnedCoins,
-        earnedCoins,
-        durationMinutes,
-        durationSeconds,
-        startTime: task.startTime,
-        endTime,
+        amount: earnedCoins,
         date: today,
-        timestamp: new Date().toISOString()
+        history: {
+          taskId: task.id,
+          name: task.name,
+          coins: earnedCoins,
+          earnedCoins,
+          durationMinutes,
+          durationSeconds,
+          startTime: task.startTime,
+          endTime
+        }
       });
+      const historyId = coinEvent.historyId;
       clearNextStepForTask(taskId);
       saveState();
       updatePrimaryReadouts();
@@ -232,25 +271,26 @@
       state.completions[today][taskId] = true;
       state.taskResults[today] = state.taskResults[today] || {};
       state.taskResults[today][taskId] = "completed";
-      state.coins = parseCoinAmount(state.coins + earnedCoins);
       state.totals.completedTasks = (Number(state.totals.completedTasks) || 0) + 1;
       state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + earnedCoins);
       updateStreakForCompletion(today);
-      const historyId = createId("history");
-      state.history.unshift({
-        id: historyId,
+      const coinEvent = recordCoinEvent({
         type: "task_completed",
-        taskId: task.id,
-        name: task.name,
-        coins: earnedCoins,
-        earnedCoins,
-        durationMinutes: 0,
-        durationSeconds: 0,
-        startTime: null,
-        endTime: completedAt,
+        amount: earnedCoins,
         date: today,
-        timestamp: completedAt
+        timestamp: completedAt,
+        history: {
+          taskId: task.id,
+          name: task.name,
+          coins: earnedCoins,
+          earnedCoins,
+          durationMinutes: 0,
+          durationSeconds: 0,
+          startTime: null,
+          endTime: completedAt
+        }
       });
+      const historyId = coinEvent.historyId;
       clearNextStepForTask(taskId);
       saveState();
       updatePrimaryReadouts();
@@ -283,23 +323,25 @@
       const completedAt = new Date().toISOString();
       const previousTask = priorityTaskSnapshot(task);
       const amount = PRIORITY_TASK_REWARD;
-      const historyId = createId("history");
       ensurePriorityTasks()[date] = {
         ...task,
         status: "done",
         completedAt,
-        rewardHistoryId: historyId,
+        rewardHistoryId: null,
         updatedAt: completedAt
       };
-      state.coins = parseCoinAmount(state.coins + amount);
-      state.history.unshift({
-        id: historyId,
+      const coinEvent = recordCoinEvent({
         type: "priority_task_reward",
-        name: task.title,
-        coins: amount,
+        amount,
         date,
-        timestamp: completedAt
+        timestamp: completedAt,
+        history: {
+          name: task.title,
+          coins: amount
+        }
       });
+      const historyId = coinEvent.historyId;
+      ensurePriorityTasks()[date].rewardHistoryId = historyId;
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -333,18 +375,18 @@
       const previousProgress = habitProgressSnapshot(today, habit.id);
       state.habitCompletions[today] = state.habitCompletions[today] || {};
       state.habitCompletions[today][habitId] = true;
-      state.coins = parseCoinAmount(state.coins + amount);
       updateStreakForCompletion(today);
-      const historyId = createId("history");
-      state.history.unshift({
-        id: historyId,
+      const coinEvent = recordCoinEvent({
         type: "habit_completed",
-        habitId: habit.id,
-        name: habit.name,
-        coins: amount,
         date: today,
-        timestamp: new Date().toISOString()
+        amount,
+        history: {
+          habitId: habit.id,
+          name: habit.name,
+          coins: amount
+        }
       });
+      const historyId = coinEvent.historyId;
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -399,18 +441,18 @@
       ));
       state.taskResults[today] = state.taskResults[today] || {};
       state.taskResults[today][taskId] = "failed";
-      state.coins = parseCoinAmount(state.coins - amount);
       state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
-      const historyId = createId("history");
-      state.history.unshift({
-        id: historyId,
+      const coinEvent = recordCoinEvent({
         type: "task_failed",
-        taskId: task.id,
-        name: task.name,
-        coins: amount,
+        amount: -amount,
         date: today,
-        timestamp: new Date().toISOString()
+        history: {
+          taskId: task.id,
+          name: task.name,
+          coins: amount
+        }
       });
+      const historyId = coinEvent.historyId;
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -452,20 +494,20 @@
         if (habitFailedOnDate(habit.id, day)) return;
 
         const amount = 10;
-        const historyId = createId("history");
-        ensureDayRecord("habitFailures", day)[habit.id] = historyId;
-        state.coins = parseCoinAmount(state.coins - amount);
         state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
-        state.history.unshift({
-          id: historyId,
+        const coinEvent = recordCoinEvent({
           type: "habit_failed",
-          habitId: habit.id,
-          name: habit.name,
-          coins: amount,
+          amount: -amount,
           date: day,
-          reason: "habit_missed",
-          timestamp: new Date().toISOString()
+          history: {
+            habitId: habit.id,
+            name: habit.name,
+            coins: amount,
+            reason: "habit_missed"
+          }
         });
+        const historyId = coinEvent.historyId;
+        ensureDayRecord("habitFailures", day)[habit.id] = historyId;
         entries.push({
           historyId,
           habitId: habit.id,
@@ -583,10 +625,8 @@
 
         const amount = taskFailurePenalty(task);
         const failedAt = now.toISOString();
-        const historyId = createId("history");
         const previousTask = taskPreviousState(task);
 
-        ensureDayRecord("taskAutoFailures", today)[task.id] = historyId;
         state.tasks = state.tasks.map(item => (
           item.id === task.id
             ? {
@@ -599,18 +639,21 @@
         ));
         state.taskResults[today] = state.taskResults[today] || {};
         state.taskResults[today][task.id] = "failed";
-        state.coins = parseCoinAmount(state.coins - amount);
         state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
-        state.history.unshift({
-          id: historyId,
+        const coinEvent = recordCoinEvent({
           type: "task_failed",
-          taskId: task.id,
-          name: task.name,
-          coins: amount,
+          amount: -amount,
           date: today,
-          reason: "timeout",
-          timestamp: failedAt
+          timestamp: failedAt,
+          history: {
+            taskId: task.id,
+            name: task.name,
+            coins: amount,
+            reason: "timeout"
+          }
         });
+        const historyId = coinEvent.historyId;
+        ensureDayRecord("taskAutoFailures", today)[task.id] = historyId;
         entries.push({
           historyId,
           taskId: task.id,
@@ -637,8 +680,18 @@
 
         const amount = PRIORITY_TASK_PENALTY;
         const failedAt = now.toISOString();
-        const historyId = createId("history");
         const previousTask = priorityTaskSnapshot(task);
+        const coinEvent = recordCoinEvent({
+          type: "priority_task_penalty",
+          amount: -amount,
+          date: day,
+          timestamp: failedAt,
+          history: {
+            name: task.title,
+            coins: amount
+          }
+        });
+        const historyId = coinEvent.historyId;
 
         tasksByDate[day] = {
           ...task,
@@ -648,16 +701,7 @@
           penaltyHistoryId: historyId,
           updatedAt: failedAt
         };
-        state.coins = parseCoinAmount(state.coins - amount);
         state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
-        state.history.unshift({
-          id: historyId,
-          type: "priority_task_penalty",
-          name: task.title,
-          coins: amount,
-          date: day,
-          timestamp: failedAt
-        });
         entries.push({
           historyId,
           date: day,
@@ -682,24 +726,25 @@
       if (noBadHabitBonusSettled(day)) return null;
       if (badHabitRecordedOnDate(day)) return null;
 
-      const historyId = createId("history");
       const awardedAt = now.toISOString();
+      const coinEvent = recordCoinEvent({
+        type: "no_bad_habit_bonus",
+        amount: NO_BAD_HABIT_BONUS,
+        date: day,
+        timestamp: awardedAt,
+        history: {
+          name: "无坏习惯奖励",
+          coins: NO_BAD_HABIT_BONUS,
+          reason
+        }
+      });
+      const historyId = coinEvent.historyId;
       ensureNoBadHabitBonuses()[day] = {
         status: "awarded",
         historyId,
         awardedAt,
         reason
       };
-      state.coins = parseCoinAmount(state.coins + NO_BAD_HABIT_BONUS);
-      state.history.unshift({
-        id: historyId,
-        type: "no_bad_habit_bonus",
-        name: "无坏习惯奖励",
-        coins: NO_BAD_HABIT_BONUS,
-        date: day,
-        timestamp: awardedAt,
-        reason
-      });
       return {
         historyId,
         date: day,
@@ -859,17 +904,18 @@
       const amount = parseAmount(item.coins);
       const day = item.date || dateKey();
       const correctedAt = new Date().toISOString();
-      state.history = state.history.filter(entry => entry.id !== historyId);
-      state.coins = parseCoinAmount(state.coins + amount);
+      removeCoinHistoryByIds([historyId]);
       state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - amount));
-      state.history.unshift({
-        id: createId("history"),
+      recordCoinEvent({
         type: "bad_habit_correction",
-        name: item.name || "坏习惯纠错",
-        coins: amount,
-        correctedHistoryId: historyId,
+        amount,
         date: day,
-        timestamp: correctedAt
+        timestamp: correctedAt,
+        history: {
+          name: item.name || "坏习惯纠错",
+          coins: amount,
+          correctedHistoryId: historyId
+        }
       });
 
       const bonusEntry = !badHabitRecordedOnDate(day)
@@ -911,18 +957,18 @@
       const amount = parseAmount(habit.penalty);
       if (!state.badHabits.some(item => item.id === habitId)) return;
 
-      state.coins -= amount;
-      state.totals.coinsPenalty += amount;
-      const historyId = createId("history");
-      state.history.unshift({
-        id: historyId,
+      state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
+      const coinEvent = recordCoinEvent({
         type: "bad_habit",
-        habitId: habit.id,
-        name: habit.name,
-        coins: amount,
+        amount: -amount,
         date: dateKey(),
-        timestamp: new Date().toISOString()
+        history: {
+          habitId: habit.id,
+          name: habit.name,
+          coins: amount
+        }
       });
+      const historyId = coinEvent.historyId;
       saveState();
       updatePrimaryReadouts();
       showCoinFeedback(amount, "negative", sourceEl);
@@ -993,23 +1039,24 @@
           date: dateKey(new Date(now))
         });
       }
-      state.coins = parseCoinAmount(state.coins - amount);
       state.totals.coinsSpent = parseCoinAmount((Number(state.totals.coinsSpent) || 0) + amount);
-      const historyId = createId("history");
-      state.history.unshift({
-        id: historyId,
+      const coinEvent = recordCoinEvent({
         type: "fund_deposit",
-        rewardId,
-        name: fund.name,
-        amount,
-        totalCoins,
-        currentCoinsBefore: currentCoins,
-        currentCoinsAfter: nextCoins,
-        completed: completedNow,
-        achievementId,
+        amount: -amount,
         date: dateKey(),
-        timestamp: now
+        timestamp: now,
+        history: {
+          rewardId,
+          name: fund.name,
+          amount,
+          totalCoins,
+          currentCoinsBefore: currentCoins,
+          currentCoinsAfter: nextCoins,
+          completed: completedNow,
+          achievementId
+        }
       });
+      const historyId = coinEvent.historyId;
       saveState();
       const totals = summaryTotals();
       if (els.statSpent) els.statSpent.textContent = formatCoinAmount(totals.coinsSpent);
@@ -1235,7 +1282,7 @@
         return;
       }
 
-      state.history = state.history.filter(item => !historyIds.has(item.id));
+      removeCoinHistoryByIds(historyIds);
       if (undo.type === "task_failed" || undo.type === "task_auto_failed" || undo.type === "automatic_failures") {
         const entries = undo.taskEntries || undo.entries || (undo.taskId ? [undo] : []);
         let restoredAmount = 0;
@@ -1244,11 +1291,11 @@
           restoreTaskState(entry.taskId, entry.previousTask);
           restoredAmount = parseCoinAmount(restoredAmount + entry.amount);
         });
-        state.coins = parseCoinAmount(state.coins + restoredAmount);
+        undoCoinEvent({ coinDelta: -restoredAmount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
         if (undo.type === "automatic_failures" && undo.bonusEntries?.length) {
           const bonusAmount = undo.bonusEntries.reduce((total, entry) => parseCoinAmount(total + (entry.amount || 0)), 0);
-          state.coins = parseCoinAmount(state.coins - bonusAmount);
+          undoCoinEvent({ coinDelta: bonusAmount, removeHistory: false });
           state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
           undo.bonusEntries.forEach(entry => {
             state.noBadHabitBonuses[entry.date] = {
@@ -1261,7 +1308,7 @@
       if (undo.type === "habit_auto_failed" || undo.type === "automatic_failures") {
         const entries = undo.habitEntries || undo.entries || [];
         const restoredAmount = entries.reduce((total, entry) => parseCoinAmount(total + entry.amount), 0);
-        state.coins = parseCoinAmount(state.coins + restoredAmount);
+        undoCoinEvent({ coinDelta: -restoredAmount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
       }
       if (undo.type === "priority_task_penalty" || undo.type === "automatic_failures") {
@@ -1270,12 +1317,12 @@
         entries.forEach(entry => {
           restorePriorityTask(entry.date, entry.previousTask);
         });
-        state.coins = parseCoinAmount(state.coins + restoredAmount);
+        undoCoinEvent({ coinDelta: -restoredAmount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
 
         if (undo.type === "priority_task_penalty" && undo.bonusEntries?.length) {
           const bonusAmount = undo.bonusEntries.reduce((total, entry) => parseCoinAmount(total + (entry.amount || 0)), 0);
-          state.coins = parseCoinAmount(state.coins - bonusAmount);
+          undoCoinEvent({ coinDelta: bonusAmount, removeHistory: false });
           state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
           undo.bonusEntries.forEach(entry => {
             state.noBadHabitBonuses[entry.date] = {
@@ -1288,27 +1335,27 @@
       if (undo.type === "task_completed") {
         restoreTaskState(undo.taskId, undo.previousTask);
         restoreTaskProgress(undo.date, undo.taskId, undo.previousProgress);
-        state.coins = parseCoinAmount(state.coins - undo.amount);
+        undoCoinEvent({ coinDelta: undo.amount, removeHistory: false });
         state.totals.completedTasks = Math.max(0, (Number(state.totals.completedTasks) || 0) - 1);
         state.totals.taskDurationSeconds = Math.max(0, (Number(state.totals.taskDurationSeconds) || 0) - (Number(undo.durationSeconds) || 0));
         state.totals.earnedTaskCoins = Math.max(0, parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) - undo.amount));
       }
       if (undo.type === "habit_completed") {
         restoreHabitProgress(undo.date, undo.habitId, undo.previousProgress);
-        state.coins = parseCoinAmount(state.coins - undo.amount);
+        undoCoinEvent({ coinDelta: undo.amount, removeHistory: false });
       }
       if (undo.type === "priority_task_reward") {
         restorePriorityTask(undo.date, undo.previousTask);
-        state.coins = parseCoinAmount(state.coins - undo.amount);
+        undoCoinEvent({ coinDelta: undo.amount, removeHistory: false });
       }
       if (undo.type === "bad_habit") {
-        state.coins = parseCoinAmount(state.coins + undo.amount);
+        undoCoinEvent({ coinDelta: -undo.amount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - undo.amount));
       }
       if (undo.type === "no_bad_habit_bonus") {
         const entries = undo.bonusEntries || (undo.date ? [undo] : []);
         const restoredAmount = entries.reduce((total, entry) => parseCoinAmount(total + (entry.amount || 0)), 0);
-        state.coins = parseCoinAmount(state.coins - restoredAmount);
+        undoCoinEvent({ coinDelta: restoredAmount, removeHistory: false });
         state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
         entries.forEach(entry => {
           state.noBadHabitBonuses[entry.date] = {
@@ -1318,11 +1365,11 @@
         });
       }
       if (undo.type === "reward_redeemed") {
-        state.coins = parseCoinAmount(state.coins + undo.amount);
+        undoCoinEvent({ coinDelta: -undo.amount, removeHistory: false });
         state.totals.coinsSpent = Math.max(0, parseCoinAmount((Number(state.totals.coinsSpent) || 0) - undo.amount));
       }
       if (undo.type === "fund_deposit") {
-        state.coins = parseCoinAmount(state.coins + undo.amount);
+        undoCoinEvent({ coinDelta: -undo.amount, removeHistory: false });
         state.totals.coinsSpent = Math.max(0, parseCoinAmount((Number(state.totals.coinsSpent) || 0) - undo.amount));
         state.rewards = state.rewards.map(fund => (
           fund.id === undo.rewardId
@@ -1344,7 +1391,7 @@
         }
       }
       if (undo.type === "review_reward") {
-        state.coins = parseCoinAmount(state.coins - undo.amount);
+        undoCoinEvent({ coinDelta: undo.amount, removeHistory: false });
         state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
         delete state.reviewRewards[undo.date];
         if (undo.hadPreviousReview) {

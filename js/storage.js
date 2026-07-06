@@ -524,18 +524,19 @@
         updatedAt: savedAt
       };
       if (shouldReward) {
-        const historyId = createId("history");
         state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
-        state.reviewRewards[reviewDate] = historyId;
-        state.coins = parseCoinAmount(state.coins + rewardAmount);
-        state.history.unshift({
-          id: historyId,
+        const coinEvent = recordCoinEvent({
           type: "review_reward",
-          name: "每日复盘",
-          coins: rewardAmount,
+          amount: rewardAmount,
           date: reviewDate,
-          timestamp: savedAt
+          timestamp: savedAt,
+          history: {
+            name: "每日复盘",
+            coins: rewardAmount
+          }
         });
+        const historyId = coinEvent.historyId;
+        state.reviewRewards[reviewDate] = historyId;
         saveState();
         renderDailyReview();
         updatePrimaryReadouts();
