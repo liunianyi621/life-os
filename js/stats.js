@@ -192,8 +192,29 @@
       return `<span class="detail-amount ${tone}">${sign}${formatCoinAmount(Math.abs(value))}</span>`;
     }
 
+    const DAY_DETAIL_HISTORY_TYPES = new Set([
+      "task_completed",
+      "task_failed",
+      "task_missed",
+      "habit_completed",
+      "habit_failed",
+      "bad_habit",
+      "fund_deposit",
+      "reward_redeemed",
+      "review_reward",
+      "priority_task_reward",
+      "priority_task_penalty",
+      "no_bad_habit_bonus"
+    ]);
+
     function dayEntries(day, matcher) {
       return state.history.filter(item => item.date === day && matcher(item));
+    }
+
+    function dayHasEditableRecords(day) {
+      return state.history.some(item => item.date === day && DAY_DETAIL_HISTORY_TYPES.has(item.type))
+        || Boolean(priorityTaskForDate(day))
+        || Boolean(state.dailyReviews?.[day]);
     }
 
     function dayCoinSummary(day) {
@@ -234,6 +255,16 @@
       };
     }
 
+    function dayRecordDeleteButtonHtml(recordId, label = "删除这条记录") {
+      if (!recordId) return "";
+      return iconActionButtonHtml({
+        className: "detail-action-button icon-only-button",
+        icon: "minus.circle",
+        label,
+        attrs: `data-delete-day-record="${escapeAttr(recordId)}"`
+      });
+    }
+
     function detailListHtml(items, emptyText, amountForItem, actionForItem = null) {
       if (!items.length) {
         return `<p class="detail-empty">${escapeHtml(emptyText)}</p>`;
@@ -243,7 +274,7 @@
           ${items.map(item => {
             const time = historyTimeLabel(item.timestamp);
             return `
-              <div class="detail-item">
+              <div class="detail-item detail-record-card">
                 <span class="detail-item-main">
                   ${escapeHtml(item.name || "未命名")}
                   ${time ? `<small>${escapeHtml(time)}</small>` : ""}
@@ -259,13 +290,8 @@
       `;
     }
 
-    function badHabitCorrectionButtonHtml(item) {
-      return iconActionButtonHtml({
-        className: "detail-action-button icon-only-button",
-        icon: "trash",
-        label: "删除错误坏习惯记录",
-        attrs: `data-delete-bad-history="${escapeAttr(item.id)}"`
-      });
+    function historyRecordActionHtml(item) {
+      return dayRecordDeleteButtonHtml(item.id);
     }
 
     function detailSectionHtml(title, count, body) {
@@ -297,12 +323,15 @@
           : 0;
       return `
         <div class="detail-list">
-          <div class="detail-item">
+          <div class="detail-item detail-record-card">
             <span class="detail-item-main">
               ${escapeHtml(task.title)}
               <small>${escapeHtml(statusLabel)}</small>
             </span>
-            ${amount ? signedAmountHtml(amount) : `<span class="detail-amount">0.00</span>`}
+            <span class="detail-item-side">
+              ${amount ? signedAmountHtml(amount) : `<span class="detail-amount">0.00</span>`}
+              ${dayRecordDeleteButtonHtml(`priority:${day}`)}
+            </span>
           </div>
         </div>
       `;
@@ -315,9 +344,20 @@
       }
       return `
         <div class="detail-list">
-          ${reviewAnswerHtml("今天做得最好的事情是什么？", review.best)}
-          ${reviewAnswerHtml("今天最大的失误是什么？", review.mistake)}
-          ${reviewAnswerHtml("明天最重要的一件事是什么？", review.priority)}
+          <div class="detail-item detail-record-card detail-record-stack">
+            <span class="detail-item-main">
+              每日复盘
+              <small>已保存</small>
+            </span>
+            <span class="detail-item-side">
+              ${dayRecordDeleteButtonHtml(`review:${day}`)}
+            </span>
+            <div class="detail-record-body">
+              ${reviewAnswerHtml("今天做得最好的事情是什么？", review.best)}
+              ${reviewAnswerHtml("今天最大的失误是什么？", review.mistake)}
+              ${reviewAnswerHtml("明天最重要的一件事是什么？", review.priority)}
+            </div>
+          </div>
         </div>
       `;
     }
@@ -344,12 +384,12 @@
         ${detailSectionHtml(
           "完成任务",
           summary.completed.length,
-          detailListHtml(summary.completed, "当天没有完成任务。", item => taskEarnedCoinsFromItem(item))
+          detailListHtml(summary.completed, "当天没有完成任务。", item => taskEarnedCoinsFromItem(item), historyRecordActionHtml)
         )}
         ${detailSectionHtml(
           "完成习惯",
           summary.habits.length,
-          detailListHtml(summary.habits, "当天没有完成习惯。", item => parseAmount(item.coins))
+          detailListHtml(summary.habits, "当天没有完成习惯。", item => parseAmount(item.coins), historyRecordActionHtml)
         )}
         ${detailSectionHtml(
           "今天最重要的一件事",
@@ -359,12 +399,12 @@
         ${detailSectionHtml(
           "失败任务",
           summary.failed.length,
-          detailListHtml(summary.failed, "当天没有失败任务。", item => -(item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)))
+          detailListHtml(summary.failed, "当天没有失败任务。", item => -(item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), historyRecordActionHtml)
         )}
         ${detailSectionHtml(
           "失败习惯",
           summary.failedHabits.length,
-          detailListHtml(summary.failedHabits, "当天没有失败习惯。", item => -parseCoinAmount(item.coins))
+          detailListHtml(summary.failedHabits, "当天没有失败习惯。", item => -parseCoinAmount(item.coins), historyRecordActionHtml)
         )}
         ${detailSectionHtml(
           "坏习惯记录",
@@ -373,30 +413,35 @@
             summary.badHabits,
             "当天没有坏习惯记录。",
             item => -parseAmount(item.coins),
-            badHabitCorrectionButtonHtml
+            historyRecordActionHtml
           )
         )}
         ${detailSectionHtml(
           "基金注入",
           summary.rewards.length,
-          detailListHtml(summary.rewards, "当天没有基金注入记录。", item => -(item.type === "fund_deposit" ? parseCoinAmount(item.amount) : parseAmount(item.cost)))
+          detailListHtml(summary.rewards, "当天没有基金注入记录。", item => -(item.type === "fund_deposit" ? parseCoinAmount(item.amount) : parseAmount(item.cost)), historyRecordActionHtml)
         )}
         ${detailSectionHtml(
           "复盘奖励",
           summary.reviewRewards.length,
-          detailListHtml(summary.reviewRewards, "当天没有复盘奖励。", item => parseCoinAmount(item.coins))
+          detailListHtml(summary.reviewRewards, "当天没有复盘奖励。", item => parseCoinAmount(item.coins), historyRecordActionHtml)
         )}
         ${detailSectionHtml(
           "无坏习惯奖励",
           summary.noBadHabitBonuses.length,
-          detailListHtml(summary.noBadHabitBonuses, "当天没有无坏习惯奖励。", item => parseCoinAmount(item.coins))
+          detailListHtml(summary.noBadHabitBonuses, "当天没有无坏习惯奖励。", item => parseCoinAmount(item.coins), historyRecordActionHtml)
         )}
         ${detailSectionHtml("每日复盘", state.dailyReviews?.[day] ? 1 : 0, dayReviewDetailHtml(day))}
       `;
     }
 
     function openDayDetail(day) {
-      els.dayDetailTitle.textContent = formatFullDateKey(day);
+      if (!dayHasEditableRecords(day)) {
+        showToast("当天没有可编辑记录");
+        return;
+      }
+      const { month, day: dayNumber } = datePartsFromKey(day);
+      els.dayDetailTitle.textContent = month && dayNumber ? `${month}月${dayNumber}日 · 当天记录` : "当天记录";
       els.dayDetailContent.innerHTML = buildDayDetailHtml(day);
       syncSheetViewport();
       els.dayDetailBackdrop.classList.remove("hidden");
@@ -467,7 +512,8 @@
               const title = row.hasRecord
                 ? `${formatFullDateKey(row.key)}：净金币 ${netLabel}，完成 ${row.completed}，失败 ${row.failed}，坏习惯 ${row.badHabits} 次`
                 : `${formatFullDateKey(row.key)}：无记录`;
-              return `<button class="calendar-day ${level}${todayClass}" type="button" data-day-detail="${escapeAttr(row.key)}" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><span>${row.day}</span></button>`;
+              const hasDetail = dayHasEditableRecords(row.key);
+              return `<button class="calendar-day ${level}${todayClass}" type="button" data-day-detail="${escapeAttr(row.key)}" data-day-has-detail="${hasDetail ? "true" : "false"}" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><span>${row.day}</span></button>`;
             }).join("")}
           </div>
         </div>

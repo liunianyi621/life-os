@@ -1,3 +1,5 @@
+    let activeHeatmapPress = null;
+
     function swipeRowHtml({ attrs = "", actionWidth = 84, actions = "", content = "", editType = "", editId = "", extraClass = "" }) {
       const editAttrs = editType && editId
         ? ` data-edit-card="${escapeAttr(editType)}" data-edit-id="${escapeAttr(editId)}"`
@@ -185,6 +187,68 @@
           suppressNextCardTap = false;
         }, 0);
       }
+    }
+
+    function openHeatmapDayDetail(button) {
+      const day = button?.dataset.dayDetail;
+      if (!day) return;
+      openDayDetail(day);
+    }
+
+    function triggerHeatmapLongPress(press) {
+      if (!press?.button) return;
+      press.triggered = true;
+      press.button.classList.add("long-press-active");
+      try {
+        if (navigator.vibrate) navigator.vibrate(10);
+      } catch (error) {
+        // Haptics are best-effort.
+      }
+      openHeatmapDayDetail(press.button);
+      window.setTimeout(() => {
+        press.button?.classList.remove("long-press-active");
+      }, 220);
+    }
+
+    function clearHeatmapPress() {
+      if (!activeHeatmapPress) return null;
+      const press = activeHeatmapPress;
+      activeHeatmapPress = null;
+      clearTimeout(press.timer);
+      press.button?.releasePointerCapture?.(press.pointerId);
+      return press;
+    }
+
+    function beginHeatmapPress(event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const button = event.target.closest("[data-day-detail]");
+      if (!button) return;
+
+      activeHeatmapPress = {
+        button,
+        startX: event.clientX,
+        startY: event.clientY,
+        pointerId: event.pointerId,
+        triggered: false,
+        timer: window.setTimeout(() => {
+          if (activeHeatmapPress?.pointerId === event.pointerId) {
+            triggerHeatmapLongPress(activeHeatmapPress);
+          }
+        }, 560)
+      };
+      button.setPointerCapture?.(event.pointerId);
+    }
+
+    function moveHeatmapPress(event) {
+      if (!activeHeatmapPress || event.pointerId !== activeHeatmapPress.pointerId) return;
+      const deltaX = event.clientX - activeHeatmapPress.startX;
+      const deltaY = event.clientY - activeHeatmapPress.startY;
+      if (Math.hypot(deltaX, deltaY) > 12) clearHeatmapPress();
+    }
+
+    function endHeatmapPress(event) {
+      if (!activeHeatmapPress || event.pointerId !== activeHeatmapPress.pointerId) return;
+      clearHeatmapPress();
     }
 
     function render() {
@@ -649,12 +713,16 @@
 
     document.addEventListener("pointerdown", beginSwipe);
     document.addEventListener("pointerdown", beginReviewPress);
+    document.addEventListener("pointerdown", beginHeatmapPress);
     document.addEventListener("pointermove", moveSwipe, { passive: false });
     document.addEventListener("pointermove", moveReviewPress, { passive: false });
+    document.addEventListener("pointermove", moveHeatmapPress, { passive: false });
     document.addEventListener("pointerup", endSwipe);
     document.addEventListener("pointerup", endReviewPress);
+    document.addEventListener("pointerup", endHeatmapPress);
     document.addEventListener("pointercancel", endSwipe);
     document.addEventListener("pointercancel", endReviewPress);
+    document.addEventListener("pointercancel", endHeatmapPress);
 
     document.addEventListener("click", event => {
       const undoButton = event.target.closest("[data-undo-action]");
@@ -690,7 +758,7 @@
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
       const dayDetailButton = event.target.closest("[data-day-detail]");
-      const deleteBadHistoryButton = event.target.closest("[data-delete-bad-history]");
+      const deleteDayRecordButton = event.target.closest("[data-delete-day-record]");
       const deleteTaskButton = event.target.closest("[data-delete-task]");
       const deletePriorityButton = event.target.closest("[data-delete-priority]");
       const deleteHabitButton = event.target.closest("[data-delete-habit]");
@@ -702,8 +770,11 @@
         undoLastAction();
         return;
       }
-      if (deleteBadHistoryButton) {
-        deleteBadHabitRecord(deleteBadHistoryButton.dataset.deleteBadHistory);
+      if (deleteDayRecordButton) {
+        deleteDayRecord(deleteDayRecordButton.dataset.deleteDayRecord);
+        return;
+      }
+      if (dayDetailButton) {
         return;
       }
       if (!event.target.closest("[data-swipe-row]")) {
@@ -789,7 +860,6 @@
         );
         renderHeatmap();
       }
-      if (dayDetailButton) openDayDetail(dayDetailButton.dataset.dayDetail);
       if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
       if (deletePriorityButton) deletePriorityTask(deletePriorityButton.dataset.deletePriority);
       if (deleteHabitButton) deleteHabit(deleteHabitButton.dataset.deleteHabit);
@@ -811,6 +881,7 @@
       if (event.target === els.nextStepBackdrop) closeNextStepPanel();
     });
     els.confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
+    els.confirmCancelBtn?.addEventListener("click", () => closeConfirm(false));
     els.confirmBackdrop.addEventListener("click", event => {
       if (event.target === els.confirmBackdrop) closeConfirm(false);
     });
@@ -862,6 +933,12 @@
       const noteEditCard = event.target.closest?.("[data-edit-card='note']");
       const reviewEditCard = event.target.closest?.("[data-review-card]");
       const memoEditTarget = event.target.closest?.("[data-edit-memo]");
+      const heatmapDayButton = event.target.closest?.("[data-day-detail]");
+      if (heatmapDayButton && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        openHeatmapDayDetail(heatmapDayButton);
+        return;
+      }
       if (memoEditTarget && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         editMemo(memoEditTarget.dataset.editMemo);

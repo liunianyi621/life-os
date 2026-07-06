@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="自律系统">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#f6f7f9">
+  <meta name="theme-color" content="#090b10">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
@@ -319,7 +319,8 @@
         <p id="confirmMessage">确认执行此操作吗？</p>
       </div>
       <div class="confirm-actions">
-        <button class="danger-button icon-only-button" type="button" id="confirmAcceptBtn" aria-label="确认" data-icon-button="checkmark.circle"></button>
+        <button class="ghost-button confirm-cancel-button" type="button" id="confirmCancelBtn">取消</button>
+        <button class="danger-button confirm-accept-button" type="button" id="confirmAcceptBtn">确认</button>
       </div>
     </section>
   </div>

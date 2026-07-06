@@ -894,55 +894,442 @@
       return true;
     }
 
-    function deleteBadHabitRecord(historyId) {
-      const item = state.history.find(entry => entry.id === historyId && entry.type === "bad_habit");
-      if (!item) {
-        showToast("找不到这条坏习惯记录");
-        return;
+    function cloneForUndo(value) {
+      if (value === undefined || value === null) return value;
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function historyCoinDelta(item) {
+      if (item?.coinDelta !== undefined && item.coinDelta !== null && item.coinDelta !== "") {
+        return parseCoinAmount(item.coinDelta);
+      }
+      if (item?.type === "task_completed") return taskEarnedCoinsFromItem(item);
+      if (item?.type === "habit_completed") return parseAmount(item.coins);
+      if (item?.type === "review_reward") return parseCoinAmount(item.coins);
+      if (item?.type === "priority_task_reward") return parseCoinAmount(item.coins);
+      if (item?.type === "no_bad_habit_bonus") return parseCoinAmount(item.coins);
+      if (item?.type === "task_failed" || item?.type === "habit_failed" || item?.type === "priority_task_penalty") {
+        return -parseCoinAmount(item.coins);
+      }
+      if (item?.type === "task_missed" || item?.type === "bad_habit") return -parseAmount(item.coins);
+      if (item?.type === "reward_redeemed") return -parseAmount(item.cost);
+      if (item?.type === "fund_deposit") return -parseCoinAmount(item.amount);
+      return 0;
+    }
+
+    function historyCorrectionName(item) {
+      const names = {
+        task_completed: "任务完成纠错",
+        task_failed: "任务失败纠错",
+        task_missed: "任务失败纠错",
+        habit_completed: "习惯完成纠错",
+        habit_failed: "习惯失败纠错",
+        bad_habit: "坏习惯纠错",
+        fund_deposit: "基金注入纠错",
+        reward_redeemed: "奖励兑换纠错",
+        review_reward: "复盘奖励纠错",
+        priority_task_reward: "重点事项纠错",
+        priority_task_penalty: "重点事项纠错",
+        no_bad_habit_bonus: "无坏习惯奖励纠错"
+      };
+      return names[item?.type] || "当天记录纠错";
+    }
+
+    function correctionSnapshot(day, item = {}) {
+      return {
+        day,
+        totals: cloneForUndo(state.totals),
+        streak: Number(state.streak) || 0,
+        lastCompletedDate: state.lastCompletedDate || null,
+        task: item.taskId ? cloneForUndo(state.tasks.find(task => task.id === item.taskId)) : null,
+        taskResult: item.taskId ? cloneForUndo(state.taskResults?.[day]?.[item.taskId] || null) : null,
+        taskCompletion: item.taskId ? Boolean(state.completions?.[day]?.[item.taskId]) : false,
+        taskAutoFailure: item.taskId ? cloneForUndo(state.taskAutoFailures?.[day]?.[item.taskId] || null) : null,
+        habitCompletion: item.habitId ? Boolean(state.habitCompletions?.[day]?.[item.habitId]) : false,
+        habitFailure: item.habitId ? cloneForUndo(state.habitFailures?.[day]?.[item.habitId] || null) : null,
+        priorityTask: cloneForUndo(priorityTaskForDate(day)),
+        review: cloneForUndo(state.dailyReviews?.[day]),
+        reviewReward: cloneForUndo(state.reviewRewards?.[day]),
+        noBadHabitBonus: cloneForUndo(state.noBadHabitBonuses?.[day]),
+        fund: item.rewardId ? cloneForUndo(state.rewards.find(fund => fund.id === item.rewardId)) : null,
+        achievement: item.achievementId ? cloneForUndo((state.achievements || []).find(achievement => achievement.id === item.achievementId)) : null
+      };
+    }
+
+    function restoreCorrectionSnapshot(snapshot, item = {}) {
+      if (!snapshot) return;
+      state.totals = cloneForUndo(snapshot.totals) || state.totals;
+      state.streak = Number(snapshot.streak) || 0;
+      state.lastCompletedDate = snapshot.lastCompletedDate || null;
+
+      if (item.taskId) {
+        if (snapshot.task) {
+          state.tasks = state.tasks.map(task => task.id === item.taskId ? { ...task, ...snapshot.task } : task);
+          if (!state.tasks.some(task => task.id === item.taskId)) state.tasks.push(cloneForUndo(snapshot.task));
+        }
+        if (snapshot.taskResult) {
+          state.taskResults[stagingDay(snapshot.day)] = state.taskResults[stagingDay(snapshot.day)] || {};
+          state.taskResults[stagingDay(snapshot.day)][item.taskId] = snapshot.taskResult;
+        } else {
+          removeDayValue("taskResults", snapshot.day, item.taskId);
+        }
+        if (snapshot.taskCompletion) {
+          state.completions[snapshot.day] = state.completions[snapshot.day] || {};
+          state.completions[snapshot.day][item.taskId] = true;
+        } else {
+          removeDayValue("completions", snapshot.day, item.taskId);
+        }
+        if (snapshot.taskAutoFailure) {
+          state.taskAutoFailures[snapshot.day] = state.taskAutoFailures[snapshot.day] || {};
+          state.taskAutoFailures[snapshot.day][item.taskId] = snapshot.taskAutoFailure;
+        } else {
+          removeDayValue("taskAutoFailures", snapshot.day, item.taskId);
+        }
       }
 
-      const amount = parseAmount(item.coins);
-      const day = item.date || dateKey();
-      const correctedAt = new Date().toISOString();
-      removeCoinHistoryByIds([historyId]);
-      state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - amount));
-      recordCoinEvent({
-        type: "bad_habit_correction",
-        amount,
-        date: day,
-        timestamp: correctedAt,
-        history: {
-          name: item.name || "坏习惯纠错",
-          coins: amount,
-          correctedHistoryId: historyId
+      if (item.habitId) {
+        if (snapshot.habitCompletion) {
+          state.habitCompletions[snapshot.day] = state.habitCompletions[snapshot.day] || {};
+          state.habitCompletions[snapshot.day][item.habitId] = true;
+        } else {
+          removeDayValue("habitCompletions", snapshot.day, item.habitId);
         }
-      });
+        if (snapshot.habitFailure) {
+          state.habitFailures[snapshot.day] = state.habitFailures[snapshot.day] || {};
+          state.habitFailures[snapshot.day][item.habitId] = snapshot.habitFailure;
+        } else {
+          removeDayValue("habitFailures", snapshot.day, item.habitId);
+        }
+      }
 
-      const bonusEntry = !badHabitRecordedOnDate(day)
-        ? awardNoBadHabitBonusForDate(day, new Date(correctedAt), "bad_habit_correction")
-        : null;
+      restorePriorityTask(snapshot.day, snapshot.priorityTask);
 
+      if (snapshot.review) {
+        state.dailyReviews[snapshot.day] = cloneForUndo(snapshot.review);
+      } else if (state.dailyReviews?.[snapshot.day]) {
+        delete state.dailyReviews[snapshot.day];
+      }
+      state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
+      if (snapshot.reviewReward) state.reviewRewards[snapshot.day] = snapshot.reviewReward;
+      else delete state.reviewRewards[snapshot.day];
+
+      state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
+      if (snapshot.noBadHabitBonus) state.noBadHabitBonuses[snapshot.day] = cloneForUndo(snapshot.noBadHabitBonus);
+      else delete state.noBadHabitBonuses[snapshot.day];
+
+      if (item.rewardId && snapshot.fund) {
+        state.rewards = state.rewards.map(fund => fund.id === item.rewardId ? cloneForUndo(snapshot.fund) : fund);
+      }
+      if (snapshot.achievement) {
+        state.achievements = Array.isArray(state.achievements) ? state.achievements : [];
+        if (!state.achievements.some(achievement => achievement.id === snapshot.achievement.id)) {
+          state.achievements.unshift(cloneForUndo(snapshot.achievement));
+        }
+      }
+    }
+
+    function stagingDay(day) {
+      return normalizeReviewDateKey(day);
+    }
+
+    function removeHistoryEntry(item) {
+      removeCoinHistoryByIds([item.id]);
+    }
+
+    function insertHistoryEntries(entries = []) {
+      state.history = [
+        ...entries.map(cloneForUndo),
+        ...state.history
+      ].sort((left, right) => String(right.timestamp || "").localeCompare(String(left.timestamp || "")));
+    }
+
+    function resetTaskAfterRecordDeletion(item, day) {
+      if (!item.taskId) return;
+      removeDayValue("taskResults", day, item.taskId);
+      removeDayValue("completions", day, item.taskId);
+      removeDayValue("taskAutoFailures", day, item.taskId);
+      state.tasks = state.tasks.map(task => (
+        task.id === item.taskId
+          ? {
+              ...task,
+              status: "pending",
+              startTime: null,
+              endTime: null,
+              durationMinutes: null,
+              durationSeconds: null,
+              earnedCoins: null,
+              failedAt: null,
+              updatedAt: new Date().toISOString()
+            }
+          : task
+      ));
+    }
+
+    function applyHistoryRecordDeletion(item, day) {
+      if (item.type === "task_completed") {
+        resetTaskAfterRecordDeletion(item, day);
+      }
+      if (item.type === "task_failed" || item.type === "task_missed") {
+        resetTaskAfterRecordDeletion(item, day);
+      }
+      if (item.type === "habit_completed") {
+        removeDayValue("habitCompletions", day, item.habitId);
+      }
+      if (item.type === "habit_failed") {
+        removeDayValue("habitFailures", day, item.habitId);
+      }
+      if (item.type === "priority_task_reward" || item.type === "priority_task_penalty") {
+        const task = priorityTaskForDate(day);
+        if (task) {
+          restorePriorityTask(day, {
+            ...task,
+            status: "pending",
+            completedAt: null,
+            failedAt: null,
+            settledPenalty: false,
+            rewardHistoryId: null,
+            penaltyHistoryId: null,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+      if (item.type === "review_reward") {
+        state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
+        if (state.reviewRewards[day] === item.id) delete state.reviewRewards[day];
+      }
+      if (item.type === "no_bad_habit_bonus") {
+        state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
+        state.noBadHabitBonuses[day] = {
+          status: "dismissed",
+          dismissedAt: new Date().toISOString()
+        };
+      }
+      if (item.type === "fund_deposit" && item.rewardId) {
+        const amount = parseCoinAmount(item.amount);
+        state.rewards = state.rewards.map(fund => {
+          if (fund.id !== item.rewardId) return fund;
+          const nextCurrentCoins = Math.max(0, parseCoinAmount(fundCurrentCoins(fund) - amount));
+          const nextFund = {
+            ...fund,
+            currentCoins: nextCurrentCoins,
+            updatedAt: new Date().toISOString()
+          };
+          if (nextCurrentCoins < fundTotalCoins(fund)) {
+            nextFund.completedAt = null;
+            nextFund.achievementId = null;
+          }
+          return nextFund;
+        });
+        if (item.achievementId) {
+          state.achievements = (Array.isArray(state.achievements) ? state.achievements : [])
+            .filter(achievement => achievement.id !== item.achievementId);
+        }
+      }
+      if (item.type === "reward_redeemed") {
+        state.totals.coinsSpent = Math.max(0, parseCoinAmount((Number(state.totals.coinsSpent) || 0) - parseAmount(item.cost)));
+      }
+      if (item.type === "fund_deposit") {
+        state.totals.coinsSpent = Math.max(0, parseCoinAmount((Number(state.totals.coinsSpent) || 0) - parseCoinAmount(item.amount)));
+      }
+      if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed" || item.type === "bad_habit" || item.type === "priority_task_penalty") {
+        state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - Math.abs(historyCoinDelta(item))));
+      }
+      if (item.type === "task_completed") {
+        state.totals.completedTasks = Math.max(0, (Number(state.totals.completedTasks) || 0) - 1);
+        state.totals.taskDurationSeconds = Math.max(0, (Number(state.totals.taskDurationSeconds) || 0) - taskDurationSecondsFromItem(item));
+        state.totals.earnedTaskCoins = Math.max(0, parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) - taskEarnedCoinsFromItem(item)));
+      }
+    }
+
+    function refreshAfterDayRecordCorrection(day) {
       saveState();
       updatePrimaryReadouts();
       renderHeatmap();
       renderHabitTrend(buildStatsRows(currentStatsRange));
+      renderAchievements();
+      renderRewards();
+      renderTasks();
+      renderHabits();
+      renderPriorityTask();
+      renderDailyReview();
       if (!els.dayDetailBackdrop.classList.contains("hidden")) {
-        els.dayDetailContent.innerHTML = buildDayDetailHtml(day);
+        if (dayHasEditableRecords(day)) {
+          els.dayDetailContent.innerHTML = buildDayDetailHtml(day);
+        } else {
+          closeDayDetail();
+        }
       }
+    }
 
-      if (bonusEntry) {
-        showInfoToast([
-          "✓ 当天已恢复为无坏习惯",
-          `获得 ${formatNumber(bonusEntry.amount)} 金币`,
-          `已返还 ${formatCoinAmount(amount)} 金币`
-        ], 3400, "checkmark.circle");
+    function recordDeletionCorrection({ originalEntries, snapshot, amount, day, title, type = "day_record_delete" }) {
+      const timestamp = new Date().toISOString();
+      const correctionEvent = recordCoinEvent({
+        type: "day_record_correction",
+        amount,
+        date: day,
+        timestamp,
+        history: {
+          name: title,
+          coins: Math.abs(amount),
+          correctedHistoryIds: originalEntries.map(entry => entry.id)
+        }
+      });
+      return {
+        type,
+        historyIds: [correctionEvent.historyId],
+        correctionDelta: correctionEvent.amount,
+        originalEntries: originalEntries.map(cloneForUndo),
+        snapshot,
+        date: day
+      };
+    }
+
+    async function deleteHistoryDayRecord(historyId) {
+      const item = state.history.find(entry => entry.id === historyId);
+      if (!item) {
+        showToast("找不到这条记录");
         return;
       }
+      const day = item.date || dateKey();
+      const confirmed = await askForConfirmation({
+        title: "删除这条记录？",
+        message: "这会同步修正当天统计和相关金币记录。",
+        confirmText: "删除"
+      });
+      if (!confirmed) return;
 
-      showInfoToast([
-        "已删除错误坏习惯记录",
-        `已返还 ${formatCoinAmount(amount)} 金币`
-      ], 2800, "checkmark.circle");
+      const snapshot = correctionSnapshot(day, item);
+      const originalEntries = [cloneForUndo(item)];
+      const undoData = recordDeletionCorrection({
+        originalEntries,
+        snapshot,
+        amount: -historyCoinDelta(item),
+        day,
+        title: historyCorrectionName(item)
+      });
+      removeHistoryEntry(item);
+      applyHistoryRecordDeletion(item, day);
+
+      const bonusEntry = item.type === "bad_habit" && !badHabitRecordedOnDate(day)
+        ? awardNoBadHabitBonusForDate(day, new Date(), "bad_habit_correction")
+        : null;
+      if (bonusEntry) {
+        undoData.historyIds.push(bonusEntry.historyId);
+        undoData.correctionDelta = parseCoinAmount(undoData.correctionDelta + bonusEntry.amount);
+      }
+
+      refreshAfterDayRecordCorrection(day);
+      showUndoToast(undoData, {
+        icon: "checkmark.circle",
+        lines: bonusEntry
+          ? ["✓ 当天已恢复为无坏习惯", "获得 2 金币", "已删除记录"]
+          : ["已删除记录", "已同步修正当天统计"],
+        undoLabel: "撤回",
+        duration: 5000,
+        iconTone: "positive"
+      });
+    }
+
+    async function deletePriorityDayRecord(dayKeyValue) {
+      const day = normalizeReviewDateKey(dayKeyValue);
+      const task = priorityTaskForDate(day);
+      if (!task) {
+        showToast("找不到这条记录");
+        return;
+      }
+      const confirmed = await askForConfirmation({
+        title: "删除这条记录？",
+        message: "这会同步修正当天统计和相关金币记录。",
+        confirmText: "删除"
+      });
+      if (!confirmed) return;
+
+      const ids = [task.rewardHistoryId, task.penaltyHistoryId].filter(Boolean);
+      const originalEntries = ids
+        .map(id => state.history.find(entry => entry.id === id))
+        .filter(Boolean)
+        .map(cloneForUndo);
+      const snapshot = correctionSnapshot(day, originalEntries[0] || {});
+      snapshot.priorityTask = cloneForUndo(task);
+      const amount = -parseCoinAmount(originalEntries.reduce((total, entry) => total + historyCoinDelta(entry), 0));
+      const undoData = recordDeletionCorrection({
+        originalEntries,
+        snapshot,
+        amount,
+        day,
+        title: "重点事项纠错"
+      });
+      removeCoinHistoryByIds(ids);
+      originalEntries.forEach(entry => applyHistoryRecordDeletion(entry, day));
+      restorePriorityTask(day, null);
+      refreshAfterDayRecordCorrection(day);
+      showUndoToast(undoData, {
+        icon: "checkmark.circle",
+        lines: ["已删除记录", "已同步修正当天统计"],
+        undoLabel: "撤回",
+        duration: 5000,
+        iconTone: "positive"
+      });
+    }
+
+    async function deleteReviewDayRecord(dayKeyValue) {
+      const day = normalizeReviewDateKey(dayKeyValue);
+      const review = state.dailyReviews?.[day];
+      if (!review) {
+        showToast("找不到这条记录");
+        return;
+      }
+      const confirmed = await askForConfirmation({
+        title: "删除这条记录？",
+        message: "这会同步修正当天统计和相关金币记录。",
+        confirmText: "删除"
+      });
+      if (!confirmed) return;
+
+      const rewardHistoryId = state.reviewRewards?.[day];
+      const originalEntries = rewardHistoryId
+        ? [state.history.find(entry => entry.id === rewardHistoryId)].filter(Boolean).map(cloneForUndo)
+        : [];
+      const snapshot = correctionSnapshot(day, originalEntries[0] || {});
+      snapshot.review = cloneForUndo(review);
+      snapshot.reviewReward = cloneForUndo(rewardHistoryId);
+      const amount = -parseCoinAmount(originalEntries.reduce((total, entry) => total + historyCoinDelta(entry), 0));
+      const undoData = recordDeletionCorrection({
+        originalEntries,
+        snapshot,
+        amount,
+        day,
+        title: "每日复盘纠错"
+      });
+      if (rewardHistoryId) removeCoinHistoryByIds([rewardHistoryId]);
+      delete state.dailyReviews[day];
+      state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
+      delete state.reviewRewards[day];
+      refreshAfterDayRecordCorrection(day);
+      showUndoToast(undoData, {
+        icon: "checkmark.circle",
+        lines: ["已删除记录", "已同步修正当天统计"],
+        undoLabel: "撤回",
+        duration: 5000,
+        iconTone: "positive"
+      });
+    }
+
+    function deleteDayRecord(recordId) {
+      const value = String(recordId || "");
+      if (value.startsWith("priority:")) {
+        deletePriorityDayRecord(value.slice("priority:".length));
+        return;
+      }
+      if (value.startsWith("review:")) {
+        deleteReviewDayRecord(value.slice("review:".length));
+        return;
+      }
+      deleteHistoryDayRecord(value);
+    }
+
+    function deleteBadHabitRecord(historyId) {
+      deleteDayRecord(historyId);
     }
 
     function updateStreakForCompletion(today) {
@@ -1400,8 +1787,20 @@
           delete state.dailyReviews[undo.date];
         }
       }
+      if (undo.type === "day_record_delete") {
+        undoCoinEvent({ coinDelta: undo.correctionDelta, removeHistory: false });
+        insertHistoryEntries(undo.originalEntries || []);
+        restoreCorrectionSnapshot(undo.snapshot, (undo.originalEntries || [])[0] || { date: undo.date });
+      }
 
       saveState();
       render();
+      if (undo.date && !els.dayDetailBackdrop.classList.contains("hidden")) {
+        if (dayHasEditableRecords(undo.date)) {
+          els.dayDetailContent.innerHTML = buildDayDetailHtml(undo.date);
+        } else {
+          closeDayDetail();
+        }
+      }
       showToast("已撤回");
     }

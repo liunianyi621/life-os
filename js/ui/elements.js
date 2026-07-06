@@ -142,6 +142,7 @@
       confirmBackdrop: document.getElementById("confirmBackdrop"),
       confirmTitle: document.getElementById("confirmTitle"),
       confirmMessage: document.getElementById("confirmMessage"),
+      confirmCancelBtn: document.getElementById("confirmCancelBtn"),
       confirmAcceptBtn: document.getElementById("confirmAcceptBtn"),
       fundCelebrationBackdrop: document.getElementById("fundCelebrationBackdrop"),
       fundCelebrationName: document.getElementById("fundCelebrationName"),
