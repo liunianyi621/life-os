@@ -5165,7 +5165,8 @@
     .sheet-actions .button.icon-only-button,
     .memo-form .button.icon-only-button,
     .next-step-form .button.icon-only-button,
-    .review-save-row .button.icon-only-button {
+    .review-save-row .button.icon-only-button,
+    .time-clear.icon-only-button {
       border-color: var(--control-border);
       background: var(--control-glass);
       color: var(--text);
@@ -5323,5 +5324,157 @@
         left: calc(50% - 222px);
         right: auto;
         width: 444px;
+      }
+    }
+
+    /* White UI finishing pass: remove dark leftovers and tighten the tab bar. */
+    .review-form,
+    .empty-state,
+    .memo-item,
+    .next-step-option,
+    .next-step-empty {
+      border: 1px solid var(--card-border);
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    .review-form {
+      gap: 13px;
+      margin-bottom: 20px;
+      padding: 16px;
+      border-radius: 28px;
+      background: #fffefa;
+    }
+
+    .review-question {
+      border-radius: 22px;
+      padding: 16px;
+      background: #fbfaf6;
+      box-shadow: none;
+    }
+
+    .review-question .field-label,
+    .review-answer strong {
+      color: #57554e;
+      font-weight: 720;
+    }
+
+    .review-question textarea {
+      background: #fffefa;
+      color: #24231f;
+    }
+
+    .review-question textarea::placeholder,
+    .field input::placeholder,
+    .field textarea::placeholder,
+    .memo-form input::placeholder,
+    .next-step-form input::placeholder {
+      color: #8f8c83;
+    }
+
+    .review-card {
+      background: #fffefa;
+    }
+
+    .review-card-header {
+      border-bottom-color: rgba(30, 30, 25, 0.075);
+    }
+
+    .review-date-label {
+      color: #908d84;
+    }
+
+    .review-date-main {
+      color: #24231f;
+    }
+
+    .review-answer p {
+      color: #33322d;
+      font-size: 0.93rem;
+      line-height: 1.56;
+      font-weight: 520;
+    }
+
+    .review-answer.empty p,
+    .empty-state p,
+    .empty-state {
+      color: #807d74;
+    }
+
+    .sheet,
+    .confirm-dialog,
+    .day-detail-sheet,
+    .memo-sheet,
+    .next-step-sheet {
+      background: #fffefa;
+      border-color: rgba(30, 30, 25, 0.08);
+    }
+
+    .sheet-form,
+    .sheet-actions,
+    .memo-form,
+    .next-step-form,
+    .day-detail-content {
+      background-color: transparent;
+    }
+
+    .field input,
+    .field textarea,
+    .memo-form input,
+    .next-step-form input,
+    .time-picker {
+      background: #fffefa;
+      color: #24231f;
+    }
+
+    .time-picker {
+      border-color: rgba(30, 30, 25, 0.08);
+    }
+
+    .bottom-nav {
+      left: 24px;
+      right: 24px;
+      bottom: max(8px, env(safe-area-inset-bottom));
+      min-height: calc(50px + env(safe-area-inset-bottom));
+      border-radius: 21px;
+      padding: 4px 5px;
+      border-color: rgba(30, 30, 25, 0.065);
+      background: rgba(255, 254, 250, 0.92);
+      box-shadow: 0 10px 26px rgba(32, 30, 22, 0.085), 0 1px 0 rgba(255, 255, 255, 0.82) inset;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .nav-button {
+      min-height: 40px;
+      border-radius: 15px;
+      padding: 4px 3px 3px;
+      gap: 2px;
+      color: #8f8c83;
+      font-size: 0.58rem;
+      line-height: 1.05;
+      font-weight: 620;
+    }
+
+    .nav-icon {
+      width: 17px;
+      height: 17px;
+    }
+
+    .nav-button.active {
+      background: rgba(30, 30, 25, 0.055);
+      color: #23221e;
+      border-radius: 14px;
+      box-shadow: none;
+    }
+
+    @media (min-width: 430px) {
+      .bottom-nav {
+        left: calc(50% - 216px);
+        right: auto;
+        width: 432px;
       }
     }
