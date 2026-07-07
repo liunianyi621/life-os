@@ -5478,3 +5478,123 @@
         width: 432px;
       }
     }
+
+    /* Final tab alignment and recap typography pass. */
+    .bottom-nav {
+      align-items: center;
+    }
+
+    .nav-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-height: 40px;
+      padding: 3px 3px 4px;
+      line-height: 1;
+    }
+
+    .nav-button > span:last-child {
+      display: block;
+      line-height: 1;
+      transform: translateY(0);
+    }
+
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 18px;
+      line-height: 1;
+    }
+
+    .nav-icon .action-icon,
+    .nav-icon .sf-icon {
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+
+    .nav-icon .sf-icon {
+      stroke-width: 1.72;
+    }
+
+    .nav-icon.today::before,
+    .nav-icon.today::after,
+    .nav-icon.bad::before,
+    .nav-icon.bad::after,
+    .nav-icon.review::before,
+    .nav-icon.review::after {
+      display: none;
+    }
+
+    .nav-button.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-top: 3px;
+      padding-bottom: 4px;
+    }
+
+    .review-history-list {
+      gap: 12px;
+    }
+
+    .review-card {
+      gap: 16px;
+      padding: 18px;
+      border-radius: 24px;
+    }
+
+    .review-card-header {
+      padding-bottom: 13px;
+      margin-bottom: 1px;
+      border-bottom-color: rgba(30, 30, 25, 0.085);
+    }
+
+    .review-date {
+      gap: 4px;
+    }
+
+    .review-date-label {
+      color: #9c988f;
+      font-size: 0.68rem;
+      font-weight: 660;
+    }
+
+    .review-date-main {
+      color: #24231f;
+      font-size: 1.02rem;
+      line-height: 1.18;
+      font-weight: 790;
+    }
+
+    .review-answer {
+      gap: 6px;
+    }
+
+    .review-answer + .review-answer {
+      margin-top: 4px;
+    }
+
+    .review-answer strong {
+      color: #77746b;
+      font-size: 0.74rem;
+      line-height: 1.25;
+      font-weight: 640;
+    }
+
+    .review-answer p {
+      color: #24231f;
+      font-size: 0.96rem;
+      line-height: 1.6;
+      font-weight: 560;
+    }
+
+    .review-answer.empty p {
+      color: #8b877e;
+      font-size: 0.92rem;
+      font-weight: 500;
+    }

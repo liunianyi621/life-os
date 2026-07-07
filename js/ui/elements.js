@@ -61,6 +61,31 @@
           <path d="M12 5.8v12.4"></path>
           <path d="M5.8 12h12.4"></path>
         </svg>
+      `,
+      calendar: `
+        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+          <path d="M7.1 5.4h9.8a2.2 2.2 0 0 1 2.2 2.2v9.1a2.2 2.2 0 0 1-2.2 2.2H7.1a2.2 2.2 0 0 1-2.2-2.2V7.6a2.2 2.2 0 0 1 2.2-2.2Z"></path>
+          <path d="M8.2 3.9v3.2"></path>
+          <path d="M15.8 3.9v3.2"></path>
+          <path d="M4.9 9h14.2"></path>
+          <path d="M8.4 12.7h.1"></path>
+          <path d="M12 12.7h.1"></path>
+          <path d="M15.6 12.7h.1"></path>
+        </svg>
+      `,
+      "shield.slash": `
+        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+          <path d="M12 4.5 18 6.7v4.8c0 3.7-2.25 6.2-6 8-3.75-1.8-6-4.3-6-8V6.7l6-2.2Z"></path>
+          <path d="M5.3 5.2 18.7 18.8"></path>
+        </svg>
+      `,
+      "book.closed": `
+        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+          <path d="M7.1 4.6h9.3a1.8 1.8 0 0 1 1.8 1.8v13H8a2.2 2.2 0 0 1-2.2-2.2V5.9a1.3 1.3 0 0 1 1.3-1.3Z"></path>
+          <path d="M8 16.1h10.2"></path>
+          <path d="M8 19.4h10.2"></path>
+          <path d="M9.2 7.7h5.4"></path>
+        </svg>
       `
     };
 
