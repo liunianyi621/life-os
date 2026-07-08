@@ -86,6 +86,25 @@
           <path d="M8 19.4h10.2"></path>
           <path d="M9.2 7.7h5.4"></path>
         </svg>
+      `,
+      target: `
+        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+          <circle cx="12" cy="12" r="7.5"></circle>
+          <circle cx="12" cy="12" r="3.25"></circle>
+          <path d="M12 3.8v2.1"></path>
+          <path d="M12 18.1v2.1"></path>
+          <path d="M3.8 12h2.1"></path>
+          <path d="M18.1 12h2.1"></path>
+        </svg>
+      `,
+      "chart.xyaxis.line": `
+        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+          <path d="M5.2 18.8V5.2"></path>
+          <path d="M5.2 18.8h13.6"></path>
+          <path d="m7.4 15.4 3.1-3.2 2.6 2 4.1-6"></path>
+          <path d="M17.2 8.2h-3"></path>
+          <path d="M17.2 8.2v3"></path>
+        </svg>
       `
     };
 

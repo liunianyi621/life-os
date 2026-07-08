@@ -5598,3 +5598,232 @@
       font-size: 0.92rem;
       font-weight: 500;
     }
+
+    /* Light theme contrast polish: keep the white system soft, but readable. */
+    :root {
+      --text-title: #15140f;
+      --text-body: #25231f;
+      --text-heading: #3a3831;
+      --text-secondary: #625f57;
+      --text-tertiary: #746f66;
+      --text-placeholder: #817c72;
+      --text-danger: #89524a;
+      --legend-muted: #67635b;
+      --muted: var(--text-secondary);
+      --quiet: var(--text-tertiary);
+      --red-ink: var(--text-danger);
+    }
+
+    .header h1,
+    h2,
+    .section-heading h2,
+    .chart-title h2,
+    .reset-card h2,
+    .sheet-header h2,
+    .confirm-dialog h2,
+    .priority-card h2,
+    .priority-card h3,
+    .empty-state strong,
+    .achievement-item strong,
+    .achievement-empty strong,
+    .review-date-main,
+    .fund-celebration-dialog strong {
+      color: var(--text-title);
+    }
+
+    body,
+    .title-wrap strong,
+    .card-main strong,
+    .title-wrap h3,
+    .memo-text,
+    .review-answer p,
+    .review-question textarea,
+    .field input,
+    .field textarea,
+    .memo-form input,
+    .next-step-form input,
+    .summary-value strong,
+    .stat-value,
+    .balance-strip strong,
+    .fund-progress-meta strong,
+    .detail-metric strong,
+    .detail-record-card strong,
+    .toast {
+      color: var(--text-body);
+    }
+
+    .summary-label,
+    .field-label,
+    .stat-label,
+    .priority-label,
+    .section-heading span,
+    .task-time-heading,
+    .next-step-card span,
+    .balance-strip span,
+    .review-date-label,
+    .review-answer strong,
+    .review-save-status,
+    .achievement-item span,
+    .achievement-item small,
+    .achievement-empty p,
+    .chart-title span,
+    .month-controls,
+    .fund-progress-meta,
+    .trend-summary,
+    .trend-summary span,
+    .reset-row p,
+    .confirm-dialog p,
+    .fund-celebration-dialog p,
+    .detail-section p,
+    .detail-record-card span,
+    .detail-metric span {
+      color: var(--text-secondary);
+    }
+
+    .eyebrow,
+    .summary-value span,
+    .title-wrap p,
+    .meta-row,
+    .empty-state,
+    .empty-state p,
+    .review-answer.empty p,
+    .memo-item.completed .memo-text,
+    .calendar-weekdays,
+    .habit-bar-axis,
+    .habit-bar-axis span,
+    .trend-date-axis,
+    .trend-date-tick,
+    .review-date-button {
+      color: var(--text-tertiary);
+    }
+
+    .field input::placeholder,
+    .field textarea::placeholder,
+    .review-question textarea::placeholder,
+    .memo-form input::placeholder,
+    .next-step-form input::placeholder {
+      color: var(--text-placeholder);
+      opacity: 1;
+    }
+
+    .heat-legend,
+    .chart-legend {
+      color: var(--legend-muted);
+      font-weight: 670;
+    }
+
+    .heat-legend span,
+    .chart-legend span {
+      color: var(--legend-muted);
+    }
+
+    .heat-legend i,
+    .chart-legend i {
+      border: 1px solid rgba(30, 30, 25, 0.12);
+    }
+
+    .heat-legend i.net-low,
+    .chart-legend i.good {
+      background: #cdd8c4;
+    }
+
+    .heat-legend i.net-high {
+      background: #8fa383;
+    }
+
+    .heat-legend i.bad,
+    .chart-legend i.bad {
+      background: #bb887f;
+    }
+
+    .heat-legend i.empty {
+      background: #e4e1d8;
+    }
+
+    .chart-legend i.focus {
+      background: #aaa59a;
+    }
+
+    .calendar-day {
+      color: var(--text-secondary);
+    }
+
+    .calendar-day.empty {
+      background: #e9e7de;
+      color: var(--text-tertiary);
+    }
+
+    .calendar-day.net-0 {
+      background: #e5e2d9;
+      color: #625f57;
+    }
+
+    .calendar-day.net-1 {
+      background: #dce5d6;
+      color: #5f7358;
+    }
+
+    .calendar-day.net-2 {
+      background: #ccd8c4;
+      color: #4f6548;
+    }
+
+    .calendar-day.net-3 {
+      background: #b9c8ae;
+      color: #3f5539;
+    }
+
+    .calendar-day.net-4 {
+      background: #8fa383;
+      color: #1f2a1d;
+    }
+
+    .calendar-day.bad-1 {
+      background: #ead9d4;
+      color: #85564f;
+    }
+
+    .calendar-day.bad-2 {
+      background: #d7bdb6;
+      color: #76463f;
+    }
+
+    .calendar-day.bad-3 {
+      background: #bb887f;
+      color: #3b2521;
+    }
+
+    .pill:not(.green):not(.red):not(.orange):not(.blue),
+    .segment-button,
+    .nav-button {
+      color: var(--text-secondary);
+    }
+
+    .positive,
+    .pill.green,
+    .fund-complete-pill {
+      color: var(--green-ink);
+    }
+
+    .pill.orange {
+      color: var(--orange-ink);
+    }
+
+    .negative,
+    .pill.red,
+    .danger-button,
+    .danger-button.icon-only-button,
+    .reset-button,
+    .delete-button,
+    .detail-action-button,
+    .confirm-accept-button.danger,
+    .confirm-accept-button {
+      color: var(--text-danger);
+    }
+
+    .nav-icon.rewards::before,
+    .nav-icon.rewards::after,
+    .nav-icon.stats::before,
+    .nav-icon.stats::after {
+      display: none;
+    }
