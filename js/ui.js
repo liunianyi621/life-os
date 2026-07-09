@@ -775,6 +775,7 @@
         return;
       }
       if (dayDetailButton) {
+        openHeatmapDayDetail(dayDetailButton);
         return;
       }
       if (!event.target.closest("[data-swipe-row]")) {

@@ -19,6 +19,9 @@
         focusMinutes: 0,
         earnedTaskCoins: 0,
         net: 0,
+        behaviorEarned: 0,
+        behaviorDeducted: 0,
+        behaviorNet: 0,
         score: 0
       }));
       const byKey = new Map(rows.map(row => [row.key, row]));
@@ -30,16 +33,24 @@
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
-          row.earned += item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
+          const amount = item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
+          row.earned += amount;
+          row.behaviorEarned += amount;
         }
         if (item.type === "review_reward") {
-          row.earned += parseCoinAmount(item.coins);
+          const amount = parseCoinAmount(item.coins);
+          row.earned += amount;
+          row.behaviorEarned += amount;
         }
         if (item.type === "priority_task_reward") {
-          row.earned += parseCoinAmount(item.coins);
+          const amount = parseCoinAmount(item.coins);
+          row.earned += amount;
+          row.behaviorEarned += amount;
         }
         if (item.type === "no_bad_habit_bonus") {
-          row.earned += parseCoinAmount(item.coins);
+          const amount = parseCoinAmount(item.coins);
+          row.earned += amount;
+          row.behaviorEarned += amount;
         }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
@@ -47,15 +58,21 @@
         }
         if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
           row.failed += 1;
-          row.deducted += item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
+          const amount = item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
+          row.deducted += amount;
+          row.behaviorDeducted += amount;
         }
         if (item.type === "priority_task_penalty") {
           row.failed += 1;
-          row.deducted += parseCoinAmount(item.coins);
+          const amount = parseCoinAmount(item.coins);
+          row.deducted += amount;
+          row.behaviorDeducted += amount;
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
-          row.deducted += parseAmount(item.coins);
+          const amount = parseAmount(item.coins);
+          row.deducted += amount;
+          row.behaviorDeducted += amount;
         }
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);
@@ -68,6 +85,7 @@
       rows.forEach(row => {
         row.focusMinutes = Math.round(row.focusSeconds / 60);
         row.net = row.earned - row.deducted;
+        row.behaviorNet = row.behaviorEarned - row.behaviorDeducted;
         row.score = row.completed - row.failed - row.badHabits;
       });
 
@@ -93,6 +111,9 @@
           focusMinutes: 0,
           earnedTaskCoins: 0,
           net: 0,
+          behaviorEarned: 0,
+          behaviorDeducted: 0,
+          behaviorNet: 0,
           hasRecord: false
         };
       });
@@ -105,16 +126,24 @@
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
-          row.earned += item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
+          const amount = item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
+          row.earned += amount;
+          row.behaviorEarned += amount;
         }
         if (item.type === "review_reward") {
-          row.earned += parseCoinAmount(item.coins);
+          const amount = parseCoinAmount(item.coins);
+          row.earned += amount;
+          row.behaviorEarned += amount;
         }
         if (item.type === "priority_task_reward") {
-          row.earned += parseCoinAmount(item.coins);
+          const amount = parseCoinAmount(item.coins);
+          row.earned += amount;
+          row.behaviorEarned += amount;
         }
         if (item.type === "no_bad_habit_bonus") {
-          row.earned += parseCoinAmount(item.coins);
+          const amount = parseCoinAmount(item.coins);
+          row.earned += amount;
+          row.behaviorEarned += amount;
         }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
@@ -122,15 +151,21 @@
         }
         if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
           row.failed += 1;
-          row.deducted += item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
+          const amount = item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
+          row.deducted += amount;
+          row.behaviorDeducted += amount;
         }
         if (item.type === "priority_task_penalty") {
           row.failed += 1;
-          row.deducted += parseCoinAmount(item.coins);
+          const amount = parseCoinAmount(item.coins);
+          row.deducted += amount;
+          row.behaviorDeducted += amount;
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
-          row.deducted += parseAmount(item.coins);
+          const amount = parseAmount(item.coins);
+          row.deducted += amount;
+          row.behaviorDeducted += amount;
         }
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);
@@ -143,6 +178,7 @@
       rows.forEach(row => {
         row.focusMinutes = Math.round(row.focusSeconds / 60);
         row.net = row.earned - row.deducted;
+        row.behaviorNet = row.behaviorEarned - row.behaviorDeducted;
       });
 
       return rows;
@@ -158,15 +194,16 @@
 
     function calendarDayClass(row, maxNet, maxLoss) {
       if (!row.hasRecord) return "empty";
-      if (row.net > 0) {
-        const ratio = maxNet ? row.net / maxNet : 1;
+      const behaviorNet = Number(row.behaviorNet) || 0;
+      if (behaviorNet > 0) {
+        const ratio = maxNet ? behaviorNet / maxNet : 1;
         if (ratio > 0.75) return "net-4";
         if (ratio > 0.5) return "net-3";
         if (ratio > 0.25) return "net-2";
         return "net-1";
       }
-      if (row.net < 0) {
-        const loss = Math.abs(row.net);
+      if (behaviorNet < 0) {
+        const loss = Math.abs(behaviorNet);
         const ratio = maxLoss ? loss / maxLoss : 1;
         if (ratio > 0.66) return "bad-3";
         if (ratio > 0.33) return "bad-2";
@@ -366,7 +403,7 @@
       const summary = dayCoinSummary(day);
       const netTone = summary.net > 0 ? "positive" : summary.net < 0 ? "negative" : "";
       const netPrefix = summary.net > 0 ? "+" : summary.net < 0 ? "-" : "";
-      return `
+      const summaryHtml = `
         <div class="detail-summary-grid" aria-label="当天金币变化">
           <div class="detail-metric">
             <span>获得</span>
@@ -381,6 +418,19 @@
             <strong class="${netTone}">${netPrefix}${formatCoinAmount(Math.abs(summary.net))}</strong>
           </div>
         </div>
+      `;
+
+      if (!dayHasEditableRecords(day)) {
+        return `
+          ${summaryHtml}
+          <section class="detail-section">
+            <p class="detail-empty">当天没有记录。</p>
+          </section>
+        `;
+      }
+
+      return `
+        ${summaryHtml}
         ${detailSectionHtml(
           "完成任务",
           summary.completed.length,
@@ -436,10 +486,6 @@
     }
 
     function openDayDetail(day) {
-      if (!dayHasEditableRecords(day)) {
-        showToast("当天没有可编辑记录");
-        return;
-      }
       const { month, day: dayNumber } = datePartsFromKey(day);
       els.dayDetailTitle.textContent = month && dayNumber ? `${month}月${dayNumber}日 · 当天记录` : "当天记录";
       els.dayDetailContent.innerHTML = buildDayDetailHtml(day);
@@ -490,8 +536,8 @@
       const monthlyTaskSummary = buildMonthlyTaskSummary(currentHeatmapMonth);
       const monthStart = monthDateFromKey(currentHeatmapMonth);
       const leadingDays = (monthStart.getDay() + 6) % 7;
-      const maxNet = Math.max(...rows.map(row => Math.max(0, row.net)), 0);
-      const maxLoss = Math.max(...rows.map(row => Math.max(0, -row.net)), 0);
+      const maxNet = Math.max(...rows.map(row => Math.max(0, row.behaviorNet)), 0);
+      const maxLoss = Math.max(...rows.map(row => Math.max(0, -row.behaviorNet)), 0);
       const today = dateKey();
       const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -508,9 +554,10 @@
             ${rows.map(row => {
               const level = calendarDayClass(row, maxNet, maxLoss);
               const todayClass = row.key === today ? " today" : "";
-              const netLabel = row.net > 0 ? `+${formatCoinAmount(row.net)}` : formatCoinAmount(row.net);
+              const behaviorNet = Number(row.behaviorNet) || 0;
+              const netLabel = behaviorNet > 0 ? `+${formatCoinAmount(behaviorNet)}` : formatCoinAmount(behaviorNet);
               const title = row.hasRecord
-                ? `${formatFullDateKey(row.key)}：净金币 ${netLabel}，完成 ${row.completed}，失败 ${row.failed}，坏习惯 ${row.badHabits} 次`
+                ? `${formatFullDateKey(row.key)}：表现净值 ${netLabel}，完成 ${row.completed}，失败 ${row.failed}，坏习惯 ${row.badHabits} 次`
                 : `${formatFullDateKey(row.key)}：无记录`;
               const hasDetail = dayHasEditableRecords(row.key);
               return `<button class="calendar-day ${level}${todayClass}" type="button" data-day-detail="${escapeAttr(row.key)}" data-day-has-detail="${hasDetail ? "true" : "false"}" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><span>${row.day}</span></button>`;
