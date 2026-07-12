@@ -126,6 +126,30 @@
       return "behavior";
     }
 
+    function hasReliableBehaviorEvidence(event = {}) {
+      const type = normalizedEventField(event.type);
+      const source = normalizedEventField(event.source);
+      const category = normalizedEventField(event.category);
+      const entityType = normalizedEventField(event.entityType);
+      const expectedEntityType = behaviorEntityTypeForEvent(type);
+      const hasExplicitBehaviorMetadata = event.affectsBehaviorScore === true && (
+        source === "behavior"
+        || category === "habit_performance"
+        || entityType === expectedEntityType
+      );
+
+      if (type === "task_completed" || type === "task_failed" || type === "task_missed") {
+        return Boolean(event.taskId) || hasExplicitBehaviorMetadata;
+      }
+      if (type === "habit_completed" || type === "habit_failed") {
+        return Boolean(event.habitId) || hasExplicitBehaviorMetadata;
+      }
+      if (type === "bad_habit") {
+        return Boolean(event.badHabitId || event.habitId) || hasExplicitBehaviorMetadata;
+      }
+      return hasExplicitBehaviorMetadata;
+    }
+
     function isRewardPageEvent(event = {}) {
       if (!event || typeof event !== "object") return false;
       if (event.affectsBehaviorScore === false) return true;
@@ -147,7 +171,8 @@
     function isHabitPerformanceTransaction(event = {}) {
       if (!event || typeof event !== "object") return false;
       if (event.affectsBehaviorScore === false || isRewardPageEvent(event)) return false;
-      return BEHAVIOR_COIN_EVENT_TYPES.has(normalizedEventField(event.type));
+      const type = normalizedEventField(event.type);
+      return BEHAVIOR_COIN_EVENT_TYPES.has(type) && hasReliableBehaviorEvidence(event);
     }
 
     function positiveCoinValue(value, fallback = 0) {
@@ -285,7 +310,7 @@
         }
         return {
           ...item,
-          affectsBehaviorScore: item?.affectsBehaviorScore !== false
+          affectsBehaviorScore: item?.affectsBehaviorScore === true
         };
       });
     }
