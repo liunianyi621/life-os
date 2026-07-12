@@ -359,6 +359,257 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
+    function cloneDebugValue(value) {
+      if (value === undefined) return null;
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function readDebugLocalStorage() {
+      const raw = {};
+      const parsed = {};
+      const entries = [];
+      const errors = [];
+
+      try {
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index);
+          if (!key) continue;
+          const value = localStorage.getItem(key);
+          raw[key] = value;
+          try {
+            const parsedValue = JSON.parse(value);
+            parsed[key] = parsedValue;
+            entries.push({ key, raw: value, parsed: parsedValue, isJson: true });
+          } catch {
+            parsed[key] = value;
+            entries.push({ key, raw: value, parsed: value, isJson: false });
+          }
+        }
+      } catch (error) {
+        errors.push({
+          section: "localStorage",
+          message: String(error?.message || error)
+        });
+      }
+
+      return { keys: Object.keys(raw), raw, parsed, entries, errors };
+    }
+
+    function debugSnapshotCall(label, callback, errors, fallback) {
+      try {
+        return callback();
+      } catch (error) {
+        errors.push({
+          section: label,
+          message: String(error?.message || error)
+        });
+        return fallback;
+      }
+    }
+
+    function buildDebugData(exportDate = new Date()) {
+      const errors = [];
+      const localStorageData = readDebugLocalStorage();
+      errors.push(...localStorageData.errors);
+      const history = Array.isArray(state.history) ? state.history : [];
+      const stateSnapshot = debugSnapshotCall("state", () => cloneDebugValue(state), errors, null);
+      const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+      const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+      const currentHostname = typeof window !== "undefined" ? window.location.hostname : "";
+      const isLocalHost = /^(localhost|127\.0\.0\.1|::1)$/.test(currentHostname);
+      const productionUrl = currentOrigin && !isLocalHost ? currentOrigin : null;
+      const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
+      const schemaVersion = state.schemaVersion || state.dataVersion || STORAGE_KEY;
+      const historyDates = [...new Set([
+        ...history.map(item => item?.date).filter(Boolean),
+        ...Object.keys(state.priorityTaskByDate || {}),
+        ...Object.keys(state.dailyReviews || {})
+      ])].sort();
+      const summaryTotalsData = debugSnapshotCall(
+        "economy.summaryTotals",
+        () => typeof summaryTotals === "function" ? summaryTotals() : {},
+        errors,
+        {}
+      );
+      const statsRows = {
+        week: debugSnapshotCall("statistics.week", () => buildStatsRows("week"), errors, []),
+        month: debugSnapshotCall("statistics.month", () => buildStatsRows("month"), errors, []),
+        year: debugSnapshotCall("statistics.year", () => buildStatsRows("year"), errors, [])
+      };
+      const heatmapRows = debugSnapshotCall(
+        "heatmap.rows",
+        () => buildMonthlyHeatRows(currentHeatmapMonth),
+        errors,
+        []
+      );
+      const monthlySummary = debugSnapshotCall(
+        "statistics.monthlySummary",
+        () => typeof buildMonthlyTaskSummary === "function"
+          ? buildMonthlyTaskSummary(currentHeatmapMonth)
+          : {},
+        errors,
+        {}
+      );
+      const daySummaries = {};
+      historyDates.forEach(day => {
+        daySummaries[day] = debugSnapshotCall(
+          `heatmap.day.${day}`,
+          () => typeof dayCoinSummary === "function" ? dayCoinSummary(day) : {},
+          errors,
+          {}
+        );
+      });
+
+      return {
+        exportedAt: exportDate.toISOString(),
+        schemaVersion,
+        productionUrl,
+        currentUrl,
+        userAgent,
+        app: {
+          name: "LifeOS",
+          storageKey: STORAGE_KEY,
+          legacyStorageKeys: [...OLD_STORAGE_KEYS],
+          dataVersion: schemaVersion
+        },
+        localStorage: localStorageData,
+        state: stateSnapshot,
+        economy: {
+          coins: state.coins,
+          totals: debugSnapshotCall("economy.totals", () => cloneDebugValue(state.totals || {}), errors, {}),
+          summaryTotals: summaryTotalsData,
+          history: debugSnapshotCall("economy.history", () => cloneDebugValue(history), errors, [])
+        },
+        history: debugSnapshotCall("history", () => cloneDebugValue(history), errors, []),
+        coinHistory: debugSnapshotCall(
+          "coinHistory",
+          () => cloneDebugValue(state.coinHistory || history),
+          errors,
+          []
+        ),
+        transactions: debugSnapshotCall(
+          "transactions",
+          () => cloneDebugValue(state.transactions || history),
+          errors,
+          []
+        ),
+        transactionHistory: debugSnapshotCall(
+          "transactionHistory",
+          () => cloneDebugValue(state.transactionHistory || state.transactions || history),
+          errors,
+          []
+        ),
+        events: debugSnapshotCall(
+          "events",
+          () => cloneDebugValue(state.events || history),
+          errors,
+          []
+        ),
+        rewards: debugSnapshotCall("rewards", () => cloneDebugValue(state.rewards || []), errors, []),
+        funds: debugSnapshotCall("funds", () => cloneDebugValue(state.funds || state.rewards || []), errors, []),
+        habits: debugSnapshotCall("habits", () => cloneDebugValue(state.habits || []), errors, []),
+        badHabits: debugSnapshotCall("badHabits", () => cloneDebugValue(state.badHabits || []), errors, []),
+        tasks: debugSnapshotCall("tasks", () => cloneDebugValue(state.tasks || []), errors, []),
+        recaps: debugSnapshotCall(
+          "recaps",
+          () => cloneDebugValue(state.recaps || state.dailyReviews || {}),
+          errors,
+          {}
+        ),
+        memos: debugSnapshotCall("memos", () => cloneDebugValue(state.memos || []), errors, []),
+        priorityTask: debugSnapshotCall(
+          "priorityTask",
+          () => cloneDebugValue(state.priorityTaskByDate || {}),
+          errors,
+          {}
+        ),
+        settlements: debugSnapshotCall(
+          "settlements",
+          () => cloneDebugValue({
+            settledThroughDate: state.settledThroughDate || null,
+            noBadHabitBonusCheckedThroughDate: state.noBadHabitBonusCheckedThroughDate || null,
+            taskAutoFailures: state.taskAutoFailures || {},
+            habitFailures: state.habitFailures || {},
+            reviewRewards: state.reviewRewards || {},
+            noBadHabitBonuses: state.noBadHabitBonuses || {},
+            priorityTaskByDate: state.priorityTaskByDate || {}
+          }),
+          errors,
+          {}
+        ),
+        dateRecords: debugSnapshotCall(
+          "dateRecords",
+          () => cloneDebugValue({
+            completions: state.completions || {},
+            taskResults: state.taskResults || {},
+            habitCompletions: state.habitCompletions || {},
+            habitFailures: state.habitFailures || {},
+            taskAutoFailures: state.taskAutoFailures || {},
+            priorityTaskByDate: state.priorityTaskByDate || {},
+            dailyReviews: state.dailyReviews || {},
+            recaps: state.recaps || {},
+            reviewRewards: state.reviewRewards || {},
+            noBadHabitBonuses: state.noBadHabitBonuses || {}
+          }),
+          errors,
+          {}
+        ),
+        statistics: {
+          persisted: debugSnapshotCall("statistics.persisted", () => cloneDebugValue(state.statistics || null), errors, null),
+          currentRange: currentStatsRange,
+          summaryTotals: summaryTotalsData,
+          monthlySummary,
+          ranges: statsRows,
+          daySummaries
+        },
+        settings: {
+          storageKey: STORAGE_KEY,
+          legacyStorageKeys: [...OLD_STORAGE_KEYS],
+          schemaVersion,
+          runtime: {
+            currentStatsRange,
+            currentHeatmapMonth,
+            selectedReviewDate,
+            currentUrl,
+            productionUrl,
+            userAgent
+          },
+          persisted: localStorageData.parsed.settings ?? state.settings ?? null
+        },
+        heatmap: {
+          persisted: debugSnapshotCall("heatmap.persisted", () => cloneDebugValue(state.heatmap || null), errors, null),
+          month: currentHeatmapMonth,
+          rows: heatmapRows,
+          daySummaries,
+          allHistoryDates: historyDates
+        },
+        debugErrors: errors
+      };
+    }
+
+    function exportDebugData() {
+      const exportDate = new Date();
+      const debugData = buildDebugData(exportDate);
+      const blob = new Blob([
+        JSON.stringify(debugData, null, 2)
+      ], { type: "application/json;charset=utf-8" });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      const pad = value => String(value).padStart(2, "0");
+      link.download = [
+        "lifeos-debug",
+        `${exportDate.getFullYear()}-${pad(exportDate.getMonth() + 1)}-${pad(exportDate.getDate())}`,
+        `${pad(exportDate.getHours())}${pad(exportDate.getMinutes())}`
+      ].join("-") + ".json";
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+      if (typeof showToast === "function") showToast("调试数据已导出");
+    }
+
     function dateKey(date = new Date()) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");

@@ -5538,6 +5538,10 @@
       padding-bottom: 4px;
     }
 
+    .debug-export-card {
+      cursor: pointer;
+    }
+
     .review-history-list {
       gap: 12px;
     }

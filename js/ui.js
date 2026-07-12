@@ -686,6 +686,7 @@
       const editCard = event.target.closest("[data-edit-card]");
       const reviewCard = event.target.closest("[data-review-card]");
       const navButton = event.target.closest("[data-nav]");
+      const exportDebugTarget = event.target.closest("[data-export-debug]");
       const openTaskButton = event.target.closest("[data-open-task]");
       const openPriorityButton = event.target.closest("[data-open-priority]");
       const openHabitButton = event.target.closest("[data-open-habit]");
@@ -742,6 +743,10 @@
       if (navButton) {
         switchView(navButton.dataset.nav);
         if (runAutomaticChecks()) render();
+      }
+      if (exportDebugTarget) {
+        exportDebugData();
+        return;
       }
       if (openTaskButton) openTaskSheet();
       if (openPriorityButton) openPrioritySheet();

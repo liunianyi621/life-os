@@ -105,6 +105,13 @@
           <path d="M17.2 8.2h-3"></path>
           <path d="M17.2 8.2v3"></path>
         </svg>
+      `,
+      "arrow.down.circle": `
+        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+          <circle cx="12" cy="12" r="8.25"></circle>
+          <path d="M12 8.2v7.1"></path>
+          <path d="m8.9 12.4 3.1 3.1 3.1-3.1"></path>
+        </svg>
       `
     };
 
