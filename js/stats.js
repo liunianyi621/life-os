@@ -5,32 +5,46 @@
       renderHabitTrend(rows);
     }
 
-    function isRewardCoinEvent(item) {
-      return item?.source === "rewards"
-        || item?.affectsBehaviorScore === false
-        || item?.type === "reward_redeemed"
-        || item?.type === "fund_deposit"
-        || Boolean(item?.rewardId || item?.fundId);
-    }
-
-    function coinEventAffectsBehavior(item) {
-      return !isRewardCoinEvent(item);
-    }
-
     function isBehaviorHistoryItem(item) {
-      if (!coinEventAffectsBehavior(item)) return false;
-      return [
-        "task_completed",
-        "habit_completed",
-        "review_reward",
-        "priority_task_reward",
-        "no_bad_habit_bonus",
+      return !isRewardPageEvent(item) && BEHAVIOR_COIN_EVENT_TYPES.has(item?.type);
+    }
+
+    function coinEventFinancialDelta(item) {
+      if (!item) return 0;
+      if (item.coinDelta !== undefined && item.coinDelta !== null && item.coinDelta !== "") {
+        return parseCoinAmount(item.coinDelta);
+      }
+      if (typeof historyCoinDelta === "function") {
+        const historyDelta = parseCoinAmount(historyCoinDelta(item));
+        if (historyDelta !== 0) return historyDelta;
+      }
+
+      const rawAmount = [item.amount, item.coins, item.cost, item.value, item.delta]
+        .find(value => value !== undefined && value !== null && value !== "");
+      const amount = parseCoinAmount(rawAmount);
+      if (!amount) return 0;
+      const type = String(item.type || "").toLowerCase();
+      if ([
         "task_failed",
         "task_missed",
         "habit_failed",
         "priority_task_penalty",
-        "bad_habit"
-      ].includes(item?.type);
+        "bad_habit",
+        "reward_redeemed",
+        "fund_deposit"
+      ].includes(type)) return -Math.abs(amount);
+      if ([
+        "task_completed",
+        "habit_completed",
+        "review_reward",
+        "priority_task_reward",
+        "no_bad_habit_bonus"
+      ].includes(type)) return Math.abs(amount);
+      return isRewardPageEvent(item) ? -Math.abs(amount) : 0;
+    }
+
+    function behaviorScoreDelta(item) {
+      return isBehaviorHistoryItem(item) ? coinEventFinancialDelta(item) : 0;
     }
 
     function buildStatsRows(range) {
@@ -58,28 +72,15 @@
         const key = item.date;
         const row = byKey.get(key);
         if (!row) return;
-        const affectsBehavior = coinEventAffectsBehavior(item);
+        const financialDelta = coinEventFinancialDelta(item);
+        if (financialDelta > 0) row.earned += financialDelta;
+        if (financialDelta < 0) row.deducted += Math.abs(financialDelta);
+        const behaviorDelta = behaviorScoreDelta(item);
+        if (behaviorDelta > 0) row.behaviorEarned += behaviorDelta;
+        if (behaviorDelta < 0) row.behaviorDeducted += Math.abs(behaviorDelta);
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
-          const amount = item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
-          row.earned += amount;
-          if (affectsBehavior) row.behaviorEarned += amount;
-        }
-        if (item.type === "review_reward") {
-          const amount = parseCoinAmount(item.coins);
-          row.earned += amount;
-          if (affectsBehavior) row.behaviorEarned += amount;
-        }
-        if (item.type === "priority_task_reward") {
-          const amount = parseCoinAmount(item.coins);
-          row.earned += amount;
-          if (affectsBehavior) row.behaviorEarned += amount;
-        }
-        if (item.type === "no_bad_habit_bonus") {
-          const amount = parseCoinAmount(item.coins);
-          row.earned += amount;
-          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
@@ -87,27 +88,12 @@
         }
         if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
           row.failed += 1;
-          const amount = item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
-          row.deducted += amount;
-          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "priority_task_penalty") {
           row.failed += 1;
-          const amount = parseCoinAmount(item.coins);
-          row.deducted += amount;
-          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
-          const amount = parseAmount(item.coins);
-          row.deducted += amount;
-          if (affectsBehavior) row.behaviorDeducted += amount;
-        }
-        if (item.type === "reward_redeemed") {
-          row.deducted += parseAmount(item.cost);
-        }
-        if (item.type === "fund_deposit") {
-          row.deducted += parseCoinAmount(item.amount);
         }
       });
 
@@ -151,29 +137,16 @@
       state.history.forEach(item => {
         const row = byKey.get(item.date);
         if (!row) return;
-        const affectsBehavior = coinEventAffectsBehavior(item);
+        const financialDelta = coinEventFinancialDelta(item);
+        if (financialDelta > 0) row.earned += financialDelta;
+        if (financialDelta < 0) row.deducted += Math.abs(financialDelta);
+        const behaviorDelta = behaviorScoreDelta(item);
+        if (behaviorDelta > 0) row.behaviorEarned += behaviorDelta;
+        if (behaviorDelta < 0) row.behaviorDeducted += Math.abs(behaviorDelta);
         if (isBehaviorHistoryItem(item)) row.hasBehaviorRecord = true;
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
-          const amount = item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
-          row.earned += amount;
-          if (affectsBehavior) row.behaviorEarned += amount;
-        }
-        if (item.type === "review_reward") {
-          const amount = parseCoinAmount(item.coins);
-          row.earned += amount;
-          if (affectsBehavior) row.behaviorEarned += amount;
-        }
-        if (item.type === "priority_task_reward") {
-          const amount = parseCoinAmount(item.coins);
-          row.earned += amount;
-          if (affectsBehavior) row.behaviorEarned += amount;
-        }
-        if (item.type === "no_bad_habit_bonus") {
-          const amount = parseCoinAmount(item.coins);
-          row.earned += amount;
-          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
@@ -181,27 +154,12 @@
         }
         if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
           row.failed += 1;
-          const amount = item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
-          row.deducted += amount;
-          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "priority_task_penalty") {
           row.failed += 1;
-          const amount = parseCoinAmount(item.coins);
-          row.deducted += amount;
-          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
-          const amount = parseAmount(item.coins);
-          row.deducted += amount;
-          if (affectsBehavior) row.behaviorDeducted += amount;
-        }
-        if (item.type === "reward_redeemed") {
-          row.deducted += parseAmount(item.cost);
-        }
-        if (item.type === "fund_deposit") {
-          row.deducted += parseCoinAmount(item.amount);
         }
       });
 
@@ -279,7 +237,9 @@
     }
 
     function dayHasEditableRecords(day) {
-      return state.history.some(item => item.date === day && DAY_DETAIL_HISTORY_TYPES.has(item.type))
+      return state.history.some(item => item.date === day && (
+        DAY_DETAIL_HISTORY_TYPES.has(item.type) || isRewardPageEvent(item)
+      ))
         || Boolean(priorityTaskForDate(day))
         || Boolean(state.dailyReviews?.[day]);
     }
@@ -290,21 +250,29 @@
       const failed = dayEntries(day, item => item.type === "task_failed" || item.type === "task_missed");
       const failedHabits = dayEntries(day, item => item.type === "habit_failed");
       const badHabits = dayEntries(day, item => item.type === "bad_habit");
-      const rewards = dayEntries(day, item => item.type === "reward_redeemed" || item.type === "fund_deposit");
+      const rewards = dayEntries(day, item => isRewardPageEvent(item));
       const reviewRewards = dayEntries(day, item => item.type === "review_reward");
       const priorityRewards = dayEntries(day, item => item.type === "priority_task_reward");
       const priorityPenalties = dayEntries(day, item => item.type === "priority_task_penalty");
       const noBadHabitBonuses = dayEntries(day, item => item.type === "no_bad_habit_bonus");
-      const earned = completed.reduce((sum, item) => sum + taskEarnedCoinsFromItem(item), 0)
-        + habits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
-        + reviewRewards.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
-        + priorityRewards.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
-        + noBadHabitBonuses.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0);
-      const deducted = failed.reduce((sum, item) => sum + (item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), 0)
-        + failedHabits.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
-        + priorityPenalties.reduce((sum, item) => sum + parseCoinAmount(item.coins), 0)
-        + badHabits.reduce((sum, item) => sum + parseAmount(item.coins), 0)
-        + rewards.reduce((sum, item) => sum + (item.type === "fund_deposit" ? parseCoinAmount(item.amount) : parseAmount(item.cost)), 0);
+      const financialEntries = dayEntries(day, item => coinEventFinancialDelta(item) !== 0);
+      const behaviorEntries = dayEntries(day, item => isBehaviorHistoryItem(item));
+      const earned = financialEntries.reduce((sum, item) => {
+        const delta = coinEventFinancialDelta(item);
+        return sum + (delta > 0 ? delta : 0);
+      }, 0);
+      const deducted = financialEntries.reduce((sum, item) => {
+        const delta = coinEventFinancialDelta(item);
+        return sum + (delta < 0 ? Math.abs(delta) : 0);
+      }, 0);
+      const behaviorEarned = behaviorEntries.reduce((sum, item) => {
+        const delta = behaviorScoreDelta(item);
+        return sum + (delta > 0 ? delta : 0);
+      }, 0);
+      const behaviorDeducted = behaviorEntries.reduce((sum, item) => {
+        const delta = behaviorScoreDelta(item);
+        return sum + (delta < 0 ? Math.abs(delta) : 0);
+      }, 0);
       return {
         completed,
         habits,
@@ -318,7 +286,10 @@
         noBadHabitBonuses,
         earned,
         deducted,
-        net: earned - deducted
+        net: earned - deducted,
+        behaviorEarned,
+        behaviorDeducted,
+        behaviorNet: behaviorEarned - behaviorDeducted
       };
     }
 
@@ -433,8 +404,10 @@
       const summary = dayCoinSummary(day);
       const netTone = summary.net > 0 ? "positive" : summary.net < 0 ? "negative" : "";
       const netPrefix = summary.net > 0 ? "+" : summary.net < 0 ? "-" : "";
+      const behaviorTone = summary.behaviorNet > 0 ? "positive" : summary.behaviorNet < 0 ? "negative" : "";
+      const behaviorPrefix = summary.behaviorNet > 0 ? "+" : summary.behaviorNet < 0 ? "-" : "";
       const summaryHtml = `
-        <div class="detail-summary-grid" aria-label="当天金币变化">
+        <div class="detail-summary-grid" aria-label="当天金币与行为表现">
           <div class="detail-metric">
             <span>获得</span>
             <strong class="positive">+${formatCoinAmount(summary.earned)}</strong>
@@ -446,6 +419,10 @@
           <div class="detail-metric">
             <span>净变化</span>
             <strong class="${netTone}">${netPrefix}${formatCoinAmount(Math.abs(summary.net))}</strong>
+          </div>
+          <div class="detail-metric">
+            <span>行为表现</span>
+            <strong class="${behaviorTone}">${behaviorPrefix}${formatCoinAmount(Math.abs(summary.behaviorNet))}</strong>
           </div>
         </div>
       `;
@@ -499,7 +476,7 @@
         ${detailSectionHtml(
           "基金注入",
           summary.rewards.length,
-          detailListHtml(summary.rewards, "当天没有基金注入记录。", item => -(item.type === "fund_deposit" ? parseCoinAmount(item.amount) : parseAmount(item.cost)), historyRecordActionHtml)
+          detailListHtml(summary.rewards, "当天没有基金注入记录。", item => coinEventFinancialDelta(item), historyRecordActionHtml)
         )}
         ${detailSectionHtml(
           "复盘奖励",

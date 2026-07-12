@@ -61,6 +61,58 @@
       return found === undefined ? fallback : found;
     }
 
+    const BEHAVIOR_COIN_EVENT_TYPES = new Set([
+      "task_completed",
+      "habit_completed",
+      "review_reward",
+      "priority_task_reward",
+      "no_bad_habit_bonus",
+      "task_failed",
+      "task_missed",
+      "habit_failed",
+      "priority_task_penalty",
+      "bad_habit"
+    ]);
+
+    function isRewardPageEvent(event = {}) {
+      if (!event || typeof event !== "object") return false;
+      if (event.source === "rewards" || event.source === "reward") return true;
+      if (event.affectsBehaviorScore === false) return true;
+      if (event.rewardId || event.fundId || event.reward || event.fund) return true;
+
+      const type = String(event.type || "").trim().toLowerCase();
+      if (BEHAVIOR_COIN_EVENT_TYPES.has(type)) return false;
+      if ([
+        "reward_redeemed",
+        "reward_refund",
+        "reward_refunded",
+        "fund_deposit",
+        "fund_withdraw",
+        "fund_withdrawal",
+        "reward_spending",
+        "reward_consumption"
+      ].includes(type)) return true;
+
+      const rewardWords = /reward|fund|redeem|refund|withdraw|deposit|spend|consume|purchase|兑换|奖励|基金|拨款|注入|返还|撤回/;
+      if (rewardWords.test(type)) return true;
+
+      const metadata = [
+        event.category,
+        event.action,
+        event.module,
+        event.origin,
+        event.description,
+        event.reason,
+        event.eventType,
+        event.kind
+      ].filter(value => value !== undefined && value !== null && value !== "")
+        .join(" ")
+        .toLowerCase();
+      if (rewardWords.test(metadata)) return true;
+
+      return Object.keys(event).some(key => /reward|fund|mapping/i.test(key));
+    }
+
     function positiveCoinValue(value, fallback = 0) {
       const parsed = parseCoinAmount(value);
       const fallbackValue = parseCoinAmount(fallback);
@@ -173,10 +225,7 @@
 
     function normalizeCoinHistory(history) {
       return (Array.isArray(history) ? history : []).map(item => {
-        const isLegacyRewardEvent = item?.type === "reward_redeemed"
-          || item?.type === "fund_deposit"
-          || Boolean(item?.rewardId || item?.fundId);
-        const isRewardEvent = item?.source === "rewards" || isLegacyRewardEvent;
+        const isRewardEvent = isRewardPageEvent(item);
         if (isRewardEvent) {
           return {
             ...item,

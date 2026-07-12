@@ -41,9 +41,12 @@
         timestamp: history.timestamp || timestamp
       };
       const eventSource = source || entry.source;
-      const isRewardEvent = eventSource === "rewards"
-        || entry.affectsBehaviorScore === false
-        || Boolean(entry.rewardId || entry.fundId);
+      const isRewardEvent = isRewardPageEvent({
+        ...entry,
+        source: eventSource || entry.source,
+        category: category || entry.category,
+        affectsBehaviorScore: affectsBehaviorScore !== false && entry.affectsBehaviorScore !== false
+      });
       if (isRewardEvent) {
         entry.source = "rewards";
         entry.category = category || entry.category || "reward_spending";
