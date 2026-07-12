@@ -27,6 +27,8 @@
       timestamp = new Date().toISOString(),
       source = null,
       category = null,
+      action = null,
+      entityType = null,
       affectsBehaviorScore = true,
       history = {}
     }) {
@@ -41,19 +43,34 @@
         timestamp: history.timestamp || timestamp
       };
       const eventSource = source || entry.source;
+      const eventAction = action || entry.action;
+      const eventEntityType = entityType || entry.entityType;
       const isRewardEvent = isRewardPageEvent({
         ...entry,
         source: eventSource || entry.source,
         category: category || entry.category,
+        action: eventAction || entry.action,
+        entityType: eventEntityType || entry.entityType,
         affectsBehaviorScore: affectsBehaviorScore !== false && entry.affectsBehaviorScore !== false
       });
       if (isRewardEvent) {
         entry.source = "rewards";
         entry.category = category || entry.category || "reward_spending";
+        entry.action = eventAction || type || "reward_action";
+        entry.entityType = eventEntityType || "reward_fund";
         entry.affectsBehaviorScore = false;
       } else {
-        if (eventSource) entry.source = eventSource;
-        if (category || entry.category) entry.category = category || entry.category;
+        if (isHabitPerformanceTransaction(entry)) {
+          entry.source = eventSource || "behavior";
+          entry.category = category || entry.category || "habit_performance";
+          entry.action = eventAction || type;
+          entry.entityType = eventEntityType || behaviorEntityTypeForEvent(type);
+        } else {
+          if (eventSource) entry.source = eventSource;
+          if (category || entry.category) entry.category = category || entry.category;
+          if (eventAction) entry.action = eventAction;
+          if (eventEntityType) entry.entityType = eventEntityType;
+        }
         entry.affectsBehaviorScore = affectsBehaviorScore !== false && entry.affectsBehaviorScore !== false;
       }
       applyCoinBalanceDelta(coinDelta);
@@ -68,11 +85,15 @@
     }
 
     function recordRewardCoinEvent(options = {}) {
+      const history = options.history || {};
       return recordCoinEvent({
         ...options,
         source: "rewards",
         category: "reward_spending",
-        affectsBehaviorScore: false
+        action: options.action || history.action || options.type || "reward_action",
+        entityType: options.entityType || history.entityType || "reward_fund",
+        affectsBehaviorScore: false,
+        history
       });
     }
 

@@ -74,43 +74,80 @@
       "bad_habit"
     ]);
 
+    const REWARD_PAGE_EVENT_TYPES = new Set([
+      "reward_redeemed",
+      "reward_refund",
+      "reward_refunded",
+      "reward_spending",
+      "reward_consumption",
+      "reward_deposit",
+      "reward_withdraw",
+      "reward_transfer",
+      "fund_deposit",
+      "fund_withdraw",
+      "fund_withdrawal",
+      "fund_transfer",
+      "fund_move",
+      "fund_refund"
+    ]);
+
+    const REWARD_PAGE_SOURCES = new Set(["reward", "rewards", "fund", "funds", "wallet"]);
+    const REWARD_PAGE_CATEGORIES = new Set([
+      "reward_spending",
+      "reward_management",
+      "reward_exchange",
+      "fund_management",
+      "fund_transfer",
+      "wallet_management",
+      "wallet_transfer",
+      "asset_transfer"
+    ]);
+    const REWARD_PAGE_ENTITY_TYPES = new Set([
+      "reward",
+      "reward_fund",
+      "reward_transaction",
+      "fund",
+      "fund_transfer",
+      "wallet"
+    ]);
+
+    function normalizedEventField(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function behaviorEntityTypeForEvent(type) {
+      const normalizedType = normalizedEventField(type);
+      if (normalizedType === "bad_habit") return "bad_habit";
+      if (normalizedType === "habit_completed" || normalizedType === "habit_failed") return "habit";
+      if (normalizedType.startsWith("task_")) return "task";
+      if (normalizedType.startsWith("priority_task_")) return "priority_task";
+      if (normalizedType === "review_reward") return "review";
+      if (normalizedType === "no_bad_habit_bonus") return "habit_day";
+      return "behavior";
+    }
+
     function isRewardPageEvent(event = {}) {
       if (!event || typeof event !== "object") return false;
-      if (event.source === "rewards" || event.source === "reward") return true;
       if (event.affectsBehaviorScore === false) return true;
       if (event.rewardId || event.fundId || event.reward || event.fund) return true;
 
-      const type = String(event.type || "").trim().toLowerCase();
-      if (BEHAVIOR_COIN_EVENT_TYPES.has(type)) return false;
-      if ([
-        "reward_redeemed",
-        "reward_refund",
-        "reward_refunded",
-        "fund_deposit",
-        "fund_withdraw",
-        "fund_withdrawal",
-        "reward_spending",
-        "reward_consumption"
-      ].includes(type)) return true;
+      const type = normalizedEventField(event.type);
+      const source = normalizedEventField(event.source);
+      const category = normalizedEventField(event.category);
+      const action = normalizedEventField(event.action);
+      const entityType = normalizedEventField(event.entityType);
 
-      const rewardWords = /reward|fund|redeem|refund|withdraw|deposit|spend|consume|purchase|兑换|奖励|基金|拨款|注入|返还|撤回/;
-      if (rewardWords.test(type)) return true;
+      return REWARD_PAGE_EVENT_TYPES.has(type)
+        || REWARD_PAGE_SOURCES.has(source)
+        || REWARD_PAGE_CATEGORIES.has(category)
+        || REWARD_PAGE_EVENT_TYPES.has(action)
+        || REWARD_PAGE_ENTITY_TYPES.has(entityType);
+    }
 
-      const metadata = [
-        event.category,
-        event.action,
-        event.module,
-        event.origin,
-        event.description,
-        event.reason,
-        event.eventType,
-        event.kind
-      ].filter(value => value !== undefined && value !== null && value !== "")
-        .join(" ")
-        .toLowerCase();
-      if (rewardWords.test(metadata)) return true;
-
-      return Object.keys(event).some(key => /reward|fund|mapping/i.test(key));
+    function isHabitPerformanceTransaction(event = {}) {
+      if (!event || typeof event !== "object") return false;
+      if (event.affectsBehaviorScore === false || isRewardPageEvent(event)) return false;
+      return BEHAVIOR_COIN_EVENT_TYPES.has(normalizedEventField(event.type));
     }
 
     function positiveCoinValue(value, fallback = 0) {
@@ -231,7 +268,19 @@
             ...item,
             source: "rewards",
             category: item.category || "reward_spending",
+            action: item.action || item.type || "reward_action",
+            entityType: item.entityType || "reward_fund",
             affectsBehaviorScore: false
+          };
+        }
+        if (isHabitPerformanceTransaction(item)) {
+          return {
+            ...item,
+            source: item.source || "behavior",
+            category: item.category || "habit_performance",
+            action: item.action || item.type,
+            entityType: item.entityType || behaviorEntityTypeForEvent(item.type),
+            affectsBehaviorScore: true
           };
         }
         return {

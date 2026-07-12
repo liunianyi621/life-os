@@ -5,10 +5,6 @@
       renderHabitTrend(rows);
     }
 
-    function isBehaviorHistoryItem(item) {
-      return !isRewardPageEvent(item) && BEHAVIOR_COIN_EVENT_TYPES.has(item?.type);
-    }
-
     function coinEventFinancialDelta(item) {
       if (!item) return 0;
       if (item.coinDelta !== undefined && item.coinDelta !== null && item.coinDelta !== "") {
@@ -44,7 +40,7 @@
     }
 
     function behaviorScoreDelta(item) {
-      return isBehaviorHistoryItem(item) ? coinEventFinancialDelta(item) : 0;
+      return isHabitPerformanceTransaction(item) ? coinEventFinancialDelta(item) : 0;
     }
 
     function buildStatsRows(range) {
@@ -72,6 +68,7 @@
         const key = item.date;
         const row = byKey.get(key);
         if (!row) return;
+        const isBehaviorTransaction = isHabitPerformanceTransaction(item);
         const financialDelta = coinEventFinancialDelta(item);
         if (financialDelta > 0) row.earned += financialDelta;
         if (financialDelta < 0) row.deducted += Math.abs(financialDelta);
@@ -79,20 +76,20 @@
         if (behaviorDelta > 0) row.behaviorEarned += behaviorDelta;
         if (behaviorDelta < 0) row.behaviorDeducted += Math.abs(behaviorDelta);
 
-        if (item.type === "task_completed" || item.type === "habit_completed") {
+        if (isBehaviorTransaction && (item.type === "task_completed" || item.type === "habit_completed")) {
           row.completed += 1;
         }
-        if (item.type === "task_completed") {
+        if (isBehaviorTransaction && item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
           row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
         }
-        if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
+        if (isBehaviorTransaction && (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed")) {
           row.failed += 1;
         }
-        if (item.type === "priority_task_penalty") {
+        if (isBehaviorTransaction && item.type === "priority_task_penalty") {
           row.failed += 1;
         }
-        if (item.type === "bad_habit") {
+        if (isBehaviorTransaction && item.type === "bad_habit") {
           row.badHabits += 1;
         }
       });
@@ -137,28 +134,29 @@
       state.history.forEach(item => {
         const row = byKey.get(item.date);
         if (!row) return;
+        const isBehaviorTransaction = isHabitPerformanceTransaction(item);
         const financialDelta = coinEventFinancialDelta(item);
         if (financialDelta > 0) row.earned += financialDelta;
         if (financialDelta < 0) row.deducted += Math.abs(financialDelta);
         const behaviorDelta = behaviorScoreDelta(item);
         if (behaviorDelta > 0) row.behaviorEarned += behaviorDelta;
         if (behaviorDelta < 0) row.behaviorDeducted += Math.abs(behaviorDelta);
-        if (isBehaviorHistoryItem(item)) row.hasBehaviorRecord = true;
+        if (isBehaviorTransaction) row.hasBehaviorRecord = true;
 
-        if (item.type === "task_completed" || item.type === "habit_completed") {
+        if (isBehaviorTransaction && (item.type === "task_completed" || item.type === "habit_completed")) {
           row.completed += 1;
         }
-        if (item.type === "task_completed") {
+        if (isBehaviorTransaction && item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
           row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
         }
-        if (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed") {
+        if (isBehaviorTransaction && (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed")) {
           row.failed += 1;
         }
-        if (item.type === "priority_task_penalty") {
+        if (isBehaviorTransaction && item.type === "priority_task_penalty") {
           row.failed += 1;
         }
-        if (item.type === "bad_habit") {
+        if (isBehaviorTransaction && item.type === "bad_habit") {
           row.badHabits += 1;
         }
       });
@@ -245,18 +243,28 @@
     }
 
     function dayCoinSummary(day) {
-      const completed = dayEntries(day, item => item.type === "task_completed");
-      const habits = dayEntries(day, item => item.type === "habit_completed");
-      const failed = dayEntries(day, item => item.type === "task_failed" || item.type === "task_missed");
-      const failedHabits = dayEntries(day, item => item.type === "habit_failed");
-      const badHabits = dayEntries(day, item => item.type === "bad_habit");
+      const completed = dayEntries(day, item => (
+        isHabitPerformanceTransaction(item) && item.type === "task_completed"
+      ));
+      const habits = dayEntries(day, item => (
+        isHabitPerformanceTransaction(item) && item.type === "habit_completed"
+      ));
+      const failed = dayEntries(day, item => (
+        isHabitPerformanceTransaction(item) && (item.type === "task_failed" || item.type === "task_missed")
+      ));
+      const failedHabits = dayEntries(day, item => (
+        isHabitPerformanceTransaction(item) && item.type === "habit_failed"
+      ));
+      const badHabits = dayEntries(day, item => (
+        isHabitPerformanceTransaction(item) && item.type === "bad_habit"
+      ));
       const rewards = dayEntries(day, item => isRewardPageEvent(item));
       const reviewRewards = dayEntries(day, item => item.type === "review_reward");
       const priorityRewards = dayEntries(day, item => item.type === "priority_task_reward");
       const priorityPenalties = dayEntries(day, item => item.type === "priority_task_penalty");
       const noBadHabitBonuses = dayEntries(day, item => item.type === "no_bad_habit_bonus");
       const financialEntries = dayEntries(day, item => coinEventFinancialDelta(item) !== 0);
-      const behaviorEntries = dayEntries(day, item => isBehaviorHistoryItem(item));
+      const behaviorEntries = dayEntries(day, item => isHabitPerformanceTransaction(item));
       const earned = financialEntries.reduce((sum, item) => {
         const delta = coinEventFinancialDelta(item);
         return sum + (delta > 0 ? delta : 0);
