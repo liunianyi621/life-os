@@ -41,9 +41,18 @@
         timestamp: history.timestamp || timestamp
       };
       const eventSource = source || entry.source;
-      if (eventSource) entry.source = eventSource;
-      if (category || entry.category) entry.category = category || entry.category;
-      entry.affectsBehaviorScore = affectsBehaviorScore !== false && entry.affectsBehaviorScore !== false;
+      const isRewardEvent = eventSource === "rewards"
+        || entry.affectsBehaviorScore === false
+        || Boolean(entry.rewardId || entry.fundId);
+      if (isRewardEvent) {
+        entry.source = "rewards";
+        entry.category = category || entry.category || "reward_spending";
+        entry.affectsBehaviorScore = false;
+      } else {
+        if (eventSource) entry.source = eventSource;
+        if (category || entry.category) entry.category = category || entry.category;
+        entry.affectsBehaviorScore = affectsBehaviorScore !== false && entry.affectsBehaviorScore !== false;
+      }
       applyCoinBalanceDelta(coinDelta);
       state.history.unshift(entry);
       return {

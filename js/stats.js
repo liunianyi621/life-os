@@ -5,8 +5,32 @@
       renderHabitTrend(rows);
     }
 
+    function isRewardCoinEvent(item) {
+      return item?.source === "rewards"
+        || item?.affectsBehaviorScore === false
+        || item?.type === "reward_redeemed"
+        || item?.type === "fund_deposit"
+        || Boolean(item?.rewardId || item?.fundId);
+    }
+
     function coinEventAffectsBehavior(item) {
-      return item?.source !== "rewards" && item?.affectsBehaviorScore !== false;
+      return !isRewardCoinEvent(item);
+    }
+
+    function isBehaviorHistoryItem(item) {
+      if (!coinEventAffectsBehavior(item)) return false;
+      return [
+        "task_completed",
+        "habit_completed",
+        "review_reward",
+        "priority_task_reward",
+        "no_bad_habit_bonus",
+        "task_failed",
+        "task_missed",
+        "habit_failed",
+        "priority_task_penalty",
+        "bad_habit"
+      ].includes(item?.type);
     }
 
     function buildStatsRows(range) {
@@ -119,7 +143,7 @@
           behaviorEarned: 0,
           behaviorDeducted: 0,
           behaviorNet: 0,
-          hasRecord: false
+          hasBehaviorRecord: false
         };
       });
       const byKey = new Map(rows.map(row => [row.key, row]));
@@ -127,8 +151,8 @@
       state.history.forEach(item => {
         const row = byKey.get(item.date);
         if (!row) return;
-        row.hasRecord = true;
         const affectsBehavior = coinEventAffectsBehavior(item);
+        if (isBehaviorHistoryItem(item)) row.hasBehaviorRecord = true;
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
@@ -199,7 +223,7 @@
     }
 
     function calendarDayClass(row, maxNet, maxLoss) {
-      if (!row.hasRecord) return "empty";
+      if (!row.hasBehaviorRecord) return "empty";
       const behaviorNet = Number(row.behaviorNet) || 0;
       if (behaviorNet > 0) {
         const ratio = maxNet ? behaviorNet / maxNet : 1;
@@ -562,7 +586,7 @@
               const todayClass = row.key === today ? " today" : "";
               const behaviorNet = Number(row.behaviorNet) || 0;
               const netLabel = behaviorNet > 0 ? `+${formatCoinAmount(behaviorNet)}` : formatCoinAmount(behaviorNet);
-              const title = row.hasRecord
+              const title = row.hasBehaviorRecord
                 ? `${formatFullDateKey(row.key)}：表现净值 ${netLabel}，完成 ${row.completed}，失败 ${row.failed}，坏习惯 ${row.badHabits} 次`
                 : `${formatFullDateKey(row.key)}：无记录`;
               const hasDetail = dayHasEditableRecords(row.key);

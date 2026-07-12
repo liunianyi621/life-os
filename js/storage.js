@@ -173,7 +173,9 @@
 
     function normalizeCoinHistory(history) {
       return (Array.isArray(history) ? history : []).map(item => {
-        const isLegacyRewardEvent = item?.type === "reward_redeemed" || item?.type === "fund_deposit";
+        const isLegacyRewardEvent = item?.type === "reward_redeemed"
+          || item?.type === "fund_deposit"
+          || Boolean(item?.rewardId || item?.fundId);
         const isRewardEvent = item?.source === "rewards" || isLegacyRewardEvent;
         if (isRewardEvent) {
           return {
