@@ -171,6 +171,25 @@
         .sort((left, right) => String(right.completedAt).localeCompare(String(left.completedAt)));
     }
 
+    function normalizeCoinHistory(history) {
+      return (Array.isArray(history) ? history : []).map(item => {
+        const isLegacyRewardEvent = item?.type === "reward_redeemed" || item?.type === "fund_deposit";
+        const isRewardEvent = item?.source === "rewards" || isLegacyRewardEvent;
+        if (isRewardEvent) {
+          return {
+            ...item,
+            source: "rewards",
+            category: item.category || "reward_spending",
+            affectsBehaviorScore: false
+          };
+        }
+        return {
+          ...item,
+          affectsBehaviorScore: item?.affectsBehaviorScore !== false
+        };
+      });
+    }
+
     function normalizePriorityTasks(priorityTasks) {
       const entries = priorityTasks && typeof priorityTasks === "object" ? Object.entries(priorityTasks) : [];
       return entries.reduce((normalized, [day, task]) => {
@@ -207,6 +226,8 @@
             || Object.prototype.hasOwnProperty.call(reward || {}, "cost")
             || !Object.prototype.hasOwnProperty.call(reward || {}, "totalCoins")
           )))
+          || (Array.isArray(saved.history)
+            && JSON.stringify(normalizeCoinHistory(saved.history)) !== JSON.stringify(saved.history))
         ));
         const merged = saved ? {
           ...cloneEmptyState(),
@@ -227,7 +248,7 @@
           reviewRewards: saved.reviewRewards && typeof saved.reviewRewards === "object" ? saved.reviewRewards : {},
           noBadHabitBonuses: saved.noBadHabitBonuses && typeof saved.noBadHabitBonuses === "object" ? saved.noBadHabitBonuses : {},
           noBadHabitBonusCheckedThroughDate: saved.noBadHabitBonusCheckedThroughDate || null,
-          history: Array.isArray(saved.history) ? saved.history : [],
+          history: normalizeCoinHistory(saved.history),
           completions: saved.completions && typeof saved.completions === "object" ? saved.completions : {},
           taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {},
           habitCompletions: saved.habitCompletions && typeof saved.habitCompletions === "object" ? saved.habitCompletions : {},

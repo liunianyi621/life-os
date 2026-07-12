@@ -20,7 +20,16 @@
       state.history = state.history.filter(item => !ids.has(item.id));
     }
 
-    function recordCoinEvent({ type, amount = 0, date = dateKey(), timestamp = new Date().toISOString(), history = {} }) {
+    function recordCoinEvent({
+      type,
+      amount = 0,
+      date = dateKey(),
+      timestamp = new Date().toISOString(),
+      source = null,
+      category = null,
+      affectsBehaviorScore = true,
+      history = {}
+    }) {
       const historyId = history.id || createId("history");
       const coinDelta = parseCoinAmount(amount);
       const entry = {
@@ -31,6 +40,10 @@
         date: history.date || date,
         timestamp: history.timestamp || timestamp
       };
+      const eventSource = source || entry.source;
+      if (eventSource) entry.source = eventSource;
+      if (category || entry.category) entry.category = category || entry.category;
+      entry.affectsBehaviorScore = affectsBehaviorScore !== false && entry.affectsBehaviorScore !== false;
       applyCoinBalanceDelta(coinDelta);
       state.history.unshift(entry);
       return {
@@ -40,6 +53,15 @@
         date: entry.date,
         timestamp: entry.timestamp
       };
+    }
+
+    function recordRewardCoinEvent(options = {}) {
+      return recordCoinEvent({
+        ...options,
+        source: "rewards",
+        category: "reward_spending",
+        affectsBehaviorScore: false
+      });
     }
 
     function undoCoinEvent({ coinDelta = 0, historyIds = null, historyId = null, removeHistory = true }) {
@@ -136,8 +158,8 @@
     }
 
     function promptNextStepAfterCompletion() {
-      if (typeof openNextStepPanel !== "function") return;
-      window.setTimeout(() => openNextStepPanel(), 0);
+      if (typeof openTaskSheet !== "function") return;
+      window.setTimeout(() => openTaskSheet(), 0);
     }
     function startTask(taskId, sourceEl = null) {
       const task = todayTasks().find(item => item.id === taskId);
@@ -1427,7 +1449,7 @@
         });
       }
       state.totals.coinsSpent = parseCoinAmount((Number(state.totals.coinsSpent) || 0) + amount);
-      const coinEvent = recordCoinEvent({
+      const coinEvent = recordRewardCoinEvent({
         type: "fund_deposit",
         amount: -amount,
         date: dateKey(),

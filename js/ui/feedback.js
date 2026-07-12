@@ -18,7 +18,6 @@
         els.sheetBackdrop,
         els.dayDetailBackdrop,
         els.memoBackdrop,
-        els.nextStepBackdrop,
         els.confirmBackdrop,
         els.fundCelebrationBackdrop
       ].some(backdrop => backdrop && !backdrop.classList.contains("hidden"));

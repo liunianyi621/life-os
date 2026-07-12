@@ -5,6 +5,10 @@
       renderHabitTrend(rows);
     }
 
+    function coinEventAffectsBehavior(item) {
+      return item?.source !== "rewards" && item?.affectsBehaviorScore !== false;
+    }
+
     function buildStatsRows(range) {
       const periods = lastDays(range === "year" ? 365 : range === "month" ? 30 : 7);
       const rows = periods.map(period => ({
@@ -30,27 +34,28 @@
         const key = item.date;
         const row = byKey.get(key);
         if (!row) return;
+        const affectsBehavior = coinEventAffectsBehavior(item);
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
           const amount = item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
           row.earned += amount;
-          row.behaviorEarned += amount;
+          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "review_reward") {
           const amount = parseCoinAmount(item.coins);
           row.earned += amount;
-          row.behaviorEarned += amount;
+          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "priority_task_reward") {
           const amount = parseCoinAmount(item.coins);
           row.earned += amount;
-          row.behaviorEarned += amount;
+          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "no_bad_habit_bonus") {
           const amount = parseCoinAmount(item.coins);
           row.earned += amount;
-          row.behaviorEarned += amount;
+          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
@@ -60,19 +65,19 @@
           row.failed += 1;
           const amount = item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
           row.deducted += amount;
-          row.behaviorDeducted += amount;
+          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "priority_task_penalty") {
           row.failed += 1;
           const amount = parseCoinAmount(item.coins);
           row.deducted += amount;
-          row.behaviorDeducted += amount;
+          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
           const amount = parseAmount(item.coins);
           row.deducted += amount;
-          row.behaviorDeducted += amount;
+          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);
@@ -123,27 +128,28 @@
         const row = byKey.get(item.date);
         if (!row) return;
         row.hasRecord = true;
+        const affectsBehavior = coinEventAffectsBehavior(item);
 
         if (item.type === "task_completed" || item.type === "habit_completed") {
           row.completed += 1;
           const amount = item.type === "task_completed" ? taskEarnedCoinsFromItem(item) : parseAmount(item.coins);
           row.earned += amount;
-          row.behaviorEarned += amount;
+          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "review_reward") {
           const amount = parseCoinAmount(item.coins);
           row.earned += amount;
-          row.behaviorEarned += amount;
+          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "priority_task_reward") {
           const amount = parseCoinAmount(item.coins);
           row.earned += amount;
-          row.behaviorEarned += amount;
+          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "no_bad_habit_bonus") {
           const amount = parseCoinAmount(item.coins);
           row.earned += amount;
-          row.behaviorEarned += amount;
+          if (affectsBehavior) row.behaviorEarned += amount;
         }
         if (item.type === "task_completed") {
           row.focusSeconds += taskDurationSecondsFromItem(item);
@@ -153,19 +159,19 @@
           row.failed += 1;
           const amount = item.type === "task_failed" || item.type === "habit_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins);
           row.deducted += amount;
-          row.behaviorDeducted += amount;
+          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "priority_task_penalty") {
           row.failed += 1;
           const amount = parseCoinAmount(item.coins);
           row.deducted += amount;
-          row.behaviorDeducted += amount;
+          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "bad_habit") {
           row.badHabits += 1;
           const amount = parseAmount(item.coins);
           row.deducted += amount;
-          row.behaviorDeducted += amount;
+          if (affectsBehavior) row.behaviorDeducted += amount;
         }
         if (item.type === "reward_redeemed") {
           row.deducted += parseAmount(item.cost);

@@ -613,51 +613,6 @@
       `).join("");
     }
 
-    function nextStepOptionHtml(task) {
-      const timeLabel = taskTimeRangeLabel(task);
-      return `
-        <button class="next-step-option" type="button" data-select-next-step="${escapeAttr(task.id)}">
-          <span>
-            <strong>${escapeHtml(task.name)}</strong>
-            ${timeLabel ? `<small>${escapeHtml(timeLabel)}</small>` : ""}
-          </span>
-          ${actionIconHtml("checkmark.circle")}
-        </button>
-      `;
-    }
-
-    function renderNextStepPanel() {
-      const tasks = activeTasksToday();
-      els.nextStepTaskList.innerHTML = tasks.length
-        ? `
-          <span class="next-step-label">从今日任务选择</span>
-          ${tasks.map(nextStepOptionHtml).join("")}
-        `
-        : `
-          <div class="next-step-empty">
-            <strong>当前没有未完成任务</strong>
-            <p>可以直接新建一个下一步任务。</p>
-          </div>
-        `;
-    }
-
-    function openNextStepPanel() {
-      if (!els.nextStepBackdrop) return;
-      renderNextStepPanel();
-      syncSheetViewport();
-      els.nextStepBackdrop.classList.remove("hidden");
-      els.nextStepBackdrop.setAttribute("aria-hidden", "false");
-      syncModalState();
-    }
-
-    function closeNextStepPanel() {
-      if (!els.nextStepBackdrop) return;
-      els.nextStepBackdrop.classList.add("hidden");
-      els.nextStepBackdrop.setAttribute("aria-hidden", "true");
-      if (els.nextStepInput) els.nextStepInput.value = "";
-      syncModalState();
-    }
-
     function renderRewards() {
       if (!state.rewards.length) {
         els.rewardList.innerHTML = `
@@ -754,7 +709,6 @@
       const failTaskButton = event.target.closest("[data-fail-task]");
       const triggerBadButton = event.target.closest("[data-trigger-bad]");
       const depositFundButton = event.target.closest("[data-deposit-fund]");
-      const selectNextStepButton = event.target.closest("[data-select-next-step]");
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
       const dayDetailButton = event.target.closest("[data-day-detail]");
@@ -842,11 +796,6 @@
           depositFundButton
         );
       }
-      if (selectNextStepButton) {
-        if (setNextStepTask(selectNextStepButton.dataset.selectNextStep)) {
-          closeNextStepPanel();
-        }
-      }
       if (statsRangeButton) {
         currentStatsRange = statsRangeButton.dataset.statsRange;
         document.querySelectorAll("[data-stats-range]").forEach(button => {
@@ -878,9 +827,6 @@
     els.memoBackdrop.addEventListener("click", event => {
       if (event.target === els.memoBackdrop) closeMemoSheet();
     });
-    els.nextStepBackdrop?.addEventListener("click", event => {
-      if (event.target === els.nextStepBackdrop) closeNextStepPanel();
-    });
     els.confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
     els.confirmCancelBtn?.addEventListener("click", () => closeConfirm(false));
     els.confirmBackdrop.addEventListener("click", event => {
@@ -892,11 +838,6 @@
     });
     els.sheetForm.addEventListener("submit", handleSheetSubmit);
     els.memoForm.addEventListener("submit", handleMemoSubmit);
-    els.nextStepForm?.addEventListener("submit", event => {
-      event.preventDefault();
-      const task = createNextStepTask(els.nextStepInput?.value || "");
-      if (task) closeNextStepPanel();
-    });
     els.reviewDateButton.addEventListener("click", () => {
       if (!els.reviewDateInput) return;
       els.reviewDateInput.value = selectedReviewDate;
@@ -958,10 +899,6 @@
       if (event.key === "Escape") {
         if (!els.fundCelebrationBackdrop?.classList.contains("hidden")) {
           closeFundCelebrationDialog();
-          return;
-        }
-        if (!els.nextStepBackdrop?.classList.contains("hidden")) {
-          closeNextStepPanel();
           return;
         }
         if (!els.confirmBackdrop.classList.contains("hidden")) {
