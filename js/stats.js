@@ -40,7 +40,11 @@
     }
 
     function behaviorScoreDelta(item) {
-      return isHabitPerformanceTransaction(item) ? coinEventFinancialDelta(item) : 0;
+      if (!isHabitPerformanceTransaction(item)) return 0;
+      if (item.behaviorScoreDelta !== undefined && item.behaviorScoreDelta !== null && item.behaviorScoreDelta !== "") {
+        return parseCoinAmount(item.behaviorScoreDelta);
+      }
+      return coinEventFinancialDelta(item);
     }
 
     function buildStatsRows(range) {

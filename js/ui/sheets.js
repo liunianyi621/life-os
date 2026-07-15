@@ -384,10 +384,11 @@
       if (editingId) {
         state.rewards = state.rewards.map((reward, index) => {
           if (reward.id !== editingId) return reward;
+          const { completedBeforePastCoinHistoryScaleMigration, ...editableReward } = reward;
           const merged = normalizeFundReward({
-            ...reward,
+            ...editableReward,
             ...rewardData,
-            currentCoins: Math.min(fundCurrentCoins(reward), rewardData.totalCoins),
+            currentCoins: fundCurrentCoins(reward),
             updatedAt: new Date().toISOString()
           }, index);
           const stillComplete = fundCompleted(merged);

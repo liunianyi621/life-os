@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, "..");
 
 function createState(history) {
   return {
+    pastCoinHistoryScaleMigrationVersion: 1,
     coins: 0,
     streak: 0,
     lastCompletedDate: null,

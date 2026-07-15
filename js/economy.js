@@ -1435,6 +1435,9 @@
       if (!fund) return;
       const totalCoins = fundTotalCoins(fund);
       const currentCoins = fundCurrentCoins(fund);
+      const completionStateBeforeMigration = typeof fund.completedBeforePastCoinHistoryScaleMigration === "boolean"
+        ? fund.completedBeforePastCoinHistoryScaleMigration
+        : null;
       if (fundCompleted(fund)) {
         showInfoToast(["基金已完成", fund.name], 2200, "checkmark.circle");
         return;
@@ -1464,6 +1467,7 @@
               totalCoins,
               amountPerDeposit,
               currentCoins: nextCoins,
+              completedBeforePastCoinHistoryScaleMigration: undefined,
               completedAt: completedNow ? now : item.completedAt || null,
               achievementId: completedNow ? achievementId : item.achievementId || null,
               updatedAt: now
@@ -1494,6 +1498,7 @@
           totalCoins,
           currentCoinsBefore: currentCoins,
           currentCoinsAfter: nextCoins,
+          completionStateBeforeMigration,
           completed: completedNow,
           achievementId
         }
@@ -1524,6 +1529,7 @@
         amount,
         currentCoinsBefore: currentCoins,
         currentCoinsAfter: nextCoins,
+        completionStateBeforeMigration,
         completed: completedNow,
         achievementId
       }, {
@@ -1818,6 +1824,9 @@
             ? {
                 ...fund,
                 currentCoins: fundCurrentCoins({ ...fund, currentCoins: undo.currentCoinsBefore }),
+                completedBeforePastCoinHistoryScaleMigration: typeof undo.completionStateBeforeMigration === "boolean"
+                  ? undo.completionStateBeforeMigration
+                  : undefined,
                 completedAt: undo.completed ? null : fund.completedAt || null,
                 achievementId: undo.completed ? null : fund.achievementId || null,
                 updatedAt: new Date().toISOString()
@@ -1830,16 +1839,6 @@
         }
         if (undo.completed && typeof closeFundCelebrationDialog === "function") {
           closeFundCelebrationDialog();
-        }
-      }
-      if (undo.type === "review_reward") {
-        undoCoinEvent({ coinDelta: undo.amount, removeHistory: false });
-        state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
-        delete state.reviewRewards[undo.date];
-        if (undo.hadPreviousReview) {
-          state.dailyReviews[undo.date] = undo.previousReview || {};
-        } else if (state.dailyReviews?.[undo.date]) {
-          delete state.dailyReviews[undo.date];
         }
       }
       if (undo.type === "day_record_delete") {

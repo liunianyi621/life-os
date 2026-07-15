@@ -4,8 +4,12 @@
       "life-os-ios-v1",
       "life-streak-os-v1"
     ];
+    const PAST_COIN_HISTORY_SCALE_MIGRATION_VERSION = 1;
+    const PAST_COIN_HISTORY_SCALE_FACTOR = 10;
+    const PAST_COIN_HISTORY_SCALE_BACKUP_KEY = `${STORAGE_KEY}-backup-before-past-coin-scale-v1`;
 
     const emptyState = {
+      pastCoinHistoryScaleMigrationVersion: PAST_COIN_HISTORY_SCALE_MIGRATION_VERSION,
       coins: 0,
       streak: 0,
       lastCompletedDate: null,
@@ -216,13 +220,15 @@
           seed.amountPerDeposit
         )
       );
-      const currentCoins = clampCoinValue(
-        firstAvailableValue([reward.currentCoins, reward.depositedCoins], 0),
+      const currentCoins = Math.max(
         0,
-        totalCoins
+        parseCoinAmount(firstAvailableValue([reward.currentCoins, reward.depositedCoins], 0))
       );
-      const isComplete = currentCoins >= totalCoins;
-      return {
+      const completionStateBeforeMigration = typeof reward.completedBeforePastCoinHistoryScaleMigration === "boolean"
+        ? reward.completedBeforePastCoinHistoryScaleMigration
+        : null;
+      const isComplete = completionStateBeforeMigration ?? currentCoins >= totalCoins;
+      const normalized = {
         id: reward.id || `reward-fund-${index + 1}`,
         name,
         totalCoins,
@@ -233,6 +239,10 @@
         createdAt: reward.createdAt || now,
         updatedAt: reward.updatedAt || now
       };
+      if (completionStateBeforeMigration !== null) {
+        normalized.completedBeforePastCoinHistoryScaleMigration = completionStateBeforeMigration;
+      }
+      return normalized;
     }
 
     function normalizeRewards(rewards) {
@@ -257,7 +267,7 @@
     }
 
     function fundCurrentCoins(fund) {
-      return clampCoinValue(fund?.currentCoins, 0, fundTotalCoins(fund));
+      return Math.max(0, parseCoinAmount(fund?.currentCoins));
     }
 
     function fundProgressPercent(fund) {
@@ -266,6 +276,9 @@
     }
 
     function fundCompleted(fund) {
+      if (typeof fund?.completedBeforePastCoinHistoryScaleMigration === "boolean") {
+        return fund.completedBeforePastCoinHistoryScaleMigration;
+      }
       return fundCurrentCoins(fund) >= fundTotalCoins(fund);
     }
 
@@ -338,9 +351,207 @@
       }, {});
     }
 
+    const PAST_HISTORY_COIN_FIELDS = [
+      "amount",
+      "coins",
+      "coinDelta",
+      "rewardCoins",
+      "penalty",
+      "penaltyCoins",
+      "cost",
+      "spent",
+      "refunded",
+      "deposited",
+      "deductedCoins",
+      "earnedCoins",
+      "coinEffect",
+      "coinImpact",
+      "previousBalance",
+      "resultingBalance",
+      "currentCoins",
+      "currentCoinsBefore",
+      "currentCoinsAfter",
+      "value",
+      "delta"
+    ];
+    const PAST_BALANCE_FIELDS = ["coins", "balance", "currentBalance", "walletBalance"];
+    const PAST_TOTAL_COIN_FIELDS = ["coinsSpent", "coinsPenalty", "earnedTaskCoins"];
+    const PAST_SETTLED_TASK_COIN_FIELDS = [
+      "earnedCoins",
+      "actualEarnedCoins",
+      "deductedCoins",
+      "penaltyCoins",
+      "actualPenaltyCoins",
+      "settledCoins"
+    ];
+    const PAST_UNDO_COIN_FIELDS = [
+      "amount",
+      "coinDelta",
+      "bonusAmount",
+      "correctionDelta",
+      "currentCoinsBefore",
+      "currentCoinsAfter",
+      "previousBalance",
+      "resultingBalance"
+    ];
+
+    function scalePastCoinAmount(value) {
+      if (value === undefined || value === null || value === "") return value;
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) return value;
+      return parseCoinAmount(amount * PAST_COIN_HISTORY_SCALE_FACTOR);
+    }
+
+    function scalePastCoinFields(record, fields) {
+      if (!record || typeof record !== "object" || Array.isArray(record)) return record;
+      const scaled = { ...record };
+      fields.forEach(field => {
+        if (!Object.prototype.hasOwnProperty.call(record, field)) return;
+        scaled[field] = scalePastCoinAmount(record[field]);
+      });
+      return scaled;
+    }
+
+    function historyFinancialDeltaBeforePastCoinScale(item = {}) {
+      if (item.coinDelta !== undefined && item.coinDelta !== null && item.coinDelta !== "") {
+        return parseCoinAmount(item.coinDelta);
+      }
+      const rawAmount = [item.amount, item.coins, item.cost, item.value, item.delta]
+        .find(value => value !== undefined && value !== null && value !== "");
+      const amount = Math.abs(parseCoinAmount(rawAmount));
+      if (!amount) return 0;
+      const type = normalizedEventField(item.type);
+      if ([
+        "task_failed",
+        "task_missed",
+        "habit_failed",
+        "priority_task_penalty",
+        "bad_habit",
+        "reward_redeemed",
+        "fund_deposit"
+      ].includes(type)) return -amount;
+      return amount;
+    }
+
+    function scalePastHistoryItem(item) {
+      if (!item || typeof item !== "object") return item;
+      const behaviorDelta = isHabitPerformanceTransaction(item)
+        ? historyFinancialDeltaBeforePastCoinScale(item)
+        : null;
+      const scaled = scalePastCoinFields(item, PAST_HISTORY_COIN_FIELDS);
+      if (behaviorDelta !== null && !Object.prototype.hasOwnProperty.call(item, "behaviorScoreDelta")) {
+        scaled.behaviorScoreDelta = behaviorDelta;
+      }
+      scaled.pastCoinHistoryScaleFactor = PAST_COIN_HISTORY_SCALE_FACTOR;
+      return scaled;
+    }
+
+    function scalePastHistoryCollection(value) {
+      return Array.isArray(value) ? value.map(scalePastHistoryItem) : value;
+    }
+
+    function scalePastFundProgress(fund) {
+      if (!fund || typeof fund !== "object" || Array.isArray(fund)) return fund;
+      const totalCoins = positiveCoinValue(firstAvailableValue([fund.totalCoins, fund.targetCoins], 0), 0);
+      const currentCoins = Math.max(
+        0,
+        parseCoinAmount(firstAvailableValue([fund.currentCoins, fund.depositedCoins], 0))
+      );
+      const wasComplete = Boolean(
+        fund.completedAt
+        || fund.finishedAt
+        || (totalCoins > 0 && currentCoins >= totalCoins)
+      );
+      const scaled = scalePastCoinFields(fund, ["currentCoins", "depositedCoins"]);
+      scaled.completedBeforePastCoinHistoryScaleMigration = wasComplete;
+      return scaled;
+    }
+
+    function scalePastSettledTask(task) {
+      if (!task || typeof task !== "object" || Array.isArray(task)) return task;
+      const isSettled = task.status === "completed"
+        || task.status === "failed"
+        || (task.earnedCoins !== undefined && task.earnedCoins !== null && task.earnedCoins !== "")
+        || task.failedAt;
+      return isSettled ? scalePastCoinFields(task, PAST_SETTLED_TASK_COIN_FIELDS) : task;
+    }
+
+    function scalePastUndoData(undo) {
+      if (!undo || typeof undo !== "object" || Array.isArray(undo)) return undo;
+      const scaled = scalePastCoinFields(undo, PAST_UNDO_COIN_FIELDS);
+      ["entries", "taskEntries", "habitEntries", "priorityEntries", "bonusEntries"].forEach(field => {
+        if (Array.isArray(undo[field])) {
+          scaled[field] = undo[field].map(entry => scalePastCoinFields(entry, PAST_UNDO_COIN_FIELDS));
+        }
+      });
+      if (Array.isArray(undo.originalEntries)) {
+        scaled.originalEntries = undo.originalEntries.map(scalePastHistoryItem);
+      }
+      if (undo.snapshot && typeof undo.snapshot === "object") {
+        scaled.snapshot = {
+          ...undo.snapshot,
+          totals: scalePastCoinFields(undo.snapshot.totals, PAST_TOTAL_COIN_FIELDS),
+          task: scalePastSettledTask(undo.snapshot.task),
+          fund: scalePastFundProgress(undo.snapshot.fund)
+        };
+      }
+      return scaled;
+    }
+
+    function scalePastEconomyData(economy) {
+      if (!economy || typeof economy !== "object" || Array.isArray(economy)) return economy;
+      const scaled = scalePastCoinFields(economy, PAST_BALANCE_FIELDS);
+      ["history", "coinHistory", "transactions", "transactionHistory", "events"].forEach(field => {
+        if (Array.isArray(economy[field])) scaled[field] = scalePastHistoryCollection(economy[field]);
+      });
+      if (economy.totals) scaled.totals = scalePastCoinFields(economy.totals, PAST_TOTAL_COIN_FIELDS);
+      return scaled;
+    }
+
+    function migratePastCoinHistoryData(saved) {
+      if (!saved || typeof saved !== "object") return { state: saved, applied: false };
+      if (pastCoinHistoryScaleMigrationApplied(saved)) {
+        return { state: saved, applied: false };
+      }
+
+      const migrated = scalePastCoinFields(saved, PAST_BALANCE_FIELDS);
+      ["history", "coinHistory", "transactions", "transactionHistory", "events"].forEach(field => {
+        if (Array.isArray(saved[field])) migrated[field] = scalePastHistoryCollection(saved[field]);
+      });
+      if (Array.isArray(saved.tasks)) migrated.tasks = saved.tasks.map(scalePastSettledTask);
+      if (Array.isArray(saved.rewards)) migrated.rewards = saved.rewards.map(scalePastFundProgress);
+      if (saved.totals) migrated.totals = scalePastCoinFields(saved.totals, PAST_TOTAL_COIN_FIELDS);
+      if (saved.economy) migrated.economy = scalePastEconomyData(saved.economy);
+      ["pendingUndo", "undoState", "lastUndo"].forEach(field => {
+        if (saved[field]) migrated[field] = scalePastUndoData(saved[field]);
+      });
+      migrated.pastCoinHistoryScaleMigrationVersion = PAST_COIN_HISTORY_SCALE_MIGRATION_VERSION;
+      return { state: migrated, applied: true };
+    }
+
+    function pastCoinHistoryScaleMigrationApplied(saved) {
+      return Number(saved?.pastCoinHistoryScaleMigrationVersion) >= PAST_COIN_HISTORY_SCALE_MIGRATION_VERSION;
+    }
+
     function loadState() {
       try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        const savedRaw = localStorage.getItem(STORAGE_KEY);
+        let saved = JSON.parse(savedRaw);
+        let migrationApplied = false;
+        if (saved) {
+          if (!pastCoinHistoryScaleMigrationApplied(saved)) {
+            try {
+              if (!localStorage.getItem(PAST_COIN_HISTORY_SCALE_BACKUP_KEY)) {
+                localStorage.setItem(PAST_COIN_HISTORY_SCALE_BACKUP_KEY, savedRaw);
+              }
+            } catch {
+              // A backup failure must not block the app from loading or migrating.
+            }
+          }
+          const migration = migratePastCoinHistoryData(saved);
+          saved = migration.state;
+          migrationApplied = migration.applied;
+        }
         const needsLegacyCleanup = Boolean(saved && (
           Object.prototype.hasOwnProperty.call(saved, "phoneTimer")
           || Object.prototype.hasOwnProperty.call(saved, "breakTimer")
@@ -402,7 +613,7 @@
         if (!merged.noBadHabitBonusCheckedThroughDate) {
           merged.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
         }
-        if (needsLegacyCleanup) {
+        if (needsLegacyCleanup || migrationApplied) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
         }
 
@@ -908,9 +1119,6 @@
       }
 
       const previous = state.dailyReviews[reviewDate] || {};
-      const hadPreviousReview = Boolean(state.dailyReviews[reviewDate]);
-      const shouldReward = !state.reviewRewards?.[reviewDate];
-      const rewardAmount = 2;
       const savedAt = new Date().toISOString();
       state.dailyReviews[reviewDate] = {
         date: reviewDate,
@@ -920,43 +1128,6 @@
         createdAt: previous.createdAt || savedAt,
         updatedAt: savedAt
       };
-      if (shouldReward) {
-        state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
-        const coinEvent = recordCoinEvent({
-          type: "review_reward",
-          amount: rewardAmount,
-          date: reviewDate,
-          timestamp: savedAt,
-          history: {
-            name: "每日复盘",
-            coins: rewardAmount
-          }
-        });
-        const historyId = coinEvent.historyId;
-        state.reviewRewards[reviewDate] = historyId;
-        saveState();
-        renderDailyReview();
-        updatePrimaryReadouts();
-        showReviewSavedStatus();
-        showUndoToast({
-          type: "review_reward",
-          historyId,
-          date: reviewDate,
-          amount: rewardAmount,
-          previousReview: { ...previous },
-          hadPreviousReview
-        }, {
-          icon: "checkmark.circle",
-          lines: [
-            "✓ 复盘已保存",
-            `获得 ${formatNumber(rewardAmount)} 金币`
-          ],
-          undoLabel: "撤回",
-          duration: 5000,
-          iconTone: "positive"
-        });
-        return;
-      }
       saveState();
       renderDailyReview();
       showReviewSavedStatus();
