@@ -1,6 +1,12 @@
     const NO_BAD_HABIT_BONUS = 2;
-    const PRIORITY_TASK_REWARD = 10;
-    const PRIORITY_TASK_PENALTY = 100;
+    const PRIORITY_TASK_REWARD = 100;
+    const PRIORITY_TASK_PENALTY = 1000;
+
+    function priorityTaskSettlementAmount(status) {
+      if (status === "done") return parseCoinAmount(PRIORITY_TASK_REWARD);
+      if (status === "failed") return parseCoinAmount(PRIORITY_TASK_PENALTY);
+      return 0;
+    }
 
     function ensureNoBadHabitBonuses() {
       state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object"
@@ -377,7 +383,7 @@
 
       const completedAt = new Date().toISOString();
       const previousTask = priorityTaskSnapshot(task);
-      const amount = PRIORITY_TASK_REWARD;
+      const amount = priorityTaskSettlementAmount("done");
       ensurePriorityTasks()[date] = {
         ...task,
         status: "done",
@@ -418,6 +424,58 @@
         undoLabel: "撤回",
         duration: 5000,
         iconTone: "positive"
+      });
+    }
+
+    function failPriorityTask(day = dateKey(), sourceEl = null) {
+      const date = normalizeReviewDateKey(day);
+      const task = priorityTaskForDate(date);
+      if (!task || task.status !== "pending") return;
+
+      const failedAt = new Date().toISOString();
+      const previousTask = priorityTaskSnapshot(task);
+      const amount = priorityTaskSettlementAmount("failed");
+      ensurePriorityTasks()[date] = {
+        ...task,
+        status: "failed",
+        failedAt,
+        settledPenalty: true,
+        penaltyHistoryId: null,
+        updatedAt: failedAt
+      };
+      const coinEvent = recordCoinEvent({
+        type: "priority_task_penalty",
+        amount: -amount,
+        date,
+        timestamp: failedAt,
+        history: {
+          name: task.title,
+          coins: amount
+        }
+      });
+      const historyId = coinEvent.historyId;
+      ensurePriorityTasks()[date].penaltyHistoryId = historyId;
+      state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
+      saveState();
+      updatePrimaryReadouts();
+      prepareActionCard(sourceEl);
+      if (sourceEl) sourceEl.classList.add("task-exit-failure");
+      showCoinFeedback(amount, "negative", sourceEl, { flash: false });
+      scheduleRender(sourceEl ? 380 : 0);
+      showUndoToast({
+        type: "priority_task_penalty",
+        historyIds: [historyId],
+        priorityEntries: [{ historyId, date, amount, previousTask }],
+        amount
+      }, {
+        icon: "xmark.circle",
+        lines: [
+          "今天最重要的一件事未完成",
+          `扣除 ${formatNumber(amount)} 金币`
+        ],
+        undoLabel: "撤回",
+        duration: 5000,
+        iconTone: "negative"
       });
     }
 
@@ -733,7 +791,7 @@
         if (task.status !== "pending") return;
         if (task.settledPenalty) return;
 
-        const amount = PRIORITY_TASK_PENALTY;
+        const amount = priorityTaskSettlementAmount("failed");
         const failedAt = now.toISOString();
         const previousTask = priorityTaskSnapshot(task);
         const coinEvent = recordCoinEvent({
@@ -1730,6 +1788,11 @@
         return;
       }
 
+      const undoHistoryById = new Map(
+        state.history
+          .filter(item => historyIds.has(item.id))
+          .map(item => [item.id, item])
+      );
       removeCoinHistoryByIds(historyIds);
       if (undo.type === "task_failed" || undo.type === "task_auto_failed" || undo.type === "automatic_failures") {
         const entries = undo.taskEntries || undo.entries || (undo.taskId ? [undo] : []);
@@ -1761,7 +1824,13 @@
       }
       if (undo.type === "priority_task_penalty" || undo.type === "automatic_failures") {
         const entries = undo.priorityEntries || [];
-        const restoredAmount = entries.reduce((total, entry) => parseCoinAmount(total + entry.amount), 0);
+        const restoredAmount = entries.reduce((total, entry) => {
+          const historyEntry = undoHistoryById.get(entry.historyId);
+          const actualAmount = historyEntry
+            ? Math.abs(historyCoinDelta(historyEntry))
+            : parseCoinAmount(entry.amount);
+          return parseCoinAmount(total + actualAmount);
+        }, 0);
         entries.forEach(entry => {
           restorePriorityTask(entry.date, entry.previousTask);
         });
@@ -1794,7 +1863,11 @@
       }
       if (undo.type === "priority_task_reward") {
         restorePriorityTask(undo.date, undo.previousTask);
-        undoCoinEvent({ coinDelta: undo.amount, removeHistory: false });
+        const historyEntry = undoHistoryById.get(undo.historyId);
+        const actualAmount = historyEntry
+          ? Math.abs(historyCoinDelta(historyEntry))
+          : parseCoinAmount(undo.amount);
+        undoCoinEvent({ coinDelta: actualAmount, removeHistory: false });
       }
       if (undo.type === "bad_habit") {
         undoCoinEvent({ coinDelta: -undo.amount, removeHistory: false });

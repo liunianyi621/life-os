@@ -248,3 +248,90 @@ test("迁移标记存在时，新任务的 20 和 200 不会再次乘以 10", ()
   assert.equal(value(reloaded.context, "state.history[0].coinDelta"), -200);
   assert.equal(value(reloaded.context, "state.history[0].coins"), 200);
 });
+
+test("重点事项完成和主动失败使用 100 / 1000，并按历史实际金额撤回", () => {
+  const completedState = emptyState([], 2000);
+  completedState.priorityTaskByDate[DAY] = {
+    date: DAY,
+    title: "完成重点事项",
+    status: "pending",
+    settledPenalty: false
+  };
+  const completedRuntime = createRuntime(completedState);
+  value(completedRuntime.context, `completePriorityTask("${DAY}")`);
+  assert.equal(value(completedRuntime.context, "priorityTaskSettlementAmount('done')"), 100);
+  assert.equal(value(completedRuntime.context, "state.coins"), 2100);
+  assert.equal(value(completedRuntime.context, "state.history[0].coinDelta"), 100);
+  assert.equal(value(completedRuntime.context, "lastUndoData.amount"), 100);
+  value(completedRuntime.context, "pendingUndo.amount = 999; undoLastAction()");
+  assert.equal(value(completedRuntime.context, "state.coins"), 2000);
+  assert.equal(value(completedRuntime.context, `state.priorityTaskByDate["${DAY}"].status`), "pending");
+
+  const failedState = emptyState([], 2000);
+  failedState.priorityTaskByDate[DAY] = {
+    date: DAY,
+    title: "未完成重点事项",
+    status: "pending",
+    settledPenalty: false
+  };
+  const failedRuntime = createRuntime(failedState);
+  value(failedRuntime.context, `failPriorityTask("${DAY}")`);
+  assert.equal(value(failedRuntime.context, "priorityTaskSettlementAmount('failed')"), 1000);
+  assert.equal(value(failedRuntime.context, "state.coins"), 1000);
+  assert.equal(value(failedRuntime.context, "state.history[0].coinDelta"), -1000);
+  assert.equal(value(failedRuntime.context, "lastUndoData.priorityEntries[0].amount"), 1000);
+  value(failedRuntime.context, "pendingUndo.priorityEntries[0].amount = 123; undoLastAction()");
+  assert.equal(value(failedRuntime.context, "state.coins"), 2000);
+  assert.equal(value(failedRuntime.context, `state.priorityTaskByDate["${DAY}"].status`), "pending");
+});
+
+test("重点事项跨日自动失败使用同一处罚 helper", () => {
+  const previousDay = "2026-07-15";
+  const state = emptyState([], 2000);
+  state.priorityTaskByDate[previousDay] = {
+    date: previousDay,
+    title: "昨日重点事项",
+    status: "pending",
+    settledPenalty: false
+  };
+  const { context } = createRuntime(state);
+  const result = value(context, `settleMissedPriorityTasks(new Date("${FIXED_NOW}"))`);
+
+  assert.equal(result.count, 1);
+  assert.equal(result.totalPenalty, 1000);
+  assert.equal(value(context, "state.coins"), 1000);
+  assert.equal(value(context, "state.history[0].coinDelta"), -1000);
+  assert.equal(value(context, `state.priorityTaskByDate["${previousDay}"].status`), "failed");
+});
+
+test("重点事项当天详情优先显示历史事件里的实际金额", () => {
+  const state = emptyState([], 2000);
+  state.priorityTaskByDate[DAY] = {
+    date: DAY,
+    title: "旧重点事项",
+    status: "done",
+    rewardHistoryId: "old-priority-reward"
+  };
+  state.history = [{
+    id: "old-priority-reward",
+    type: "priority_task_reward",
+    date: DAY,
+    name: "旧重点事项",
+    coins: 10,
+    coinDelta: 10,
+    source: "behavior",
+    category: "habit_performance",
+    entityType: "priority_task",
+    affectsBehaviorScore: true
+  }];
+  const { context } = createRuntime(state);
+  value(context, `
+    escapeHtml = value => String(value);
+    escapeAttr = value => String(value);
+    iconActionButtonHtml = () => "";
+  `);
+  const html = value(context, `priorityTaskDetailHtml("${DAY}")`);
+
+  assert.match(html, /\+10\.00/);
+  assert.doesNotMatch(html, /\+100\.00/);
+});

@@ -4322,19 +4322,14 @@
     }
 
     html,
-    body {
-      background: #f7f6f1;
+    body,
+    .app {
+      background: var(--bg);
       color: var(--text);
     }
 
     body {
       min-height: 100dvh;
-    }
-
-    .app {
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 190px),
-        #f7f6f1;
     }
 
     .screen {

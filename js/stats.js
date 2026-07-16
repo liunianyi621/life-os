@@ -366,11 +366,21 @@
         : task.status === "failed"
           ? "未完成，已扣除"
           : "未完成";
-      const amount = task.status === "done"
-        ? PRIORITY_TASK_REWARD
+      const historyId = task.status === "done"
+        ? task.rewardHistoryId
         : task.status === "failed"
-          ? -PRIORITY_TASK_PENALTY
-          : 0;
+          ? task.penaltyHistoryId
+          : null;
+      const historyEntry = historyId
+        ? state.history.find(item => item.id === historyId)
+        : null;
+      const amount = historyEntry
+        ? historyCoinDelta(historyEntry)
+        : task.status === "done"
+          ? priorityTaskSettlementAmount("done")
+          : task.status === "failed"
+            ? -priorityTaskSettlementAmount("failed")
+            : 0;
       return `
         <div class="detail-list">
           <div class="detail-item detail-record-card">
