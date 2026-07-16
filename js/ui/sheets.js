@@ -54,8 +54,8 @@
         </label>
         <label class="field">
           <span class="field-label">奖励金币</span>
-          <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${taskRewardInputValue(task)}" placeholder="默认 2">
-          <span class="field-help">有时间任务按每小时计算；无时间任务按固定奖励计算。</span>
+          <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${taskRewardInputValue(task)}" placeholder="默认 20">
+          <span class="field-help">有时间任务默认 20 金币/小时；无时间任务按设置的固定奖励金额结算。</span>
         </label>
         <div class="field">
           <span class="field-label">开始时间</span>
