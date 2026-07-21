@@ -1,6 +1,6 @@
     const NO_BAD_HABIT_BONUS = 2;
     const PRIORITY_TASK_REWARD = 100;
-    const PRIORITY_TASK_PENALTY = 1000;
+    const PRIORITY_TASK_PENALTY = 500;
 
     function priorityTaskSettlementAmount(status) {
       if (status === "done") return parseCoinAmount(PRIORITY_TASK_REWARD);
@@ -396,9 +396,15 @@
         amount,
         date,
         timestamp: completedAt,
+        source: "behavior",
+        category: "habit_performance",
+        action: "priority_task_reward",
+        entityType: "priority_task",
         history: {
           name: task.title,
-          coins: amount
+          coins: amount,
+          rewardAmount: amount,
+          settlementRule: "fixed_priority_reward"
         }
       });
       const historyId = coinEvent.historyId;
@@ -448,9 +454,16 @@
         amount: -amount,
         date,
         timestamp: failedAt,
+        source: "behavior",
+        category: "habit_performance",
+        action: "priority_task_penalty",
+        entityType: "priority_task",
         history: {
           name: task.title,
-          coins: amount
+          coins: amount,
+          rewardAmount: PRIORITY_TASK_REWARD,
+          penaltyAmount: amount,
+          settlementRule: "fixed_priority_penalty"
         }
       });
       const historyId = coinEvent.historyId;
@@ -484,7 +497,7 @@
       if (!habit || habitCompletedToday(habitId)) return;
 
       const today = dateKey();
-      const amount = parseAmount(habit.coins);
+      const amount = habitRewardAmount(habit);
       const previousProgress = habitProgressSnapshot(today, habit.id);
       state.habitCompletions[today] = state.habitCompletions[today] || {};
       state.habitCompletions[today][habitId] = true;
@@ -532,7 +545,8 @@
       if (!task || taskResultToday(taskId)) return;
 
       const today = dateKey();
-      const amount = taskFailurePenalty(task);
+      const rewardAmount = taskRewardAmount(task);
+      const amount = getIncompletePenalty(rewardAmount);
       const previousTask = {
         status: task.status || "pending",
         startTime: task.startTime || null,
@@ -562,7 +576,10 @@
         history: {
           taskId: task.id,
           name: task.name,
-          coins: amount
+          coins: amount,
+          rewardAmount,
+          penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
+          penaltyAmount: amount
         }
       });
       const historyId = coinEvent.historyId;
@@ -606,7 +623,8 @@
         if (habitCompletedOnDate(habit.id, day)) return;
         if (habitFailedOnDate(habit.id, day)) return;
 
-        const amount = 10;
+        const rewardAmount = habitRewardAmount(habit);
+        const amount = getIncompletePenalty(rewardAmount);
         state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
         const coinEvent = recordCoinEvent({
           type: "habit_failed",
@@ -616,6 +634,9 @@
             habitId: habit.id,
             name: habit.name,
             coins: amount,
+            rewardAmount,
+            penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
+            penaltyAmount: amount,
             reason: "habit_missed"
           }
         });
@@ -625,12 +646,46 @@
           historyId,
           habitId: habit.id,
           date: day,
-          amount
+          amount,
+          rewardAmount,
+          penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER
         });
         totalPenalty = parseCoinAmount(totalPenalty + amount);
         count += 1;
       });
       return { count, totalPenalty, entries };
+    }
+
+    function settleMissedHabitsThroughDate(lastDay = yesterdayKey()) {
+      let checkedThrough = state.settledThroughDate || shiftDateKey(lastDay, -1);
+      const previousCheckedThrough = checkedThrough;
+      const entries = [];
+      let totalPenalty = 0;
+
+      if (checkedThrough >= lastDay) {
+        return {
+          count: 0,
+          totalPenalty: 0,
+          entries,
+          checkedThroughChanged: false
+        };
+      }
+
+      while (checkedThrough < lastDay) {
+        const day = shiftDateKey(checkedThrough, 1);
+        const result = settleMissedHabits(day);
+        entries.push(...result.entries);
+        totalPenalty = parseCoinAmount(totalPenalty + result.totalPenalty);
+        checkedThrough = day;
+      }
+
+      state.settledThroughDate = lastDay;
+      return {
+        count: entries.length,
+        totalPenalty,
+        entries,
+        checkedThroughChanged: previousCheckedThrough !== lastDay
+      };
     }
 
     function taskAutoFailedOnDate(taskId, day) {
@@ -730,13 +785,17 @@
       const entries = [];
       let totalPenalty = 0;
 
-      todayTasks().forEach(task => {
+      state.tasks.forEach(task => {
+        const taskDay = taskDate(task);
+        if (!taskDay || taskDay > today) return;
         if (!taskHasTime(task)) return;
-        if (taskResultToday(task.id)) return;
-        if (taskAutoFailedOnDate(task.id, today)) return;
+        if (state.taskResults?.[taskDay]?.[task.id]) return;
+        if (task.status === "completed" || task.status === "failed") return;
+        if (taskAutoFailedOnDate(task.id, taskDay)) return;
         if (!taskPastEndTime(task, now)) return;
 
-        const amount = taskFailurePenalty(task);
+        const rewardAmount = taskRewardAmount(task);
+        const amount = getIncompletePenalty(rewardAmount);
         const failedAt = now.toISOString();
         const previousTask = taskPreviousState(task);
 
@@ -750,28 +809,33 @@
               }
             : item
         ));
-        state.taskResults[today] = state.taskResults[today] || {};
-        state.taskResults[today][task.id] = "failed";
+        state.taskResults[taskDay] = state.taskResults[taskDay] || {};
+        state.taskResults[taskDay][task.id] = "failed";
         state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
         const coinEvent = recordCoinEvent({
           type: "task_failed",
           amount: -amount,
-          date: today,
+          date: taskDay,
           timestamp: failedAt,
           history: {
             taskId: task.id,
             name: task.name,
             coins: amount,
+            rewardAmount,
+            penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
+            penaltyAmount: amount,
             reason: "timeout"
           }
         });
         const historyId = coinEvent.historyId;
-        ensureDayRecord("taskAutoFailures", today)[task.id] = historyId;
+        ensureDayRecord("taskAutoFailures", taskDay)[task.id] = historyId;
         entries.push({
           historyId,
           taskId: task.id,
-          date: today,
+          date: taskDay,
           amount,
+          rewardAmount,
+          penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
           previousTask
         });
         totalPenalty = parseCoinAmount(totalPenalty + amount);
@@ -799,9 +863,16 @@
           amount: -amount,
           date: day,
           timestamp: failedAt,
+          source: "behavior",
+          category: "habit_performance",
+          action: "priority_task_penalty",
+          entityType: "priority_task",
           history: {
             name: task.title,
-            coins: amount
+            coins: amount,
+            rewardAmount: PRIORITY_TASK_REWARD,
+            penaltyAmount: amount,
+            settlementRule: "fixed_priority_penalty"
           }
         });
         const historyId = coinEvent.historyId;
@@ -926,7 +997,7 @@
 
     function runAutomaticChecks(options = {}) {
       const { showToast: shouldShowToast = true } = options;
-      const habitResult = settleMissedHabits();
+      const habitResult = settleMissedHabitsThroughDate();
       const taskResult = settleTimedTaskTimeouts();
       const priorityResult = settleMissedPriorityTasks();
       const bonusResult = settleNoBadHabitBonuses();
@@ -934,6 +1005,7 @@
         || taskResult.count > 0
         || priorityResult.count > 0
         || bonusResult.count > 0
+        || habitResult.checkedThroughChanged
         || bonusResult.checkedThroughChanged;
       if (!changed) return false;
 
@@ -1800,7 +1872,11 @@
         entries.forEach(entry => {
           removeDayValue("taskResults", entry.date, entry.taskId);
           restoreTaskState(entry.taskId, entry.previousTask);
-          restoredAmount = parseCoinAmount(restoredAmount + entry.amount);
+          const historyEntry = undoHistoryById.get(entry.historyId);
+          const actualAmount = historyEntry
+            ? Math.abs(historyCoinDelta(historyEntry))
+            : parseCoinAmount(entry.amount);
+          restoredAmount = parseCoinAmount(restoredAmount + actualAmount);
         });
         undoCoinEvent({ coinDelta: -restoredAmount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
@@ -1818,7 +1894,13 @@
       }
       if (undo.type === "habit_auto_failed" || undo.type === "automatic_failures") {
         const entries = undo.habitEntries || undo.entries || [];
-        const restoredAmount = entries.reduce((total, entry) => parseCoinAmount(total + entry.amount), 0);
+        const restoredAmount = entries.reduce((total, entry) => {
+          const historyEntry = undoHistoryById.get(entry.historyId);
+          const actualAmount = historyEntry
+            ? Math.abs(historyCoinDelta(historyEntry))
+            : parseCoinAmount(entry.amount);
+          return parseCoinAmount(total + actualAmount);
+        }, 0);
         undoCoinEvent({ coinDelta: -restoredAmount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
       }

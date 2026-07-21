@@ -293,7 +293,7 @@
             <div>
               <span class="priority-label">今天最重要的一件事</span>
               <h2>今天只放一件最重要的事</h2>
-              <p>完成 +100，未完成 -1000</p>
+              <p>完成 +100，未完成 -500</p>
             </div>
             <button class="button priority-set-button" type="button" data-open-priority>设定</button>
           </section>
@@ -333,7 +333,7 @@
               <h3>${escapeHtml(task.title)}</h3>
               <div class="meta-row">
                 <span class="pill green">完成 +100</span>
-                <span class="pill red">未完成 -1000</span>
+                <span class="pill red">未完成 -500</span>
                 ${done ? `<span class="pill green">已完成</span>` : ""}
                 ${failed ? `<span class="pill red">已扣除</span>` : ""}
               </div>
@@ -386,7 +386,7 @@
               <div class="title-wrap">
                 <h3>${escapeHtml(habit.name)}</h3>
                 <div class="meta-row">
-                  <span class="pill coin-pill">${formatNumber(parseAmount(habit.coins))} 金币</span>
+                  <span class="pill coin-pill">${formatNumber(habitRewardAmount(habit))} 金币</span>
                 </div>
               </div>
             </div>

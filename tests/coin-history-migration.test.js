@@ -192,7 +192,7 @@ test("过去金币金额只迁移一次，未来配置保持原值", () => {
   assert.equal(value(context, "TASK_FAILURE_MULTIPLIER"), 10);
   assert.equal(value(context, "NO_BAD_HABIT_BONUS"), 2);
   assert.equal(value(context, "PRIORITY_TASK_REWARD"), 100);
-  assert.equal(value(context, "PRIORITY_TASK_PENALTY"), 1000);
+  assert.equal(value(context, "PRIORITY_TASK_PENALTY"), 500);
   assert.equal(value(context, "state.totals.coinsSpent"), 500);
   assert.equal(value(context, "state.totals.coinsPenalty"), 100);
   assert.equal(value(context, "state.totals.earnedTaskCoins"), 11.7);

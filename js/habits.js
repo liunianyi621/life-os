@@ -1,3 +1,7 @@
+    function habitRewardAmount(habit) {
+      return Math.max(0, parseCoinAmount(habit?.coins));
+    }
+
     function saveHabit(habitData) {
       if (!habitData.name) {
         showToast("请输入习惯名称");

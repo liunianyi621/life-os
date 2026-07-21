@@ -108,7 +108,7 @@
         </label>
         <label class="field">
           <span class="field-label">金币数量</span>
-          <input name="coins" type="number" min="0" step="1" inputmode="numeric" value="${habit?.coins ?? ""}" placeholder="0">
+          <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${habit?.coins ?? ""}" placeholder="0">
         </label>
         <div class="sheet-actions">
           ${submitSheetButtonHtml(habit ? "保存习惯" : "创建习惯")}
@@ -292,7 +292,7 @@
       if (sheetMode === "habit") {
         saveHabit({
           name: String(formData.get("name") || "").trim(),
-          coins: parseAmount(formData.get("coins"))
+          coins: Math.max(0, parseCoinAmount(formData.get("coins")))
         });
       }
       if (sheetMode === "bad") {

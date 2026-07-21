@@ -80,6 +80,7 @@ function task(overrides = {}) {
 
 function createRuntime(state) {
   const storage = new Map([["minimal-discipline-v1", JSON.stringify(state)]]);
+  let uuid = 0;
   const context = {
     console,
     Date: FixedDate,
@@ -104,7 +105,7 @@ function createRuntime(state) {
     },
     window: { setTimeout, clearTimeout },
     document: {},
-    crypto: { randomUUID: () => "test-id" },
+    crypto: { randomUUID: () => `test-id-${uuid += 1}` },
     setTimeout,
     clearTimeout
   };
@@ -141,9 +142,14 @@ test("任务默认奖励为 20，失败统一按奖励乘以 10", () => {
   const { context } = createRuntime(emptyState());
 
   assert.equal(value(context, "DEFAULT_TASK_REWARD"), 20);
+  assert.equal(value(context, "INCOMPLETE_PENALTY_MULTIPLIER"), 10);
   assert.equal(value(context, "TASK_FAILURE_MULTIPLIER"), 10);
+  assert.equal(value(context, "getIncompletePenalty(1.5)"), 15);
+  assert.equal(value(context, "getIncompletePenalty(0)"), 0);
   assert.equal(value(context, "taskRewardInputValue(null)"), 20);
   assert.equal(value(context, "taskRewardAmount({})"), 20);
+  assert.equal(value(context, "taskRewardAmount({ coins: 0, reward: 0, hourlyReward: 0 })"), 0);
+  assert.equal(value(context, "taskFailurePenalty({ coins: 0, reward: 0, hourlyReward: 0 })"), 0);
   assert.equal(value(context, "taskFailurePenalty({})"), 200);
   assert.equal(value(context, "taskFailurePenalty({ coins: 30 })"), 300);
   assert.equal(value(context, "taskFailurePenalty({ coins: 1.5 })"), 15);
@@ -166,9 +172,13 @@ test("无时间任务完成获得设置金额，主动失败记录并撤回实�
   assert.equal(value(failedRuntime.context, "state.coins"), 800);
   assert.equal(value(failedRuntime.context, "state.history[0].coinDelta"), -200);
   assert.equal(value(failedRuntime.context, "state.history[0].coins"), 200);
+  assert.equal(value(failedRuntime.context, "state.history[0].rewardAmount"), 20);
+  assert.equal(value(failedRuntime.context, "state.history[0].penaltyMultiplier"), 10);
+  assert.equal(value(failedRuntime.context, "state.history[0].penaltyAmount"), 200);
+  assert.equal(value(failedRuntime.context, "state.history[0].source"), "behavior");
   assert.equal(value(failedRuntime.context, "lastUndoData.amount"), 200);
 
-  value(failedRuntime.context, `state.tasks[0].coins = 30; state.tasks[0].reward = 30; state.tasks[0].hourlyReward = 30; undoLastAction()`);
+  value(failedRuntime.context, `state.tasks[0].coins = 30; state.tasks[0].reward = 30; state.tasks[0].hourlyReward = 30; pendingUndo.amount = 1; undoLastAction()`);
   assert.equal(value(failedRuntime.context, "state.coins"), 1000);
   assert.equal(value(failedRuntime.context, "state.history.length"), 0);
 });
@@ -211,8 +221,86 @@ test("结束时间自动失败与主动失败使用同一 helper 和实际历史
   assert.equal(value(context, "state.coins"), 700);
   assert.equal(value(context, "state.history[0].coinDelta"), -300);
   assert.equal(value(context, "state.history[0].coins"), 300);
+  assert.equal(value(context, "state.history[0].rewardAmount"), 30);
+  assert.equal(value(context, "state.history[0].penaltyMultiplier"), 10);
   assert.equal(value(context, "state.history[0].reason"), "timeout");
   assert.equal(value(context, "state.taskAutoFailures['2026-07-16']['timeout-task']"), value(context, "state.history[0].id"));
+  const repeated = value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}"))`);
+  assert.equal(repeated.count, 0);
+  assert.equal(value(context, "state.coins"), 700);
+});
+
+test("跨日计时任务仍按原任务奖励乘以 10，并且只结算一次", () => {
+  const previousDay = "2026-07-15";
+  const { context } = createRuntime(emptyState([task({
+    id: "cross-day-timeout",
+    date: previousDay,
+    createdDate: previousDay,
+    coins: 30,
+    timeStart: "20:00",
+    timeEnd: "21:00"
+  })]));
+
+  const result = value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}"))`);
+  assert.equal(result.count, 1);
+  assert.equal(result.totalPenalty, 300);
+  assert.equal(value(context, "state.history[0].date"), previousDay);
+  assert.equal(value(context, "state.history[0].coinDelta"), -300);
+  assert.equal(value(context, `state.taskResults["${previousDay}"]["cross-day-timeout"]`), "failed");
+  assert.equal(value(context, `state.taskAutoFailures["${previousDay}"]["cross-day-timeout"]`), value(context, "state.history[0].id"));
+
+  const repeated = value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}"))`);
+  assert.equal(repeated.count, 0);
+  assert.equal(value(context, "state.coins"), 700);
+});
+
+test("习惯完成使用自身奖励，未完成统一按奖励乘以 10", () => {
+  const completedState = emptyState([], 1000);
+  completedState.habits = [{ id: "habit-complete", name: "收拾屋子", coins: 10, createdDate: "2026-07-15" }];
+  const completedRuntime = createRuntime(completedState);
+  value(completedRuntime.context, `completeHabit("habit-complete")`);
+  assert.equal(value(completedRuntime.context, "state.coins"), 1010);
+  assert.equal(value(completedRuntime.context, "state.history[0].coinDelta"), 10);
+
+  const missedState = emptyState([], 1000);
+  missedState.habits = [{ id: "habit-missed", name: "收拾屋子", coins: 10, createdDate: "2026-07-14" }];
+  const missedRuntime = createRuntime(missedState);
+  const missed = value(missedRuntime.context, `settleMissedHabits("2026-07-15")`);
+  assert.equal(missed.count, 1);
+  assert.equal(missed.totalPenalty, 100);
+  assert.equal(value(missedRuntime.context, "state.coins"), 900);
+  assert.equal(value(missedRuntime.context, "state.history[0].coinDelta"), -100);
+  assert.equal(value(missedRuntime.context, "state.history[0].rewardAmount"), 10);
+  assert.equal(value(missedRuntime.context, "state.history[0].penaltyMultiplier"), 10);
+  assert.equal(value(missedRuntime.context, "state.history[0].penaltyAmount"), 100);
+  assert.equal(value(missedRuntime.context, "state.history[0].habitId"), "habit-missed");
+  assert.equal(value(missedRuntime.context, "state.history[0].source"), "behavior");
+  assert.equal(value(missedRuntime.context, `settleMissedHabits("2026-07-15").count`), 0);
+  assert.equal(value(missedRuntime.context, "state.coins"), 900);
+
+  const twentyState = emptyState([], 1000);
+  twentyState.habits = [{ id: "habit-twenty", name: "看书", coins: 20, createdDate: "2026-07-14" }];
+  const twentyRuntime = createRuntime(twentyState);
+  value(twentyRuntime.context, `settleMissedHabits("2026-07-15")`);
+  assert.equal(value(twentyRuntime.context, "state.coins"), 800);
+  assert.equal(value(twentyRuntime.context, "state.history[0].coinDelta"), -200);
+});
+
+test("习惯跨日结算补齐未检查日期，撤回读取历史实际扣除", () => {
+  const state = emptyState([], 1000);
+  state.settledThroughDate = "2026-07-14";
+  state.habits = [{ id: "habit-undo", name: "看书", coins: 10, createdDate: "2026-07-15" }];
+  const { context } = createRuntime(state);
+
+  value(context, "runAutomaticChecks()");
+  assert.equal(value(context, "state.settledThroughDate"), "2026-07-15");
+  assert.equal(value(context, "state.coins"), 900);
+  assert.equal(value(context, "state.history[0].coinDelta"), -100);
+  value(context, "pendingUndo.habitEntries[0].amount = 1; undoLastAction()");
+  assert.equal(value(context, "state.coins"), 1000);
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "runAutomaticChecks()"), false);
+  assert.equal(value(context, "state.coins"), 1000);
 });
 
 test("日详情删除失败记录按历史实际金额返还", async () => {
@@ -249,7 +337,7 @@ test("迁移标记存在时，新任务的 20 和 200 不会再次乘以 10", ()
   assert.equal(value(reloaded.context, "state.history[0].coins"), 200);
 });
 
-test("重点事项完成和主动失败使用 100 / 1000，并按历史实际金额撤回", () => {
+test("重点事项完成和主动失败固定使用 100 / 500，并按历史实际金额撤回", () => {
   const completedState = emptyState([], 2000);
   completedState.priorityTaskByDate[DAY] = {
     date: DAY,
@@ -276,10 +364,12 @@ test("重点事项完成和主动失败使用 100 / 1000，并按历史实际金
   };
   const failedRuntime = createRuntime(failedState);
   value(failedRuntime.context, `failPriorityTask("${DAY}")`);
-  assert.equal(value(failedRuntime.context, "priorityTaskSettlementAmount('failed')"), 1000);
-  assert.equal(value(failedRuntime.context, "state.coins"), 1000);
-  assert.equal(value(failedRuntime.context, "state.history[0].coinDelta"), -1000);
-  assert.equal(value(failedRuntime.context, "lastUndoData.priorityEntries[0].amount"), 1000);
+  assert.equal(value(failedRuntime.context, "priorityTaskSettlementAmount('failed')"), 500);
+  assert.equal(value(failedRuntime.context, "state.coins"), 1500);
+  assert.equal(value(failedRuntime.context, "state.history[0].coinDelta"), -500);
+  assert.equal(value(failedRuntime.context, "state.history[0].rewardAmount"), 100);
+  assert.equal(value(failedRuntime.context, "state.history[0].settlementRule"), "fixed_priority_penalty");
+  assert.equal(value(failedRuntime.context, "lastUndoData.priorityEntries[0].amount"), 500);
   value(failedRuntime.context, "pendingUndo.priorityEntries[0].amount = 123; undoLastAction()");
   assert.equal(value(failedRuntime.context, "state.coins"), 2000);
   assert.equal(value(failedRuntime.context, `state.priorityTaskByDate["${DAY}"].status`), "pending");
@@ -298,9 +388,9 @@ test("重点事项跨日自动失败使用同一处罚 helper", () => {
   const result = value(context, `settleMissedPriorityTasks(new Date("${FIXED_NOW}"))`);
 
   assert.equal(result.count, 1);
-  assert.equal(result.totalPenalty, 1000);
-  assert.equal(value(context, "state.coins"), 1000);
-  assert.equal(value(context, "state.history[0].coinDelta"), -1000);
+  assert.equal(result.totalPenalty, 500);
+  assert.equal(value(context, "state.coins"), 1500);
+  assert.equal(value(context, "state.history[0].coinDelta"), -500);
   assert.equal(value(context, `state.priorityTaskByDate["${previousDay}"].status`), "failed");
 });
 

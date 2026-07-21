@@ -1,5 +1,12 @@
     const DEFAULT_TASK_REWARD = 20;
-    const TASK_FAILURE_MULTIPLIER = 10;
+    const INCOMPLETE_PENALTY_MULTIPLIER = 10;
+    const TASK_FAILURE_MULTIPLIER = INCOMPLETE_PENALTY_MULTIPLIER;
+
+    function getIncompletePenalty(rewardAmount) {
+      const reward = Number(rewardAmount);
+      if (!Number.isFinite(reward) || reward <= 0) return 0;
+      return parseCoinAmount(reward * INCOMPLETE_PENALTY_MULTIPLIER);
+    }
 
     function firstPresentValue(values) {
       return values.find(value => String(value ?? "").trim() !== "");
@@ -33,16 +40,16 @@
 
     function taskRewardInputValue(task) {
       const value = Number(firstPresentValue([task?.hourlyReward, task?.reward, task?.coins]));
-      return Number.isFinite(value) && value > 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
+      return Number.isFinite(value) && value >= 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
     }
 
     function taskRewardAmount(task) {
       const value = Number(firstPresentValue([task?.hourlyReward, task?.reward, task?.coins]));
-      return Number.isFinite(value) && value > 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
+      return Number.isFinite(value) && value >= 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
     }
 
     function taskFailurePenalty(task) {
-      return parseCoinAmount(taskRewardAmount(task) * TASK_FAILURE_MULTIPLIER);
+      return getIncompletePenalty(taskRewardAmount(task));
     }
 
     function taskHasTime(task) {
