@@ -913,6 +913,17 @@
       font-size: 1rem;
     }
 
+    .task-empty-add-state {
+      display: grid;
+      min-height: 132px;
+      padding: 18px;
+      place-items: center;
+    }
+
+    .task-empty-add-button {
+      margin: 0;
+    }
+
     .empty-action {
       margin-top: 14px;
     }

@@ -450,11 +450,9 @@
       const tasksForToday = todayTasks();
       if (!tasksForToday.length) {
         els.todayTaskList.innerHTML = `
-          <div class="empty-state">
-            <strong>今天没有任务</strong>
-            <p>添加一个你今天必须完成的任务。</p>
+          <div class="empty-state task-empty-add-state">
             ${iconActionButtonHtml({
-              className: "button icon-only-button empty-action",
+              className: "icon-button task-empty-add-button",
               icon: "plus",
               label: "新建任务",
               attrs: "data-open-task"
@@ -467,9 +465,13 @@
       const activeTasks = tasksForToday.filter(task => !taskResultToday(task.id));
       if (!activeTasks.length) {
         els.todayTaskList.innerHTML = `
-          <div class="empty-state">
-            <strong>今日任务已清空</strong>
-            <p>今天的选择已经记录。明天会重新开始。</p>
+          <div class="empty-state task-empty-add-state">
+            ${iconActionButtonHtml({
+              className: "icon-button task-empty-add-button",
+              icon: "plus",
+              label: "新建任务",
+              attrs: "data-open-task"
+            })}
           </div>
         `;
         return;
