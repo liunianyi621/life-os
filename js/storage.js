@@ -27,6 +27,11 @@
       rewards: [],
       achievements: [],
       priorityTaskByDate: {},
+      priorityStartSettings: {
+        weekKey: null,
+        emergencyModeSwitchUsed: false,
+        emergencyModeSwitchDate: null
+      },
       nextStep: {
         taskId: null,
         updatedAt: null
@@ -336,14 +341,28 @@
         if (!title) return normalized;
         const status = ["pending", "done", "failed"].includes(task?.status) ? task.status : "pending";
         normalized[date] = {
+          ...task,
           date,
           title,
           status,
+          dayMode: normalizePriorityDayMode(task?.dayMode),
+          latestStartTime: normalizePriorityLatestStartTime(task?.latestStartTime),
+          firstAction: String(task?.firstAction || "").trim(),
           completedAt: task?.completedAt || null,
           failedAt: task?.failedAt || null,
           settledPenalty: Boolean(task?.settledPenalty),
           rewardHistoryId: task?.rewardHistoryId || null,
           penaltyHistoryId: task?.penaltyHistoryId || null,
+          linkedTaskId: task?.linkedTaskId || null,
+          startedAt: task?.startedAt || null,
+          startedOnTime: typeof task?.startedOnTime === "boolean" ? task.startedOnTime : null,
+          startDelayMinutes: Number.isFinite(Number(task?.startDelayMinutes)) ? Number(task.startDelayMinutes) : null,
+          latestStartTimeAtStart: task?.latestStartTimeAtStart || null,
+          startChallengeEndTime: task?.startChallengeEndTime || null,
+          startChallengeCompleted: Boolean(task?.startChallengeCompleted),
+          startChallengeCompletedAt: task?.startChallengeCompletedAt || null,
+          startChallengeCompletionNotified: Boolean(task?.startChallengeCompletionNotified),
+          emergencyModeSwitchUsed: Boolean(task?.emergencyModeSwitchUsed),
           createdAt: task?.createdAt || new Date().toISOString(),
           updatedAt: task?.updatedAt || new Date().toISOString()
         };
@@ -577,6 +596,9 @@
           rewards: Array.isArray(saved.rewards) ? normalizeRewards(saved.rewards) : defaultFundRewards(),
           achievements: normalizeAchievements(saved.achievements),
           priorityTaskByDate: normalizePriorityTasks(saved.priorityTaskByDate),
+          priorityStartSettings: saved.priorityStartSettings && typeof saved.priorityStartSettings === "object"
+            ? { ...cloneEmptyState().priorityStartSettings, ...saved.priorityStartSettings }
+            : cloneEmptyState().priorityStartSettings,
           nextStep: saved.nextStep && typeof saved.nextStep === "object"
             ? { ...cloneEmptyState().nextStep, ...saved.nextStep }
             : cloneEmptyState().nextStep,
@@ -1032,19 +1054,95 @@
       return task ? { ...task } : null;
     }
 
-    function setPriorityTaskForDate(day, title) {
+    function normalizePriorityDayMode(value) {
+      return value === "outdoor" ? "outdoor" : "standard";
+    }
+
+    function normalizePriorityLatestStartTime(value) {
+      const match = String(value || "").trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+      return match ? `${match[1]}:${match[2]}` : "11:30";
+    }
+
+    function priorityDayMode(task) {
+      return normalizePriorityDayMode(task?.dayMode);
+    }
+
+    function priorityLatestStartTime(task) {
+      return normalizePriorityLatestStartTime(task?.latestStartTime);
+    }
+
+    function priorityWeekKey(day = dateKey()) {
+      const weekStart = dateFromKey(day);
+      const daysSinceMonday = (weekStart.getDay() + 6) % 7;
+      weekStart.setDate(weekStart.getDate() - daysSinceMonday);
+      return dateKey(weekStart);
+    }
+
+    function ensurePriorityStartSettings() {
+      const current = state.priorityStartSettings && typeof state.priorityStartSettings === "object"
+        ? state.priorityStartSettings
+        : {};
+      state.priorityStartSettings = {
+        weekKey: current.weekKey || null,
+        emergencyModeSwitchUsed: Boolean(current.emergencyModeSwitchUsed),
+        emergencyModeSwitchDate: current.emergencyModeSwitchDate || null
+      };
+      return state.priorityStartSettings;
+    }
+
+    function resetPriorityEmergencyModeSwitchForWeek(now = new Date()) {
+      const settings = ensurePriorityStartSettings();
+      const weekKey = priorityWeekKey(dateKey(now));
+      if (settings.weekKey === weekKey) return false;
+      state.priorityStartSettings = {
+        weekKey,
+        emergencyModeSwitchUsed: false,
+        emergencyModeSwitchDate: null
+      };
+      return true;
+    }
+
+    function priorityTimeToMinutes(value) {
+      const match = String(value || "").trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+      return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+    }
+
+    function priorityStartDeadline(task, now = new Date()) {
+      const day = normalizeReviewDateKey(task?.date || dateKey(now));
+      const minutes = priorityTimeToMinutes(priorityLatestStartTime(task));
+      const deadline = dateFromKey(day);
+      deadline.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+      return deadline;
+    }
+
+    function setPriorityTaskForDate(day, title, options = {}) {
       const date = normalizeReviewDateKey(day);
       const now = new Date().toISOString();
       const previous = priorityTaskForDate(date);
+      const resetStart = Boolean(options.resetStart);
       ensurePriorityTasks()[date] = {
+        ...previous,
         date,
         title: String(title || "").trim(),
+        dayMode: normalizePriorityDayMode(options.dayMode ?? previous?.dayMode),
+        latestStartTime: normalizePriorityLatestStartTime(options.latestStartTime ?? previous?.latestStartTime),
+        firstAction: String(options.firstAction ?? previous?.firstAction ?? "").trim(),
         status: previous?.status || "pending",
         completedAt: previous?.completedAt || null,
         failedAt: previous?.failedAt || null,
         settledPenalty: Boolean(previous?.settledPenalty),
         rewardHistoryId: previous?.rewardHistoryId || null,
         penaltyHistoryId: previous?.penaltyHistoryId || null,
+        linkedTaskId: options.linkedTaskId ?? previous?.linkedTaskId ?? null,
+        startedAt: resetStart ? null : previous?.startedAt || null,
+        startedOnTime: resetStart ? null : typeof previous?.startedOnTime === "boolean" ? previous.startedOnTime : null,
+        startDelayMinutes: resetStart ? null : Number.isFinite(Number(previous?.startDelayMinutes)) ? Number(previous.startDelayMinutes) : null,
+        latestStartTimeAtStart: resetStart ? null : previous?.latestStartTimeAtStart || null,
+        startChallengeEndTime: resetStart ? null : previous?.startChallengeEndTime || null,
+        startChallengeCompleted: resetStart ? false : Boolean(previous?.startChallengeCompleted),
+        startChallengeCompletedAt: resetStart ? null : previous?.startChallengeCompletedAt || null,
+        startChallengeCompletionNotified: resetStart ? false : Boolean(previous?.startChallengeCompletionNotified),
+        emergencyModeSwitchUsed: Boolean(options.emergencyModeSwitchUsed ?? previous?.emergencyModeSwitchUsed),
         createdAt: previous?.createdAt || now,
         updatedAt: now
       };

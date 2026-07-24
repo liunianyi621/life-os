@@ -397,6 +397,23 @@
       `;
     }
 
+    function priorityStartRecordDetailHtml(day) {
+      const task = priorityTaskForDate(day);
+      if (!task) return `<p class="detail-empty">当天没有设置重点事项。</p>`;
+      if (priorityDayMode(task) === "outdoor") {
+        const startedAt = priorityStartLabel(task.startedAt);
+        return `<p class="detail-empty">外出工作日：${startedAt ? `已开工 ${escapeHtml(startedAt)}` : "当天未开工"}</p>`;
+      }
+      if (!task.startedAt) return `<p class="detail-empty">当天未启动。</p>`;
+      const startedAt = priorityStartLabel(task.startedAt);
+      const label = task.startedOnTime ? "按时开始" : "迟到开始";
+      const delay = !task.startedOnTime && Number(task.startDelayMinutes) > 0
+        ? ` · 晚 ${formatNumber(task.startDelayMinutes)} 分钟`
+        : "";
+      const challenge = task.startChallengeCompleted ? " · 已完成 10 分钟启动" : " · 启动挑战中";
+      return `<p class="detail-empty">${escapeHtml(`${label}：${startedAt}${delay}${challenge}`)}</p>`;
+    }
+
     function dayReviewDetailHtml(day) {
       const review = state.dailyReviews?.[day];
       if (!review || (!review.best && !review.mistake && !review.priority)) {
@@ -474,6 +491,11 @@
           "今天最重要的一件事",
           priorityTaskForDate(day) ? 1 : 0,
           priorityTaskDetailHtml(day)
+        )}
+        ${detailSectionHtml(
+          "启动记录",
+          priorityTaskForDate(day) ? 1 : 0,
+          priorityStartRecordDetailHtml(day)
         )}
         ${detailSectionHtml(
           "失败任务",

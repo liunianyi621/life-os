@@ -27,6 +27,28 @@
           <span class="field-label">今天最重要的一件事</span>
           <input name="title" type="text" maxlength="80" value="${escapeAttr(task?.title || "")}" placeholder="只写一件最重要的事" required>
         </label>
+        <fieldset class="field priority-mode-field">
+          <legend class="field-label">今日模式</legend>
+          <div class="priority-mode-options">
+            <label class="priority-mode-option">
+              <input name="dayMode" type="radio" value="standard" ${priorityDayMode(task) === "standard" ? "checked" : ""}>
+              <span>标准日</span>
+            </label>
+            <label class="priority-mode-option">
+              <input name="dayMode" type="radio" value="outdoor" ${priorityDayMode(task) === "outdoor" ? "checked" : ""}>
+              <span>拍摄 / 外出工作日</span>
+            </label>
+          </div>
+        </fieldset>
+        <label class="field">
+          <span class="field-label">最晚启动时间</span>
+          <input name="latestStartTime" type="time" value="${escapeAttr(priorityLatestStartTime(task))}" required>
+          <span class="field-help">标准日默认 11:30，建议前一天设定。</span>
+        </label>
+        <label class="field">
+          <span class="field-label">第一个动作</span>
+          <input name="firstAction" type="text" maxlength="120" value="${escapeAttr(task?.firstAction || "")}" placeholder="写一个现在就能做的小动作">
+        </label>
         <div class="sheet-actions">
           ${submitSheetButtonHtml(task ? "保存重点" : "设定重点")}
         </div>
@@ -36,6 +58,51 @@
       `;
       openSheet({ position: "top" });
       focusSheetField("input[name='title']");
+    }
+
+    function openPriorityStartPromptSheet(day = dateKey()) {
+      const priorityDate = normalizeReviewDateKey(day);
+      const task = priorityTaskForDate(priorityDate);
+      if (!task || !priorityStartPromptDue(task)) return;
+      sheetMode = "priority-start-prompt";
+      editingId = priorityDate;
+      els.sheetTitle.textContent = "现在只做 10 分钟";
+      els.sheetForm.innerHTML = `
+        <section class="priority-start-prompt">
+          <p>不用完成它，先开始就好。</p>
+          <div class="priority-start-prompt-task">
+            <strong>${escapeHtml(task.title)}</strong>
+            ${task.firstAction ? `<span>${escapeHtml(task.firstAction)}</span>` : ""}
+          </div>
+          <div class="priority-start-prompt-actions">
+            <button class="button priority-prompt-command" type="button" data-priority-start="${escapeAttr(priorityDate)}">开始 10 分钟</button>
+            <button class="ghost-button priority-prompt-command" type="button" data-priority-switch="${escapeAttr(priorityDate)}">换一件事</button>
+          </div>
+        </section>
+      `;
+      openSheet({ position: "top" });
+    }
+
+    function openPrioritySwitchTaskSheet(day = dateKey()) {
+      const priorityDate = normalizeReviewDateKey(day);
+      const tasks = activeTasksToday();
+      sheetMode = "priority-start-switch";
+      editingId = priorityDate;
+      els.sheetTitle.textContent = "换一件事";
+      els.sheetForm.innerHTML = `
+        <section class="priority-start-prompt">
+          <p>选一件现在能立刻开始的事。</p>
+          <div class="priority-switch-list">
+            ${tasks.length ? tasks.map(task => `
+              <button class="priority-switch-option" type="button" data-priority-switch-task="${escapeAttr(task.id)}" data-priority-switch-day="${escapeAttr(priorityDate)}">
+                ${escapeHtml(task.name)}
+              </button>
+            `).join("") : `<p class="priority-switch-empty">还没有未完成任务。</p>`}
+          </div>
+          <button class="ghost-button priority-prompt-command" type="button" data-priority-switch-new="${escapeAttr(priorityDate)}">新建任务</button>
+        </section>
+      `;
+      openSheet({ position: "top" });
     }
 
     function openTaskSheet(taskId = null) {
@@ -242,10 +309,13 @@
       syncModalState();
     }
 
-    function closeSheet() {
+    function closeSheet(options = {}) {
       els.sheetBackdrop.classList.add("hidden");
       els.sheetBackdrop.setAttribute("aria-hidden", "true");
       delete els.sheetBackdrop.dataset.sheetPosition;
+      if (!options.preservePriorityTaskStart && typeof clearPendingPriorityTaskStartAfterCreate === "function") {
+        clearPendingPriorityTaskStartAfterCreate();
+      }
       sheetMode = null;
       editingId = null;
       editingReviewDate = null;
@@ -285,8 +355,11 @@
         });
       }
       if (sheetMode === "priority") {
-        savePriorityTask({
-          title: String(formData.get("title") || "").trim()
+        await savePriorityTask({
+          title: String(formData.get("title") || "").trim(),
+          dayMode: String(formData.get("dayMode") || "standard"),
+          latestStartTime: String(formData.get("latestStartTime") || "").trim(),
+          firstAction: String(formData.get("firstAction") || "").trim()
         });
       }
       if (sheetMode === "habit") {
@@ -323,23 +396,64 @@
       }
     }
 
-    function savePriorityTask(priorityData) {
+    async function savePriorityTask(priorityData) {
       const title = String(priorityData.title || "").trim();
       if (!title) {
         showToast("请输入今天最重要的一件事");
-        return;
+        return false;
       }
       const day = normalizeReviewDateKey(editingId || dateKey());
       const existing = priorityTaskForDate(day);
       if (existing && existing.status !== "pending") {
         showToast("已结算，不能编辑");
-        return;
+        return false;
       }
-      setPriorityTaskForDate(day, title);
+      const now = new Date();
+      const nextMode = normalizePriorityDayMode(priorityData.dayMode);
+      const currentMode = priorityDayMode(existing);
+      const afterEleven = now.getHours() * 60 + now.getMinutes() >= 11 * 60;
+      const needsEmergencySwitch = day === dateKey(now)
+        && afterEleven
+        && currentMode === "standard"
+        && nextMode === "outdoor";
+      let emergencyModeSwitchUsed = Boolean(existing?.emergencyModeSwitchUsed);
+
+      if (needsEmergencySwitch) {
+        resetPriorityEmergencyModeSwitchForWeek(now);
+        const settings = ensurePriorityStartSettings();
+        if (settings.emergencyModeSwitchUsed) {
+          showToast("本周临时切换已用完");
+          return false;
+        }
+        const confirmed = await askForConfirmation({
+          title: "切换为外出工作日？",
+          message: "本周仅有一次临时切换机会。",
+          confirmText: "切换"
+        });
+        if (!confirmed) return false;
+        state.priorityStartSettings = {
+          ...ensurePriorityStartSettings(),
+          weekKey: priorityWeekKey(dateKey(now)),
+          emergencyModeSwitchUsed: true,
+          emergencyModeSwitchDate: dateKey(now)
+        };
+        emergencyModeSwitchUsed = true;
+      }
+
+      setPriorityTaskForDate(day, title, {
+        dayMode: nextMode,
+        latestStartTime: normalizePriorityLatestStartTime(priorityData.latestStartTime),
+        firstAction: priorityData.firstAction,
+        emergencyModeSwitchUsed
+      });
       saveState();
       closeSheet();
       render();
+      schedulePriorityStartChecks(now);
+      const updatedTask = priorityTaskForDate(day);
+      if (priorityStartPromptDue(updatedTask, now)) queuePriorityStartPrompt(updatedTask);
       showToast(existing ? "重点已更新" : "重点已设定");
+      return true;
     }
 
     function saveNote(noteData) {

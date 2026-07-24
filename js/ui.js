@@ -303,18 +303,39 @@
 
       const done = task.status === "done";
       const failed = task.status === "failed";
+      const outdoor = priorityDayMode(task) === "outdoor";
+      const challengeSeconds = priorityStartChallengeRemainingSeconds(task);
+      const challengeMinutes = Math.max(1, Math.ceil(challengeSeconds / 60));
+      const startStatus = !task.startedAt
+        ? ""
+        : outdoor
+          ? `<span class="pill">已开工</span>`
+          : challengeSeconds > 0
+            ? `<span class="pill">先做 10 分钟 · 还剩 ${challengeMinutes} 分钟</span>`
+            : task.startedOnTime
+              ? `<span class="pill green">已按时开始</span>`
+              : `<span class="pill">已开始 · 晚于计划</span>`;
       const priorityActions = task.status === "pending"
-        ? actionButtonHtml({
-            tone: "green",
-            icon: "checkmark.circle",
-            label: "完成今天最重要的一件事",
-            attrs: `data-complete-priority="${escapeAttr(task.date)}"`
-          }) + actionButtonHtml({
-            tone: "red",
-            icon: "xmark.circle",
-            label: "标记今天最重要的一件事为未完成",
-            attrs: `data-fail-priority="${escapeAttr(task.date)}"`
-          })
+        ? [
+            !task.startedAt ? actionButtonHtml({
+              tone: "blue",
+              icon: "play.circle",
+              label: outdoor ? "开工" : "开始",
+              attrs: `data-start-priority="${escapeAttr(task.date)}"`
+            }) : "",
+            actionButtonHtml({
+              tone: "green",
+              icon: "checkmark.circle",
+              label: "完成今天最重要的一件事",
+              attrs: `data-complete-priority="${escapeAttr(task.date)}"`
+            }),
+            actionButtonHtml({
+              tone: "red",
+              icon: "xmark.circle",
+              label: "标记今天最重要的一件事为未完成",
+              attrs: `data-fail-priority="${escapeAttr(task.date)}"`
+            })
+          ].join("")
         : actionButtonHtml({
             tone: done ? "green" : "red",
             icon: done ? "checkmark.circle" : "xmark.circle",
@@ -323,6 +344,7 @@
           });
       els.priorityTaskCard.innerHTML = swipeRowHtml({
         attrs: `data-priority-card="${escapeAttr(task.date)}"`,
+        actionWidth: task.status === "pending" ? (task.startedAt ? 168 : 252) : 84,
         editType: "priority",
         editId: task.date,
         actions: priorityActions,
@@ -334,9 +356,12 @@
               <div class="meta-row">
                 <span class="pill green">完成 +100</span>
                 <span class="pill red">未完成 -500</span>
+                ${task.status === "pending" ? `<span class="pill">最晚 ${escapeHtml(priorityLatestStartTime(task))}</span>` : ""}
                 ${done ? `<span class="pill green">已完成</span>` : ""}
                 ${failed ? `<span class="pill red">已扣除</span>` : ""}
+                ${startStatus}
               </div>
+              ${task.firstAction && task.status === "pending" ? `<p class="priority-first-action">第一步：${escapeHtml(task.firstAction)}</p>` : ""}
             </div>
           </div>
         `
@@ -719,6 +744,11 @@
       const completeTaskButton = event.target.closest("[data-complete-task]");
       const completePriorityButton = event.target.closest("[data-complete-priority]");
       const failPriorityButton = event.target.closest("[data-fail-priority]");
+      const startPriorityButton = event.target.closest("[data-start-priority]");
+      const priorityStartPromptButton = event.target.closest("[data-priority-start]");
+      const prioritySwitchButton = event.target.closest("[data-priority-switch]");
+      const prioritySwitchTaskButton = event.target.closest("[data-priority-switch-task]");
+      const prioritySwitchNewButton = event.target.closest("[data-priority-switch-new]");
       const startTaskButton = event.target.closest("[data-start-task]");
       const stopTaskButton = event.target.closest("[data-stop-task]");
       const completeHabitButton = event.target.closest("[data-complete-habit]");
@@ -796,6 +826,33 @@
       }
       if (failPriorityButton) {
         failPriorityTask(failPriorityButton.dataset.failPriority, failPriorityButton.closest("[data-priority-card]"));
+      }
+      if (startPriorityButton) {
+        startPriorityTask(startPriorityButton.dataset.startPriority, startPriorityButton.closest("[data-priority-card]"));
+      }
+      if (priorityStartPromptButton) {
+        const day = priorityStartPromptButton.dataset.priorityStart;
+        startPriorityTask(day);
+        closeSheet();
+        return;
+      }
+      if (prioritySwitchButton) {
+        openPrioritySwitchTaskSheet(prioritySwitchButton.dataset.prioritySwitch);
+        return;
+      }
+      if (prioritySwitchTaskButton) {
+        replacePriorityTaskWithTodayTask(
+          prioritySwitchTaskButton.dataset.prioritySwitchDay,
+          prioritySwitchTaskButton.dataset.prioritySwitchTask
+        );
+        closeSheet();
+        return;
+      }
+      if (prioritySwitchNewButton) {
+        queuePriorityTaskStartAfterCreate(prioritySwitchNewButton.dataset.prioritySwitchNew);
+        closeSheet({ preservePriorityTaskStart: true });
+        openTaskSheet();
+        return;
       }
       if (startTaskButton) {
         startTask(startTaskButton.dataset.startTask, startTaskButton.closest("[data-task-card]"));
@@ -940,6 +997,14 @@
           closeSheet();
         }
       }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        priorityStartPromptSessionDay = null;
+        return;
+      }
+      if (document.visibilityState === "visible" && runAutomaticChecks()) render();
     });
 
     installSheetViewportSync();

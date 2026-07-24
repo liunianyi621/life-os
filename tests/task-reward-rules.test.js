@@ -125,6 +125,9 @@ function createRuntime(state) {
     scheduleRender = () => {};
     render = () => {};
     showToast = message => { globalThis.lastToast = message; };
+    showInfoToast = (lines, duration, icon) => {
+      globalThis.lastInfoToast = { lines, duration, icon };
+    };
     showUndoToast = (undoData, options) => {
       pendingUndo = { ...undoData };
       globalThis.lastUndoData = JSON.parse(JSON.stringify(undoData));
@@ -424,4 +427,109 @@ test("重点事项当天详情优先显示历史事件里的实际金额", () =>
 
   assert.match(html, /\+10\.00/);
   assert.doesNotMatch(html, /\+100\.00/);
+});
+
+test("重点事项最晚启动时间、10 分钟挑战和外出工作日不影响金币", () => {
+  const standardState = emptyState([], 2000);
+  standardState.priorityTaskByDate[DAY] = {
+    date: DAY,
+    title: "整理作品",
+    status: "pending",
+    settledPenalty: false
+  };
+  const { context: standardContext } = createRuntime(standardState);
+
+  assert.equal(value(standardContext, `priorityLatestStartTime(priorityTaskForDate("${DAY}"))`), "11:30");
+  assert.equal(value(standardContext, `priorityStartPromptDue(priorityTaskForDate("${DAY}"), new Date("${DAY}T11:29:00"))`), false);
+  assert.equal(value(standardContext, `priorityStartPromptDue(priorityTaskForDate("${DAY}"), new Date("${DAY}T11:30:00"))`), true);
+
+  value(standardContext, `startPriorityTask("${DAY}", null, new Date("${DAY}T10:42:00"))`);
+  assert.equal(value(standardContext, `state.coins`), 2000);
+  assert.equal(value(standardContext, `state.history.length`), 0);
+  assert.equal(value(standardContext, `state.priorityTaskByDate["${DAY}"].startedOnTime`), true);
+  assert.equal(value(standardContext, `new Date(state.priorityTaskByDate["${DAY}"].startChallengeEndTime).getTime() - new Date(state.priorityTaskByDate["${DAY}"].startedAt).getTime()`), 10 * 60 * 1000);
+
+  const completed = value(standardContext, `refreshPriorityStartState(new Date("${DAY}T10:52:01"))`);
+  assert.equal(completed.challengeCompleted, true);
+  assert.equal(value(standardContext, `state.priorityTaskByDate["${DAY}"].startChallengeCompleted`), true);
+  assert.equal(value(standardContext, `state.coins`), 2000);
+
+  const lateState = emptyState([], 2000);
+  lateState.priorityTaskByDate[DAY] = {
+    date: DAY,
+    title: "晚启动重点",
+    status: "pending",
+    latestStartTime: "11:30",
+    settledPenalty: false
+  };
+  const { context: lateContext } = createRuntime(lateState);
+  value(lateContext, `startPriorityTask("${DAY}", null, new Date("${DAY}T12:10:00"))`);
+  assert.equal(value(lateContext, `state.priorityTaskByDate["${DAY}"].startedOnTime`), false);
+  assert.equal(value(lateContext, `state.priorityTaskByDate["${DAY}"].startDelayMinutes`), 40);
+
+  const outdoorState = emptyState([], 2000);
+  outdoorState.priorityTaskByDate[DAY] = {
+    date: DAY,
+    title: "客户拍摄",
+    status: "pending",
+    dayMode: "outdoor",
+    settledPenalty: false
+  };
+  const { context: outdoorContext } = createRuntime(outdoorState);
+  value(outdoorContext, `startPriorityTask("${DAY}", null, new Date("${DAY}T14:00:00"))`);
+  assert.equal(value(outdoorContext, `state.priorityTaskByDate["${DAY}"].startedOnTime`), true);
+  assert.equal(value(outdoorContext, `state.priorityTaskByDate["${DAY}"].startChallengeEndTime`), null);
+  assert.equal(value(outdoorContext, `state.priorityTaskByDate["${DAY}"].startChallengeCompleted`), true);
+  assert.equal(value(outdoorContext, `state.coins`), 2000);
+  assert.equal(value(outdoorContext, `state.history.length`), 0);
+});
+
+test("每周临时切换记录在周一安全重置", () => {
+  const state = emptyState();
+  state.priorityStartSettings = {
+    weekKey: "2026-07-13",
+    emergencyModeSwitchUsed: true,
+    emergencyModeSwitchDate: "2026-07-16"
+  };
+  const { context } = createRuntime(state);
+
+  assert.equal(value(context, `resetPriorityEmergencyModeSwitchForWeek(new Date("2026-07-20T09:00:00"))`), true);
+  assert.equal(value(context, `state.priorityStartSettings.weekKey`), "2026-07-20");
+  assert.equal(value(context, `state.priorityStartSettings.emergencyModeSwitchUsed`), false);
+  assert.equal(value(context, `state.priorityStartSettings.emergencyModeSwitchDate`), null);
+  assert.equal(value(context, `resetPriorityEmergencyModeSwitchForWeek(new Date("2026-07-20T10:00:00"))`), false);
+});
+
+test("换一件事后新建的普通任务会直接接入重点事项启动挑战", () => {
+  const state = emptyState([], 2000);
+  state.priorityTaskByDate[DAY] = {
+    date: DAY,
+    title: "原重点事项",
+    status: "pending",
+    latestStartTime: "11:30",
+    settledPenalty: false
+  };
+  const { context } = createRuntime(state);
+  value(context, `
+    editingId = null;
+    closeSheet = () => {};
+    queuePriorityTaskStartAfterCreate("${DAY}");
+    saveTask({
+      name: "新的普通任务",
+      coins: 20,
+      hourlyReward: 20,
+      reward: 20,
+      timeStart: "",
+      timeEnd: "",
+      time: ""
+    });
+  `);
+
+  assert.equal(value(context, `state.tasks.length`), 1);
+  assert.equal(value(context, `state.priorityTaskByDate["${DAY}"].title`), "新的普通任务");
+  assert.equal(value(context, `state.priorityTaskByDate["${DAY}"].linkedTaskId`), value(context, `state.tasks[0].id`));
+  assert.equal(value(context, `Boolean(state.priorityTaskByDate["${DAY}"].startedAt)`), true);
+  assert.equal(value(context, `state.priorityTaskByDate["${DAY}"].startChallengeCompleted`), false);
+  assert.equal(value(context, `state.coins`), 2000);
+  assert.equal(value(context, `state.history.length`), 0);
 });

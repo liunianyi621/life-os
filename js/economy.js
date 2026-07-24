@@ -1,11 +1,156 @@
     const NO_BAD_HABIT_BONUS = 2;
     const PRIORITY_TASK_REWARD = 100;
     const PRIORITY_TASK_PENALTY = 500;
+    const PRIORITY_START_CHALLENGE_MS = 10 * 60 * 1000;
+    let priorityStartDeadlineTimer = null;
+    let priorityStartChallengeTimer = null;
+    let priorityStartPromptSessionDay = null;
 
     function priorityTaskSettlementAmount(status) {
       if (status === "done") return parseCoinAmount(PRIORITY_TASK_REWARD);
       if (status === "failed") return parseCoinAmount(PRIORITY_TASK_PENALTY);
       return 0;
+    }
+
+    function priorityStartChallengeRemainingSeconds(task, now = new Date()) {
+      const end = new Date(task?.startChallengeEndTime || "");
+      if (!task?.startedAt || task?.startChallengeCompleted || Number.isNaN(end.getTime())) return 0;
+      return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 1000));
+    }
+
+    function priorityStartPromptDue(task, now = new Date()) {
+      if (!task || task.status !== "pending" || task.startedAt) return false;
+      if (task.date !== dateKey(now) || priorityDayMode(task) !== "standard") return false;
+      return now >= priorityStartDeadline(task, now);
+    }
+
+    function priorityStartLabel(timestamp) {
+      const value = new Date(timestamp || "");
+      if (Number.isNaN(value.getTime())) return "";
+      return new Intl.DateTimeFormat("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).format(value);
+    }
+
+    function clearPriorityStartTimers() {
+      clearTimeout(priorityStartDeadlineTimer);
+      clearTimeout(priorityStartChallengeTimer);
+      priorityStartDeadlineTimer = null;
+      priorityStartChallengeTimer = null;
+    }
+
+    function schedulePriorityStartChecks(now = new Date()) {
+      clearPriorityStartTimers();
+      const task = priorityTaskToday();
+      if (!task || task.status !== "pending") return;
+
+      const schedule = (delay, callback) => {
+        const timer = window.setTimeout(callback, Math.max(0, delay));
+        timer?.unref?.();
+        return timer;
+      };
+
+      if (priorityDayMode(task) === "standard" && !task.startedAt) {
+        const deadline = priorityStartDeadline(task, now);
+        if (deadline > now) {
+          priorityStartDeadlineTimer = schedule(deadline.getTime() - now.getTime() + 50, () => {
+            const changed = runAutomaticChecks();
+            if (changed) render();
+          });
+        }
+      }
+
+      const challengeSeconds = priorityStartChallengeRemainingSeconds(task, now);
+      if (challengeSeconds > 0) {
+        priorityStartChallengeTimer = schedule(challengeSeconds * 1000 + 50, () => {
+          const changed = runAutomaticChecks();
+          if (changed) render();
+        });
+      }
+    }
+
+    function queuePriorityStartPrompt(task) {
+      if (!priorityStartPromptDue(task) || priorityStartPromptSessionDay === task.date) return;
+      if (typeof hasOpenModal === "function" && hasOpenModal()) return;
+      if (typeof openPriorityStartPromptSheet !== "function") return;
+      priorityStartPromptSessionDay = task.date;
+      window.setTimeout(() => openPriorityStartPromptSheet(task.date), 0);
+    }
+
+    function refreshPriorityStartState(now = new Date()) {
+      const weekReset = resetPriorityEmergencyModeSwitchForWeek(now);
+      const task = priorityTaskToday();
+      let changed = weekReset;
+      let challengeCompleted = false;
+
+      if (task && task.status === "pending" && task.startedAt && !task.startChallengeCompleted) {
+        const end = new Date(task.startChallengeEndTime || "");
+        if (!Number.isNaN(end.getTime()) && now >= end) {
+          ensurePriorityTasks()[task.date] = {
+            ...task,
+            startChallengeCompleted: true,
+            startChallengeCompletedAt: now.toISOString(),
+            startChallengeCompletionNotified: true,
+            updatedAt: now.toISOString()
+          };
+          changed = true;
+          challengeCompleted = true;
+        }
+      }
+
+      schedulePriorityStartChecks(now);
+      const currentTask = priorityTaskToday();
+      if (priorityStartPromptDue(currentTask, now)) queuePriorityStartPrompt(currentTask);
+      return { changed, challengeCompleted, weekReset };
+    }
+
+    function startPriorityTask(day = dateKey(), sourceEl = null, now = new Date()) {
+      const date = normalizeReviewDateKey(day);
+      const task = priorityTaskForDate(date);
+      if (!task || task.status !== "pending" || task.startedAt) return null;
+
+      const startedAt = now.toISOString();
+      const outdoor = priorityDayMode(task) === "outdoor";
+      const deadline = priorityStartDeadline(task, now);
+      const startedOnTime = outdoor ? true : now <= deadline;
+      const delayMinutes = outdoor ? 0 : Math.max(0, Math.round((now.getTime() - deadline.getTime()) / 60000));
+      const startChallengeEndTime = outdoor ? null : new Date(now.getTime() + PRIORITY_START_CHALLENGE_MS).toISOString();
+
+      ensurePriorityTasks()[date] = {
+        ...task,
+        startedAt,
+        startedOnTime,
+        startDelayMinutes: delayMinutes,
+        latestStartTimeAtStart: priorityLatestStartTime(task),
+        startChallengeEndTime,
+        startChallengeCompleted: outdoor,
+        startChallengeCompletedAt: outdoor ? startedAt : null,
+        startChallengeCompletionNotified: outdoor,
+        updatedAt: startedAt
+      };
+      priorityStartPromptSessionDay = null;
+      saveState();
+      schedulePriorityStartChecks(now);
+      if (sourceEl) prepareActionCard(sourceEl);
+      render();
+      return ensurePriorityTasks()[date];
+    }
+
+    function replacePriorityTaskWithTodayTask(day, taskId, now = new Date()) {
+      const task = activeTasksToday().find(item => item.id === taskId);
+      if (!task) return null;
+      const date = normalizeReviewDateKey(day);
+      const previous = priorityTaskForDate(date);
+      setPriorityTaskForDate(date, task.name, {
+        dayMode: "standard",
+        latestStartTime: priorityLatestStartTime(previous),
+        firstAction: previous?.firstAction || "",
+        linkedTaskId: task.id,
+        resetStart: true
+      });
+      return startPriorityTask(date, null, now);
     }
 
     function ensureNoBadHabitBonuses() {
@@ -1001,16 +1146,25 @@
       const taskResult = settleTimedTaskTimeouts();
       const priorityResult = settleMissedPriorityTasks();
       const bonusResult = settleNoBadHabitBonuses();
+      const priorityStartResult = refreshPriorityStartState();
       const changed = habitResult.count > 0
         || taskResult.count > 0
         || priorityResult.count > 0
         || bonusResult.count > 0
         || habitResult.checkedThroughChanged
-        || bonusResult.checkedThroughChanged;
+        || bonusResult.checkedThroughChanged
+        || priorityStartResult.changed;
       if (!changed) return false;
 
       saveState();
       updatePrimaryReadouts();
+
+      if (shouldShowToast && priorityStartResult.challengeCompleted) {
+        showInfoToast([
+          "✓ 已经开始了",
+          "可以继续做下去"
+        ], 2600, "checkmark.circle");
+      }
 
       if (
         shouldShowToast

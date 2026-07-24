@@ -5837,3 +5837,114 @@
     .nav-icon.stats::after {
       display: none;
     }
+
+    .priority-first-action {
+      margin-top: 10px;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .priority-mode-field {
+      border: 0;
+      min-width: 0;
+      padding: 0;
+      margin: 0;
+    }
+
+    .priority-mode-options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .priority-mode-option {
+      position: relative;
+      display: block;
+    }
+
+    .priority-mode-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .priority-mode-option span {
+      display: grid;
+      min-height: 44px;
+      place-items: center;
+      padding: 8px 10px;
+      border: 1px solid var(--control-border);
+      border-radius: 16px;
+      background: var(--control-glass);
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-weight: 680;
+      line-height: 1.25;
+      text-align: center;
+    }
+
+    .priority-mode-option input:checked + span {
+      border-color: rgba(28, 28, 24, 0.2);
+      background: #fffefa;
+      color: var(--text-title);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+    }
+
+    .priority-start-prompt {
+      display: grid;
+      gap: 14px;
+      padding: 2px 0 8px;
+    }
+
+    .priority-start-prompt > p,
+    .priority-switch-empty {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .priority-start-prompt-task {
+      display: grid;
+      gap: 5px;
+      padding: 15px;
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      background: var(--surface);
+    }
+
+    .priority-start-prompt-task strong {
+      color: var(--text-title);
+      font-size: 0.98rem;
+    }
+
+    .priority-start-prompt-task span {
+      color: var(--text-secondary);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .priority-start-prompt-actions,
+    .priority-switch-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .priority-prompt-command,
+    .priority-switch-option {
+      min-height: 44px;
+      border-radius: 16px;
+      font-size: 0.9rem;
+    }
+
+    .priority-switch-option {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--control-border);
+      background: var(--surface);
+      color: var(--text-body);
+      font: inherit;
+      font-weight: 680;
+      text-align: left;
+    }

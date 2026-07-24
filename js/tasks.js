@@ -1,6 +1,21 @@
     const DEFAULT_TASK_REWARD = 20;
     const INCOMPLETE_PENALTY_MULTIPLIER = 10;
     const TASK_FAILURE_MULTIPLIER = INCOMPLETE_PENALTY_MULTIPLIER;
+    let pendingPriorityTaskStartAfterCreate = null;
+
+    function queuePriorityTaskStartAfterCreate(day = dateKey()) {
+      pendingPriorityTaskStartAfterCreate = { day: normalizeReviewDateKey(day) };
+    }
+
+    function clearPendingPriorityTaskStartAfterCreate() {
+      pendingPriorityTaskStartAfterCreate = null;
+    }
+
+    function consumePendingPriorityTaskStartAfterCreate() {
+      const pending = pendingPriorityTaskStartAfterCreate;
+      pendingPriorityTaskStartAfterCreate = null;
+      return pending;
+    }
 
     function getIncompletePenalty(rewardAmount) {
       const reward = Number(rewardAmount);
@@ -168,8 +183,10 @@
     function saveTask(taskData) {
       if (!taskData.name) {
         showToast("请输入任务名称");
-        return;
+        return null;
       }
+      let createdTask = null;
+      const priorityStartIntent = editingId ? null : consumePendingPriorityTaskStartAfterCreate();
       if (editingId) {
         state.tasks = state.tasks.map(task => (
           task.id === editingId
@@ -179,19 +196,24 @@
         showToast("任务已更新");
       } else {
         const today = dateKey();
-        state.tasks.push({
+        createdTask = {
           id: createId("task"),
           ...taskData,
           date: today,
           createdDate: today,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        });
+        };
+        state.tasks.push(createdTask);
         showToast("任务已创建");
       }
       saveState();
       closeSheet();
       render();
+      if (createdTask && priorityStartIntent) {
+        replacePriorityTaskWithTodayTask(priorityStartIntent.day, createdTask.id);
+      }
+      return createdTask;
     }
     function todayTasks() {
       const today = dateKey();
