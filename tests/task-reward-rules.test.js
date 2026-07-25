@@ -55,7 +55,7 @@ function emptyState(tasks = [], coins = 1000) {
   };
 }
 
-test("calendar events remain standalone, normalize ranges, and persist without coin history", () => {
+test("calendar events remain standalone and migrate legacy fields to the compact category model", () => {
   const state = emptyState();
   state.calendarEvents = [{
     id: "calendar-trip",
@@ -71,7 +71,7 @@ test("calendar events remain standalone, normalize ranges, and persist without c
   const middleDayEvents = vm.runInContext("calendarEventsForDate('2026-07-22')", context);
   assert.equal(middleDayEvents.length, 1);
   assert.equal(middleDayEvents[0].title, "苏格兰自驾");
-  assert.equal(middleDayEvents[0].color, "#a49ab2");
+  assert.equal(middleDayEvents[0].category, "normal");
   assert.equal(vm.runInContext("state.history.length", context), 0);
   assert.equal(vm.runInContext("state.coins", context), 1000);
 
@@ -83,11 +83,23 @@ test("calendar events remain standalone, normalize ranges, and persist without c
     allDay: false,
     startTime: '09:30',
     endTime: '11:00',
+    note: '旧备注',
     category: 'work'
   })`, context);
   assert.equal(normalized.startDate, "2026-08-10");
   assert.equal(normalized.endDate, "2026-08-10");
-  assert.equal(normalized.startTime, "09:30");
+  assert.equal(normalized.category, "normal");
+  assert.equal(Object.hasOwn(normalized, "startTime"), false);
+  assert.equal(Object.hasOwn(normalized, "note"), false);
+
+  const legacyImportant = vm.runInContext(`normalizeCalendarEvent({
+    id: 'legacy-important',
+    title: '拍摄',
+    startDate: '2026-08-10',
+    endDate: '2026-08-10',
+    color: '#b49a9c'
+  })`, context);
+  assert.equal(legacyImportant.category, "important");
 });
 
 function task(overrides = {}) {

@@ -70,23 +70,31 @@
 
       <section class="view" data-view="calendar">
         <header class="header calendar-page-header">
-          <div>
-            <span class="eyebrow">月度计划</span>
-            <h1>日历</h1>
+          <div class="calendar-month-heading">
+            <span id="calendarYearLabel">2026</span>
+            <h1 id="calendarMonthLabel">7月</h1>
           </div>
-          <button class="calendar-today-button" type="button" data-calendar-today>今天</button>
-        </header>
-
-        <section class="calendar-panel" aria-label="月度计划">
-          <div class="calendar-toolbar">
+          <div class="calendar-header-actions">
             <button class="calendar-month-button" type="button" data-calendar-month="previous" aria-label="上一个月">‹</button>
-            <h2 id="calendarMonthLabel">本月</h2>
+            <button class="calendar-today-button" type="button" data-calendar-today>今天</button>
             <button class="calendar-month-button" type="button" data-calendar-month="next" aria-label="下一个月">›</button>
           </div>
+        </header>
+
+        <section class="calendar-month-view" aria-label="月度计划">
           <div class="calendar-weekdays" aria-hidden="true">
             <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
           </div>
           <div class="calendar-grid" id="calendarGrid"></div>
+        </section>
+
+        <section class="calendar-selected-day" aria-live="polite">
+          <h2 id="calendarSelectedDateLabel">今天</h2>
+          <div class="calendar-selected-events" id="calendarSelectedPlans"></div>
+          <button class="calendar-new-plan-button" type="button" data-calendar-add-selected>
+            <span aria-hidden="true">＋</span>
+            <span>新建计划</span>
+          </button>
         </section>
       </section>
 

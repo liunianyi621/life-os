@@ -96,75 +96,14 @@
       focusSheetField("input[name='name']");
     }
 
-    function calendarEventDateLabel(day) {
-      return new Intl.DateTimeFormat("zh-CN", {
-        month: "long",
-        day: "numeric",
-        weekday: "short"
-      }).format(dateFromKey(day));
-    }
-
-    function calendarEventTimeLabel(event) {
-      if (event.allDay || !event.startTime) return "全天";
-      return event.endTime ? `${event.startTime} - ${event.endTime}` : event.startTime;
-    }
-
-    function calendarCategoryOptions(selectedCategory) {
-      return CALENDAR_EVENT_CATEGORIES.map(category => `
-        <option value="${escapeAttr(category.id)}"${category.id === selectedCategory ? " selected" : ""}>${escapeHtml(category.label)}</option>
-      `).join("");
-    }
-
-    function syncCalendarTimeFields() {
-      const allDayInput = els.sheetForm.querySelector("[data-calendar-all-day]");
-      const timeFields = els.sheetForm.querySelector("[data-calendar-time-fields]");
-      if (!allDayInput || !timeFields) return;
-      timeFields.classList.toggle("hidden", allDayInput.checked);
-    }
-
-    function openCalendarDaySheet(day) {
-      const selectedDay = normalizeCalendarDate(day);
-      const events = calendarEventsForDate(selectedDay);
-      sheetMode = "calendar-day";
-      editingId = selectedDay;
-      els.sheetTitle.textContent = `${calendarEventDateLabel(selectedDay)} · 计划`;
-      els.sheetForm.innerHTML = `
-        <div class="calendar-day-sheet-content">
-          <div class="calendar-day-sheet-list">
-            ${events.length ? events.map(event => {
-              const category = calendarCategoryMeta(event.category);
-              return `
-                <div class="calendar-day-event-row">
-                  <button class="calendar-day-event" type="button" data-calendar-event="${escapeAttr(event.id)}">
-                    <i style="--calendar-event-color: ${escapeAttr(category.color)}"></i>
-                    <span>
-                      <strong>${escapeHtml(event.title)}</strong>
-                      <small>${escapeHtml(calendarEventTimeLabel(event))}${event.note ? ` · ${escapeHtml(event.note)}` : ""}</small>
-                    </span>
-                  </button>
-                  ${selectedDay === dateKey() ? iconActionButtonHtml({
-                    className: "calendar-to-task-button icon-only-button",
-                    icon: "checklist",
-                    label: "加入今日任务",
-                    attrs: `data-calendar-to-task="${escapeAttr(event.id)}"`
-                  }) : ""}
-                </div>
-              `;
-            }).join("") : `
-              <div class="calendar-day-empty">当天还没有计划</div>
-            `}
-          </div>
-          <div class="sheet-actions calendar-day-actions">
-            ${iconActionButtonHtml({
-              className: "button icon-only-button",
-              icon: "plus.circle",
-              label: "新增计划",
-              attrs: `data-calendar-add-date="${escapeAttr(selectedDay)}"`
-            })}
-          </div>
+    function calendarCategoryControlHtml(selectedCategory) {
+      return `
+        <input name="category" type="hidden" value="${escapeAttr(selectedCategory)}">
+        <div class="calendar-category-control" role="group" aria-label="计划分类">
+          <button class="${selectedCategory === "normal" ? "active" : ""}" type="button" data-calendar-category="normal">普通</button>
+          <button class="${selectedCategory === "important" ? "active" : ""}" type="button" data-calendar-category="important">重要</button>
         </div>
       `;
-      openSheet({ position: "top" });
     }
 
     function openCalendarEventSheet(eventId = null, defaults = {}) {
@@ -172,17 +111,15 @@
       const defaultDate = normalizeCalendarDate(defaults.date || selectedCalendarDate || dateKey());
       const startDate = event?.startDate || defaultDate;
       const endDate = event?.endDate || startDate;
-      const allDay = event ? event.allDay : defaults.allDay !== false;
-      const category = calendarCategoryMeta(event?.category || defaults.category || "other").id;
+      const category = normalizeCalendarCategory(event || defaults);
       sheetMode = "calendar-event";
       editingId = event?.id || null;
       els.sheetTitle.textContent = event ? "编辑计划" : "新增计划";
       els.sheetForm.innerHTML = `
-        <label class="field">
-          <span class="field-label">标题</span>
-          <input name="title" type="text" maxlength="120" value="${escapeAttr(event?.title || defaults.title || "")}" placeholder="例如：整理作品集" required>
+        <label class="calendar-title-field">
+          <input name="title" type="text" maxlength="120" value="${escapeAttr(event?.title || defaults.title || "")}" placeholder="计划名称" required>
         </label>
-        <div class="calendar-date-fields">
+        <div class="calendar-date-fields calendar-date-fields-compact">
           <label class="field">
             <span class="field-label">开始日期</span>
             <input name="startDate" type="date" value="${escapeAttr(startDate)}" required>
@@ -192,28 +129,7 @@
             <input name="endDate" type="date" value="${escapeAttr(endDate)}" required>
           </label>
         </div>
-        <label class="calendar-all-day-toggle">
-          <input name="allDay" type="checkbox" data-calendar-all-day${allDay ? " checked" : ""}>
-          <span>全天</span>
-        </label>
-        <div class="calendar-date-fields" data-calendar-time-fields>
-          <label class="field">
-            <span class="field-label">开始时间</span>
-            <input name="startTime" type="time" value="${escapeAttr(event?.startTime || "")}">
-          </label>
-          <label class="field">
-            <span class="field-label">结束时间</span>
-            <input name="endTime" type="time" value="${escapeAttr(event?.endTime || "")}">
-          </label>
-        </div>
-        <label class="field">
-          <span class="field-label">备注（可选）</span>
-          <textarea name="note" maxlength="1000" placeholder="补充一点安排">${escapeHtml(event?.note || "")}</textarea>
-        </label>
-        <label class="field">
-          <span class="field-label">分类（可选）</span>
-          <select name="category">${calendarCategoryOptions(category)}</select>
-        </label>
+        ${calendarCategoryControlHtml(category)}
         <div class="sheet-actions">
           ${submitSheetButtonHtml(event ? "保存计划" : "创建计划")}
         </div>
@@ -222,8 +138,6 @@
         </div>
       `;
       openSheet({ position: "top" });
-      syncCalendarTimeFields();
-      els.sheetForm.querySelector("[data-calendar-all-day]")?.addEventListener("change", syncCalendarTimeFields);
       focusSheetField("input[name='title']");
     }
 
@@ -495,10 +409,6 @@
           title: String(formData.get("title") || "").trim(),
           startDate: formData.get("startDate"),
           endDate: formData.get("endDate"),
-          allDay: formData.get("allDay") === "on",
-          startTime: formData.get("startTime"),
-          endTime: formData.get("endTime"),
-          note: formData.get("note"),
           category: formData.get("category")
         });
       }

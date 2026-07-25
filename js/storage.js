@@ -61,20 +61,6 @@
       { name: "机票基金", totalCoins: 1200, amountPerDeposit: 100 }
     ];
 
-    const CALENDAR_EVENT_CATEGORIES = Object.freeze([
-      { id: "work", label: "工作", color: "#8d9aaa" },
-      { id: "shooting", label: "拍摄", color: "#8fa596" },
-      { id: "travel", label: "旅行", color: "#a49ab2" },
-      { id: "rest", label: "休息", color: "#a4b1bb" },
-      { id: "important", label: "重要", color: "#b49a9c" },
-      { id: "other", label: "其他", color: "#a7a49d" }
-    ]);
-
-    function calendarCategoryMeta(category) {
-      return CALENDAR_EVENT_CATEGORIES.find(item => item.id === category)
-        || CALENDAR_EVENT_CATEGORIES[CALENDAR_EVENT_CATEGORIES.length - 1];
-    }
-
     function normalizeCalendarDate(value, fallback = dateKey()) {
       const candidate = String(value || "").slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return fallback;
@@ -82,9 +68,19 @@
       return Number.isNaN(parsed.getTime()) || dateKey(parsed) !== candidate ? fallback : candidate;
     }
 
-    function normalizeCalendarTime(value) {
-      const candidate = String(value || "").trim();
-      return /^([01]\d|2[0-3]):[0-5]\d$/.test(candidate) ? candidate : "";
+    function legacyCalendarEventIsImportant(event = {}) {
+      if (String(event.category || "").trim().toLowerCase() === "important") return true;
+      const color = String(event.color || "").trim();
+      const hex = color.match(/^#?([0-9a-f]{6})$/i)?.[1];
+      if (!hex) return false;
+      const red = Number.parseInt(hex.slice(0, 2), 16);
+      const green = Number.parseInt(hex.slice(2, 4), 16);
+      const blue = Number.parseInt(hex.slice(4, 6), 16);
+      return red >= green + 16 && red >= blue + 16;
+    }
+
+    function normalizeCalendarCategory(event = {}) {
+      return legacyCalendarEventIsImportant(event) ? "important" : "normal";
     }
 
     function normalizeCalendarEvent(event = {}) {
@@ -93,19 +89,13 @@
       const startDate = normalizeCalendarDate(event.startDate);
       const requestedEndDate = normalizeCalendarDate(event.endDate, startDate);
       const endDate = requestedEndDate < startDate ? startDate : requestedEndDate;
-      const allDay = event.allDay !== false;
-      const category = calendarCategoryMeta(event.category).id;
+      const category = normalizeCalendarCategory(event);
       return {
         id: String(event.id || createId("calendar-event")),
         title,
         startDate,
         endDate,
-        allDay,
-        startTime: allDay ? "" : normalizeCalendarTime(event.startTime),
-        endTime: allDay ? "" : normalizeCalendarTime(event.endTime),
-        note: String(event.note || "").trim().slice(0, 1000),
         category,
-        color: calendarCategoryMeta(category).color,
         createdAt: event.createdAt || new Date().toISOString(),
         updatedAt: event.updatedAt || event.createdAt || new Date().toISOString()
       };
@@ -125,10 +115,9 @@
       return state.calendarEvents
         .filter(event => event.startDate <= targetDate && event.endDate >= targetDate)
         .sort((left, right) => {
-          if (left.allDay !== right.allDay) return left.allDay ? -1 : 1;
-          const leftTime = left.startTime || "00:00";
-          const rightTime = right.startTime || "00:00";
-          return leftTime.localeCompare(rightTime) || left.title.localeCompare(right.title, "zh-CN");
+          return left.startDate.localeCompare(right.startDate)
+            || left.endDate.localeCompare(right.endDate)
+            || left.title.localeCompare(right.title, "zh-CN");
         });
     }
 
@@ -645,6 +634,12 @@
           saved = migration.state;
           migrationApplied = migration.applied;
         }
+        const normalizedCalendarEvents = Array.isArray(saved?.calendarEvents)
+          ? normalizeCalendarEvents(saved.calendarEvents)
+          : [];
+        const needsCalendarEventCleanup = Boolean(Array.isArray(saved?.calendarEvents) && (
+          JSON.stringify(normalizedCalendarEvents) !== JSON.stringify(saved.calendarEvents)
+        ));
         const needsLegacyCleanup = Boolean(saved && (
           Object.prototype.hasOwnProperty.call(saved, "phoneTimer")
           || Object.prototype.hasOwnProperty.call(saved, "breakTimer")
@@ -659,6 +654,7 @@
           )))
           || (Array.isArray(saved.history)
             && JSON.stringify(normalizeCoinHistory(saved.history)) !== JSON.stringify(saved.history))
+          || needsCalendarEventCleanup
         ));
         const merged = saved ? {
           ...cloneEmptyState(),
@@ -667,7 +663,7 @@
           tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
           habits: Array.isArray(saved.habits) ? saved.habits : [],
           badHabits: Array.isArray(saved.badHabits) ? saved.badHabits : [],
-          calendarEvents: normalizeCalendarEvents(saved.calendarEvents),
+          calendarEvents: normalizedCalendarEvents,
           notes: Array.isArray(saved.notes) ? saved.notes : [],
           memos: Array.isArray(saved.memos) ? saved.memos : [],
           rewards: Array.isArray(saved.rewards) ? normalizeRewards(saved.rewards) : defaultFundRewards(),
