@@ -73,10 +73,13 @@
           <path d="M15.6 12.7h.1"></path>
         </svg>
       `,
-      "shield.slash": `
+      checklist: `
         <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
-          <path d="M12 4.5 18 6.7v4.8c0 3.7-2.25 6.2-6 8-3.75-1.8-6-4.3-6-8V6.7l6-2.2Z"></path>
-          <path d="M5.3 5.2 18.7 18.8"></path>
+          <rect x="5.2" y="4.6" width="13.6" height="14.8" rx="2.2"></rect>
+          <path d="m8.1 9.1 1.2 1.2 2-2.2"></path>
+          <path d="M12.8 9.5h2.7"></path>
+          <path d="m8.1 14.2 1.2 1.2 2-2.2"></path>
+          <path d="M12.8 14.6h2.7"></path>
         </svg>
       `,
       "book.closed": `
@@ -147,9 +150,8 @@
       habitList: document.getElementById("habitList"),
       todayTaskCount: document.getElementById("todayTaskCount"),
       todayTaskList: document.getElementById("todayTaskList"),
-      badCoins: document.getElementById("badCoins"),
-      badHabitCount: document.getElementById("badHabitCount"),
-      badHabitList: document.getElementById("badHabitList"),
+      calendarMonthLabel: document.getElementById("calendarMonthLabel"),
+      calendarGrid: document.getElementById("calendarGrid"),
       noteCount: document.getElementById("noteCount"),
       noteList: document.getElementById("noteList"),
       reviewDate: document.getElementById("reviewDate"),

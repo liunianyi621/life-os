@@ -22,6 +22,7 @@
       habitFailures: {},
       taskAutoFailures: {},
       badHabits: [],
+      calendarEvents: [],
       notes: [],
       memos: [],
       rewards: [],
@@ -59,6 +60,77 @@
       { name: "电影节基金", totalCoins: 800, amountPerDeposit: 100 },
       { name: "机票基金", totalCoins: 1200, amountPerDeposit: 100 }
     ];
+
+    const CALENDAR_EVENT_CATEGORIES = Object.freeze([
+      { id: "work", label: "工作", color: "#8d9aaa" },
+      { id: "shooting", label: "拍摄", color: "#8fa596" },
+      { id: "travel", label: "旅行", color: "#a49ab2" },
+      { id: "rest", label: "休息", color: "#a4b1bb" },
+      { id: "important", label: "重要", color: "#b49a9c" },
+      { id: "other", label: "其他", color: "#a7a49d" }
+    ]);
+
+    function calendarCategoryMeta(category) {
+      return CALENDAR_EVENT_CATEGORIES.find(item => item.id === category)
+        || CALENDAR_EVENT_CATEGORIES[CALENDAR_EVENT_CATEGORIES.length - 1];
+    }
+
+    function normalizeCalendarDate(value, fallback = dateKey()) {
+      const candidate = String(value || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return fallback;
+      const parsed = dateFromKey(candidate);
+      return Number.isNaN(parsed.getTime()) || dateKey(parsed) !== candidate ? fallback : candidate;
+    }
+
+    function normalizeCalendarTime(value) {
+      const candidate = String(value || "").trim();
+      return /^([01]\d|2[0-3]):[0-5]\d$/.test(candidate) ? candidate : "";
+    }
+
+    function normalizeCalendarEvent(event = {}) {
+      const title = String(event.title || "").trim().slice(0, 120);
+      if (!title) return null;
+      const startDate = normalizeCalendarDate(event.startDate);
+      const requestedEndDate = normalizeCalendarDate(event.endDate, startDate);
+      const endDate = requestedEndDate < startDate ? startDate : requestedEndDate;
+      const allDay = event.allDay !== false;
+      const category = calendarCategoryMeta(event.category).id;
+      return {
+        id: String(event.id || createId("calendar-event")),
+        title,
+        startDate,
+        endDate,
+        allDay,
+        startTime: allDay ? "" : normalizeCalendarTime(event.startTime),
+        endTime: allDay ? "" : normalizeCalendarTime(event.endTime),
+        note: String(event.note || "").trim().slice(0, 1000),
+        category,
+        color: calendarCategoryMeta(category).color,
+        createdAt: event.createdAt || new Date().toISOString(),
+        updatedAt: event.updatedAt || event.createdAt || new Date().toISOString()
+      };
+    }
+
+    function normalizeCalendarEvents(events) {
+      if (!Array.isArray(events)) return [];
+      return events.map(normalizeCalendarEvent).filter(Boolean);
+    }
+
+    function calendarEventById(eventId) {
+      return state.calendarEvents.find(event => event.id === eventId) || null;
+    }
+
+    function calendarEventsForDate(day) {
+      const targetDate = normalizeCalendarDate(day);
+      return state.calendarEvents
+        .filter(event => event.startDate <= targetDate && event.endDate >= targetDate)
+        .sort((left, right) => {
+          if (left.allDay !== right.allDay) return left.allDay ? -1 : 1;
+          const leftTime = left.startTime || "00:00";
+          const rightTime = right.startTime || "00:00";
+          return leftTime.localeCompare(rightTime) || left.title.localeCompare(right.title, "zh-CN");
+        });
+    }
 
     function firstAvailableValue(values, fallback = "") {
       const found = values.find(value => value !== undefined && value !== null && value !== "");
@@ -595,6 +667,7 @@
           tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
           habits: Array.isArray(saved.habits) ? saved.habits : [],
           badHabits: Array.isArray(saved.badHabits) ? saved.badHabits : [],
+          calendarEvents: normalizeCalendarEvents(saved.calendarEvents),
           notes: Array.isArray(saved.notes) ? saved.notes : [],
           memos: Array.isArray(saved.memos) ? saved.memos : [],
           rewards: Array.isArray(saved.rewards) ? normalizeRewards(saved.rewards) : defaultFundRewards(),
@@ -657,6 +730,8 @@
     let editingReviewDate = null;
     let currentStatsRange = "week";
     let currentHeatmapMonth = monthKey();
+    let currentCalendarMonth = monthKey();
+    let selectedCalendarDate = dateKey();
     let selectedReviewDate = dateKey();
     let pendingUndo = null;
     let confirmResolver = null;
@@ -818,6 +893,7 @@
         funds: debugSnapshotCall("funds", () => cloneDebugValue(state.funds || state.rewards || []), errors, []),
         habits: debugSnapshotCall("habits", () => cloneDebugValue(state.habits || []), errors, []),
         badHabits: debugSnapshotCall("badHabits", () => cloneDebugValue(state.badHabits || []), errors, []),
+        calendarEvents: debugSnapshotCall("calendarEvents", () => cloneDebugValue(state.calendarEvents || []), errors, []),
         tasks: debugSnapshotCall("tasks", () => cloneDebugValue(state.tasks || []), errors, []),
         recaps: debugSnapshotCall(
           "recaps",
@@ -1092,6 +1168,8 @@
       state.rewards = defaultFundRewards();
       state.settledThroughDate = yesterdayKey();
       state.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
+      currentCalendarMonth = monthKey();
+      selectedCalendarDate = dateKey();
       selectedReviewDate = dateKey();
       saveState();
       render();

@@ -38,7 +38,7 @@
       focusSheetField("input[name='title']");
     }
 
-    function openTaskSheet(taskId = null) {
+    function openTaskSheet(taskId = null, defaults = {}) {
       sheetMode = "task";
       editingId = taskId;
       const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
@@ -50,7 +50,7 @@
       els.sheetForm.innerHTML = `
         <label class="field">
           <span class="field-label">任务名称</span>
-          <input name="name" type="text" maxlength="80" value="${escapeAttr(task?.name || "")}" placeholder="输入任务名称" required>
+          <input name="name" type="text" maxlength="80" value="${escapeAttr(task?.name || defaults.name || "")}" placeholder="输入任务名称" required>
         </label>
         <label class="field">
           <span class="field-label">奖励金币</span>
@@ -96,6 +96,214 @@
       focusSheetField("input[name='name']");
     }
 
+    function calendarEventDateLabel(day) {
+      return new Intl.DateTimeFormat("zh-CN", {
+        month: "long",
+        day: "numeric",
+        weekday: "short"
+      }).format(dateFromKey(day));
+    }
+
+    function calendarEventTimeLabel(event) {
+      if (event.allDay || !event.startTime) return "全天";
+      return event.endTime ? `${event.startTime} - ${event.endTime}` : event.startTime;
+    }
+
+    function calendarCategoryOptions(selectedCategory) {
+      return CALENDAR_EVENT_CATEGORIES.map(category => `
+        <option value="${escapeAttr(category.id)}"${category.id === selectedCategory ? " selected" : ""}>${escapeHtml(category.label)}</option>
+      `).join("");
+    }
+
+    function syncCalendarTimeFields() {
+      const allDayInput = els.sheetForm.querySelector("[data-calendar-all-day]");
+      const timeFields = els.sheetForm.querySelector("[data-calendar-time-fields]");
+      if (!allDayInput || !timeFields) return;
+      timeFields.classList.toggle("hidden", allDayInput.checked);
+    }
+
+    function openCalendarDaySheet(day) {
+      const selectedDay = normalizeCalendarDate(day);
+      const events = calendarEventsForDate(selectedDay);
+      sheetMode = "calendar-day";
+      editingId = selectedDay;
+      els.sheetTitle.textContent = `${calendarEventDateLabel(selectedDay)} · 计划`;
+      els.sheetForm.innerHTML = `
+        <div class="calendar-day-sheet-content">
+          <div class="calendar-day-sheet-list">
+            ${events.length ? events.map(event => {
+              const category = calendarCategoryMeta(event.category);
+              return `
+                <div class="calendar-day-event-row">
+                  <button class="calendar-day-event" type="button" data-calendar-event="${escapeAttr(event.id)}">
+                    <i style="--calendar-event-color: ${escapeAttr(category.color)}"></i>
+                    <span>
+                      <strong>${escapeHtml(event.title)}</strong>
+                      <small>${escapeHtml(calendarEventTimeLabel(event))}${event.note ? ` · ${escapeHtml(event.note)}` : ""}</small>
+                    </span>
+                  </button>
+                  ${selectedDay === dateKey() ? iconActionButtonHtml({
+                    className: "calendar-to-task-button icon-only-button",
+                    icon: "checklist",
+                    label: "加入今日任务",
+                    attrs: `data-calendar-to-task="${escapeAttr(event.id)}"`
+                  }) : ""}
+                </div>
+              `;
+            }).join("") : `
+              <div class="calendar-day-empty">当天还没有计划</div>
+            `}
+          </div>
+          <div class="sheet-actions calendar-day-actions">
+            ${iconActionButtonHtml({
+              className: "button icon-only-button",
+              icon: "plus.circle",
+              label: "新增计划",
+              attrs: `data-calendar-add-date="${escapeAttr(selectedDay)}"`
+            })}
+          </div>
+        </div>
+      `;
+      openSheet({ position: "top" });
+    }
+
+    function openCalendarEventSheet(eventId = null, defaults = {}) {
+      const event = eventId ? calendarEventById(eventId) : null;
+      const defaultDate = normalizeCalendarDate(defaults.date || selectedCalendarDate || dateKey());
+      const startDate = event?.startDate || defaultDate;
+      const endDate = event?.endDate || startDate;
+      const allDay = event ? event.allDay : defaults.allDay !== false;
+      const category = calendarCategoryMeta(event?.category || defaults.category || "other").id;
+      sheetMode = "calendar-event";
+      editingId = event?.id || null;
+      els.sheetTitle.textContent = event ? "编辑计划" : "新增计划";
+      els.sheetForm.innerHTML = `
+        <label class="field">
+          <span class="field-label">标题</span>
+          <input name="title" type="text" maxlength="120" value="${escapeAttr(event?.title || defaults.title || "")}" placeholder="例如：整理作品集" required>
+        </label>
+        <div class="calendar-date-fields">
+          <label class="field">
+            <span class="field-label">开始日期</span>
+            <input name="startDate" type="date" value="${escapeAttr(startDate)}" required>
+          </label>
+          <label class="field">
+            <span class="field-label">结束日期</span>
+            <input name="endDate" type="date" value="${escapeAttr(endDate)}" required>
+          </label>
+        </div>
+        <label class="calendar-all-day-toggle">
+          <input name="allDay" type="checkbox" data-calendar-all-day${allDay ? " checked" : ""}>
+          <span>全天</span>
+        </label>
+        <div class="calendar-date-fields" data-calendar-time-fields>
+          <label class="field">
+            <span class="field-label">开始时间</span>
+            <input name="startTime" type="time" value="${escapeAttr(event?.startTime || "")}">
+          </label>
+          <label class="field">
+            <span class="field-label">结束时间</span>
+            <input name="endTime" type="time" value="${escapeAttr(event?.endTime || "")}">
+          </label>
+        </div>
+        <label class="field">
+          <span class="field-label">备注（可选）</span>
+          <textarea name="note" maxlength="1000" placeholder="补充一点安排">${escapeHtml(event?.note || "")}</textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">分类（可选）</span>
+          <select name="category">${calendarCategoryOptions(category)}</select>
+        </label>
+        <div class="sheet-actions">
+          ${submitSheetButtonHtml(event ? "保存计划" : "创建计划")}
+        </div>
+        <div class="delete-row ${event ? "" : "hidden"}">
+          ${deleteIconButtonHtml({ action: "calendar-event", id: event?.id, label: "删除计划" })}
+        </div>
+      `;
+      openSheet({ position: "top" });
+      syncCalendarTimeFields();
+      els.sheetForm.querySelector("[data-calendar-all-day]")?.addEventListener("change", syncCalendarTimeFields);
+      focusSheetField("input[name='title']");
+    }
+
+    function openCalendarEventActionSheet(eventId) {
+      const event = calendarEventById(eventId);
+      if (!event) return;
+      sheetMode = "calendar-event-actions";
+      editingId = event.id;
+      els.sheetTitle.textContent = event.title;
+      els.sheetForm.innerHTML = `
+        <div class="calendar-event-action-sheet">
+          <button class="calendar-action-row" type="button" data-calendar-edit="${escapeAttr(event.id)}">编辑</button>
+          <button class="calendar-action-row danger" type="button" data-calendar-delete="${escapeAttr(event.id)}">删除</button>
+        </div>
+      `;
+      openSheet({ position: "top" });
+    }
+
+    function saveCalendarEvent(eventData) {
+      const title = String(eventData.title || "").trim();
+      const startDate = String(eventData.startDate || "").trim();
+      const endDate = String(eventData.endDate || "").trim();
+      if (!title) {
+        showToast("请输入计划标题");
+        return false;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+        showToast("请选择计划日期");
+        return false;
+      }
+      if (endDate < startDate) {
+        showToast("结束日期不能早于开始日期");
+        return false;
+      }
+      const existing = editingId ? calendarEventById(editingId) : null;
+      const now = new Date().toISOString();
+      const next = normalizeCalendarEvent({
+        ...existing,
+        ...eventData,
+        id: existing?.id || createId("calendar-event"),
+        title,
+        startDate,
+        endDate,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now
+      });
+      if (!next) return false;
+      state.calendarEvents = existing
+        ? state.calendarEvents.map(event => event.id === existing.id ? next : event)
+        : [...state.calendarEvents, next];
+      saveState();
+      closeSheet();
+      render();
+      showToast(existing ? "计划已更新" : "计划已创建");
+      return true;
+    }
+
+    async function deleteCalendarEvent(eventId) {
+      const event = calendarEventById(eventId);
+      if (!event) return;
+      const confirmed = await askForConfirmation({
+        title: "删除这个计划？",
+        message: "删除后无法恢复。",
+        confirmText: "删除"
+      });
+      if (!confirmed) return;
+      state.calendarEvents = state.calendarEvents.filter(item => item.id !== event.id);
+      saveState();
+      closeSheet();
+      render();
+      showToast("计划已删除");
+    }
+
+    function addCalendarEventToTodayTask(eventId) {
+      const event = calendarEventById(eventId);
+      if (!event) return;
+      closeSheet();
+      openTaskSheet(null, { name: event.title });
+    }
+
     function openHabitSheet(habitId = null) {
       sheetMode = "habit";
       editingId = habitId;
@@ -115,31 +323,6 @@
         </div>
         <div class="delete-row ${habit ? "" : "hidden"}">
           ${deleteIconButtonHtml({ action: "habit", id: habit?.id, label: "移除习惯" })}
-        </div>
-      `;
-      openSheet({ position: "top" });
-      focusSheetField("input[name='name']");
-    }
-
-    function openBadHabitSheet(habitId = null) {
-      sheetMode = "bad";
-      editingId = habitId;
-      const habit = habitId ? state.badHabits.find(item => item.id === habitId) : null;
-      els.sheetTitle.textContent = habit ? "编辑坏习惯" : "新建坏习惯";
-      els.sheetForm.innerHTML = `
-        <label class="field">
-          <span class="field-label">习惯名称</span>
-          <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入坏习惯名称" required>
-        </label>
-        <label class="field">
-          <span class="field-label">金币惩罚</span>
-          <input name="penalty" type="number" min="0" step="1" inputmode="numeric" value="${habit?.penalty ?? ""}" placeholder="0">
-        </label>
-        <div class="sheet-actions">
-          ${submitSheetButtonHtml(habit ? "保存坏习惯" : "创建坏习惯")}
-        </div>
-        <div class="delete-row ${habit ? "" : "hidden"}">
-          ${deleteIconButtonHtml({ action: "bad", id: habit?.id, label: "移除坏习惯" })}
         </div>
       `;
       openSheet({ position: "top" });
@@ -295,12 +478,6 @@
           coins: Math.max(0, parseCoinAmount(formData.get("coins")))
         });
       }
-      if (sheetMode === "bad") {
-        saveBadHabit({
-          name: String(formData.get("name") || "").trim(),
-          penalty: parseAmount(formData.get("penalty"))
-        });
-      }
       if (sheetMode === "note") {
         saveNote({
           text: String(formData.get("text") || "").trim()
@@ -311,6 +488,18 @@
           name: String(formData.get("name") || "").trim(),
           totalCoins: parseCoinAmount(formData.get("totalCoins")),
           amountPerDeposit: parseCoinAmount(formData.get("amountPerDeposit"))
+        });
+      }
+      if (sheetMode === "calendar-event") {
+        saveCalendarEvent({
+          title: String(formData.get("title") || "").trim(),
+          startDate: formData.get("startDate"),
+          endDate: formData.get("endDate"),
+          allDay: formData.get("allDay") === "on",
+          startTime: formData.get("startTime"),
+          endTime: formData.get("endTime"),
+          note: formData.get("note"),
+          category: formData.get("category")
         });
       }
       if (sheetMode === "review-edit") {

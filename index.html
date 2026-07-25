@@ -68,26 +68,26 @@
         <div class="list" id="habitList"></div>
       </section>
 
-      <section class="view" data-view="bad">
-        <header class="header">
+      <section class="view" data-view="calendar">
+        <header class="header calendar-page-header">
           <div>
-            <span class="eyebrow">点击即扣金币</span>
-            <h1>坏习惯</h1>
+            <span class="eyebrow">月度计划</span>
+            <h1>日历</h1>
           </div>
-          <button class="icon-button" data-open-bad aria-label="新建坏习惯" data-icon-button="plus"></button>
+          <button class="calendar-today-button" type="button" data-calendar-today>今天</button>
         </header>
 
-        <section class="balance-strip" aria-label="当前金币">
-          <span>当前金币</span>
-          <strong id="badCoins">0</strong>
-          <span>金币</span>
+        <section class="calendar-panel" aria-label="月度计划">
+          <div class="calendar-toolbar">
+            <button class="calendar-month-button" type="button" data-calendar-month="previous" aria-label="上一个月">‹</button>
+            <h2 id="calendarMonthLabel">本月</h2>
+            <button class="calendar-month-button" type="button" data-calendar-month="next" aria-label="下一个月">›</button>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
         </section>
-
-        <div class="section-heading">
-          <h2>坏习惯</h2>
-          <span id="badHabitCount">0 项</span>
-        </div>
-        <div class="list" id="badHabitList"></div>
       </section>
 
       <section class="view" data-view="notes">
@@ -252,12 +252,12 @@
 
     <nav class="bottom-nav" aria-label="主要导航">
       <button class="nav-button active" data-nav="today">
-        <span class="nav-icon today" data-icon-button="calendar" aria-hidden="true"></span>
+        <span class="nav-icon today" data-icon-button="checklist" aria-hidden="true"></span>
         <span>今天</span>
       </button>
-      <button class="nav-button" data-nav="bad">
-        <span class="nav-icon bad" data-icon-button="shield.slash" aria-hidden="true"></span>
-        <span>坏习惯</span>
+      <button class="nav-button" data-nav="calendar">
+        <span class="nav-icon calendar" data-icon-button="calendar" aria-hidden="true"></span>
+        <span>日历</span>
       </button>
       <button class="nav-button" data-nav="review">
         <span class="nav-icon review" data-icon-button="book.closed" aria-hidden="true"></span>

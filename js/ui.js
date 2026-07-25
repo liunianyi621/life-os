@@ -1,4 +1,7 @@
     let activeHeatmapPress = null;
+    let activeCalendarMonthSwipe = null;
+    let activeCalendarEventPress = null;
+    let suppressCalendarEventTap = false;
 
     function swipeRowHtml({ attrs = "", actionWidth = 84, actions = "", content = "", editType = "", editId = "", extraClass = "" }) {
       const editAttrs = editType && editId
@@ -57,7 +60,6 @@
       if (!editId) return;
       if (card.dataset.editCard === "task") openTaskSheet(editId);
       if (card.dataset.editCard === "habit") openHabitSheet(editId);
-      if (card.dataset.editCard === "bad") openBadHabitSheet(editId);
       if (card.dataset.editCard === "note") openNoteSheet(editId);
       if (card.dataset.editCard === "reward") openRewardSheet(editId);
       if (card.dataset.editCard === "review") openReviewEditSheet(editId);
@@ -251,6 +253,93 @@
       clearHeatmapPress();
     }
 
+    function clearCalendarMonthSwipe() {
+      const swipe = activeCalendarMonthSwipe;
+      activeCalendarMonthSwipe = null;
+      return swipe;
+    }
+
+    function beginCalendarMonthSwipe(event) {
+      const grid = event.target.closest("#calendarGrid");
+      if (!grid || event.target.closest("[data-calendar-event], button[data-calendar-day]")) return;
+      activeCalendarMonthSwipe = {
+        startX: event.clientX,
+        startY: event.clientY,
+        pointerId: event.pointerId
+      };
+    }
+
+    function moveCalendarMonthSwipe(event) {
+      if (!activeCalendarMonthSwipe || event.pointerId !== activeCalendarMonthSwipe.pointerId) return;
+      const deltaY = event.clientY - activeCalendarMonthSwipe.startY;
+      if (Math.abs(deltaY) > 48) clearCalendarMonthSwipe();
+    }
+
+    function endCalendarMonthSwipe(event) {
+      if (!activeCalendarMonthSwipe || event.pointerId !== activeCalendarMonthSwipe.pointerId) return;
+      const swipe = clearCalendarMonthSwipe();
+      const deltaX = event.clientX - swipe.startX;
+      const deltaY = event.clientY - swipe.startY;
+      if (Math.abs(deltaX) < 42 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+      currentCalendarMonth = shiftMonthKey(currentCalendarMonth, deltaX < 0 ? 1 : -1);
+      suppressCalendarEventTap = true;
+      renderCalendar();
+      window.setTimeout(() => {
+        suppressCalendarEventTap = false;
+      }, 180);
+    }
+
+    function clearCalendarEventPress() {
+      if (!activeCalendarEventPress) return null;
+      const press = activeCalendarEventPress;
+      activeCalendarEventPress = null;
+      clearTimeout(press.timer);
+      press.button?.releasePointerCapture?.(press.pointerId);
+      return press;
+    }
+
+    function beginCalendarEventPress(event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const button = event.target.closest("[data-calendar-event]");
+      if (!button) return;
+      activeCalendarEventPress = {
+        button,
+        startX: event.clientX,
+        startY: event.clientY,
+        pointerId: event.pointerId,
+        triggered: false,
+        timer: window.setTimeout(() => {
+          if (!activeCalendarEventPress || activeCalendarEventPress.pointerId !== event.pointerId) return;
+          activeCalendarEventPress.triggered = true;
+          suppressCalendarEventTap = true;
+          try {
+            if (navigator.vibrate) navigator.vibrate(10);
+          } catch {
+            // Haptics are best-effort.
+          }
+          openCalendarEventActionSheet(button.dataset.calendarEvent);
+        }, 580)
+      };
+      button.setPointerCapture?.(event.pointerId);
+    }
+
+    function moveCalendarEventPress(event) {
+      if (!activeCalendarEventPress || event.pointerId !== activeCalendarEventPress.pointerId) return;
+      const deltaX = event.clientX - activeCalendarEventPress.startX;
+      const deltaY = event.clientY - activeCalendarEventPress.startY;
+      if (Math.hypot(deltaX, deltaY) > 12) clearCalendarEventPress();
+    }
+
+    function endCalendarEventPress(event) {
+      if (!activeCalendarEventPress || event.pointerId !== activeCalendarEventPress.pointerId) return;
+      const press = clearCalendarEventPress();
+      if (press?.triggered) {
+        window.setTimeout(() => {
+          suppressCalendarEventTap = false;
+        }, 180);
+      }
+    }
+
     function render() {
       const activeCount = activeTasksToday().length;
       const visibleHabitCount = visibleHabitsToday().length;
@@ -262,16 +351,15 @@
       renderNextStepCard();
       els.habitCount.textContent = `${visibleHabitCount} 项`;
       els.todayTaskCount.textContent = `${activeCount} 项`;
-      els.badHabitCount.textContent = `${state.badHabits.length} 项`;
       els.noteCount.textContent = `${state.notes.length} 条`;
       els.rewardCount.textContent = `${state.rewards.length} 项`;
 
       renderHabits();
       renderTasks();
-      renderBadHabits();
       renderNotes();
       renderDailyReview();
       renderRewards();
+      renderCalendar();
       if (!els.memoBackdrop.classList.contains("hidden")) renderMemos();
       renderStatsVisuals();
     }
@@ -502,44 +590,70 @@
       `).join("");
     }
 
-    function renderBadHabits() {
-      if (!state.badHabits.length) {
-        els.badHabitList.innerHTML = `
-          <div class="empty-state">
-            <strong>没有坏习惯</strong>
-            <p>添加一个需要立刻付出代价的行为。</p>
-            ${iconActionButtonHtml({
-              className: "button icon-only-button empty-action",
-              icon: "plus",
-              label: "新建坏习惯",
-              attrs: "data-open-bad"
-            })}
-          </div>
-        `;
-        return;
-      }
+    function calendarGridDays(month) {
+      const firstDay = monthDateFromKey(month);
+      const startOffset = (firstDay.getDay() + 6) % 7;
+      const daysInMonth = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0).getDate();
+      const totalDays = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+      return Array.from({ length: totalDays }, (_, index) => {
+        const day = new Date(firstDay);
+        day.setDate(day.getDate() - startOffset + index);
+        return dateKey(day);
+      });
+    }
 
-      els.badHabitList.innerHTML = state.badHabits.map(habit => swipeRowHtml({
-        attrs: `data-habit-card="${escapeAttr(habit.id)}" data-bad-card="${escapeAttr(habit.id)}"`,
-        editType: "bad",
-        editId: habit.id,
-        actions: actionButtonHtml({
-          tone: "orange",
-          icon: "minus.circle",
-          label: "坏习惯扣金币",
-          attrs: `data-trigger-bad="${escapeAttr(habit.id)}"`
-        }),
-        content: `
-          <div class="card-main">
-            <div class="title-wrap">
-                <h3>${escapeHtml(habit.name)}</h3>
-                <div class="meta-row">
-                <span class="pill coin-pill">${formatNumber(parseAmount(habit.penalty))} 金币</span>
-                </div>
-              </div>
-          </div>
-        `
-      })).join("");
+    function calendarMonthLabel(month) {
+      const date = monthDateFromKey(month);
+      return new Intl.DateTimeFormat("zh-CN", {
+        year: "numeric",
+        month: "long"
+      }).format(date);
+    }
+
+    function calendarSegmentHtml(event, day) {
+      const startsHere = event.startDate === day;
+      const endsHere = event.endDate === day;
+      const weekStart = dateFromKey(day).getDay() === 1;
+      const category = calendarCategoryMeta(event.category);
+      const classes = [
+        "calendar-event-segment",
+        startsHere ? "segment-start" : "",
+        endsHere ? "segment-end" : "",
+        !startsHere && !endsHere ? "segment-middle" : ""
+      ].filter(Boolean).join(" ");
+      const text = startsHere || weekStart ? escapeHtml(event.title) : "";
+      return `
+        <button
+          class="${classes}"
+          type="button"
+          data-calendar-event="${escapeAttr(event.id)}"
+          style="--calendar-event-color: ${escapeAttr(category.color)}"
+          aria-label="编辑计划：${escapeAttr(event.title)}"
+          title="${escapeAttr(event.title)}"
+        >${text}</button>
+      `;
+    }
+
+    function renderCalendar() {
+      if (!els.calendarGrid || !els.calendarMonthLabel) return;
+      const activeMonth = currentCalendarMonth || monthKey();
+      const today = dateKey();
+      els.calendarMonthLabel.textContent = calendarMonthLabel(activeMonth);
+      els.calendarGrid.innerHTML = calendarGridDays(activeMonth).map(day => {
+        const inCurrentMonth = day.slice(0, 7) === activeMonth;
+        const isToday = day === today;
+        const isSelected = day === selectedCalendarDate;
+        const events = calendarEventsForDate(day);
+        return `
+          <article class="calendar-day-cell${inCurrentMonth ? "" : " outside-month"}${isToday ? " today" : ""}${isSelected ? " selected" : ""}" data-calendar-day="${escapeAttr(day)}">
+            <button class="calendar-day-number" type="button" data-calendar-day="${escapeAttr(day)}" aria-label="${escapeAttr(day)} 的计划">${Number(day.slice(-2))}</button>
+            <div class="calendar-day-events">
+              ${events.slice(0, 3).map(event => calendarSegmentHtml(event, day)).join("")}
+              ${events.length > 3 ? `<button class="calendar-more-events" type="button" data-calendar-day="${escapeAttr(day)}">+${events.length - 3}</button>` : ""}
+            </div>
+          </article>
+        `;
+      }).join("");
     }
 
     function renderNotes() {
@@ -679,15 +793,23 @@
     document.addEventListener("pointerdown", beginSwipe);
     document.addEventListener("pointerdown", beginReviewPress);
     document.addEventListener("pointerdown", beginHeatmapPress);
+    document.addEventListener("pointerdown", beginCalendarMonthSwipe);
+    document.addEventListener("pointerdown", beginCalendarEventPress);
     document.addEventListener("pointermove", moveSwipe, { passive: false });
     document.addEventListener("pointermove", moveReviewPress, { passive: false });
     document.addEventListener("pointermove", moveHeatmapPress, { passive: false });
+    document.addEventListener("pointermove", moveCalendarMonthSwipe, { passive: true });
+    document.addEventListener("pointermove", moveCalendarEventPress, { passive: true });
     document.addEventListener("pointerup", endSwipe);
     document.addEventListener("pointerup", endReviewPress);
     document.addEventListener("pointerup", endHeatmapPress);
+    document.addEventListener("pointerup", endCalendarMonthSwipe);
+    document.addEventListener("pointerup", endCalendarEventPress);
     document.addEventListener("pointercancel", endSwipe);
     document.addEventListener("pointercancel", endReviewPress);
     document.addEventListener("pointercancel", endHeatmapPress);
+    document.addEventListener("pointercancel", endCalendarMonthSwipe);
+    document.addEventListener("pointercancel", endCalendarEventPress);
 
     document.addEventListener("click", event => {
       const undoButton = event.target.closest("[data-undo-action]");
@@ -700,7 +822,6 @@
       const openTaskButton = event.target.closest("[data-open-task]");
       const openPriorityButton = event.target.closest("[data-open-priority]");
       const openHabitButton = event.target.closest("[data-open-habit]");
-      const openBadButton = event.target.closest("[data-open-bad]");
       const openNoteButton = event.target.closest("[data-open-note]");
       const openRewardButton = event.target.closest("[data-open-reward]");
       const memoSummaryCard = event.target.closest("#memoSummaryCard");
@@ -709,7 +830,6 @@
       const deleteMemoButton = event.target.closest("[data-delete-memo]");
       const editTaskButton = event.target.closest("[data-edit-task]");
       const editHabitButton = event.target.closest("[data-edit-habit]");
-      const editBadButton = event.target.closest("[data-edit-bad]");
       const editNoteButton = event.target.closest("[data-edit-note]");
       const editRewardButton = event.target.closest("[data-edit-reward]");
       const completeTaskButton = event.target.closest("[data-complete-task]");
@@ -719,7 +839,6 @@
       const stopTaskButton = event.target.closest("[data-stop-task]");
       const completeHabitButton = event.target.closest("[data-complete-habit]");
       const failTaskButton = event.target.closest("[data-fail-task]");
-      const triggerBadButton = event.target.closest("[data-trigger-bad]");
       const depositFundButton = event.target.closest("[data-deposit-fund]");
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
@@ -728,9 +847,17 @@
       const deleteTaskButton = event.target.closest("[data-delete-task]");
       const deletePriorityButton = event.target.closest("[data-delete-priority]");
       const deleteHabitButton = event.target.closest("[data-delete-habit]");
-      const deleteBadButton = event.target.closest("[data-delete-bad]");
       const deleteNoteButton = event.target.closest("[data-delete-note]");
       const deleteRewardButton = event.target.closest("[data-delete-reward]");
+      const calendarTodayButton = event.target.closest("[data-calendar-today]");
+      const calendarMonthButton = event.target.closest("[data-calendar-month]");
+      const calendarDayTarget = event.target.closest("[data-calendar-day]");
+      const calendarEventButton = event.target.closest("[data-calendar-event]");
+      const calendarAddButton = event.target.closest("[data-calendar-add-date]");
+      const calendarEditButton = event.target.closest("[data-calendar-edit]");
+      const calendarDeleteButton = event.target.closest("[data-calendar-delete]");
+      const calendarTaskButton = event.target.closest("[data-calendar-to-task]");
+      const deleteCalendarEventButton = event.target.closest("[data-delete-calendar-event]");
 
       if (undoButton) {
         undoLastAction();
@@ -742,6 +869,50 @@
       }
       if (dayDetailButton) {
         openHeatmapDayDetail(dayDetailButton);
+        return;
+      }
+      if (calendarTodayButton) {
+        currentCalendarMonth = monthKey();
+        selectedCalendarDate = dateKey();
+        renderCalendar();
+        return;
+      }
+      if (calendarMonthButton) {
+        currentCalendarMonth = shiftMonthKey(
+          currentCalendarMonth,
+          calendarMonthButton.dataset.calendarMonth === "next" ? 1 : -1
+        );
+        renderCalendar();
+        return;
+      }
+      if (calendarTaskButton) {
+        addCalendarEventToTodayTask(calendarTaskButton.dataset.calendarToTask);
+        return;
+      }
+      if (calendarDeleteButton || deleteCalendarEventButton) {
+        deleteCalendarEvent(
+          calendarDeleteButton?.dataset.calendarDelete || deleteCalendarEventButton?.dataset.deleteCalendarEvent
+        );
+        return;
+      }
+      if (calendarEditButton) {
+        openCalendarEventSheet(calendarEditButton.dataset.calendarEdit);
+        return;
+      }
+      if (calendarAddButton) {
+        openCalendarEventSheet(null, { date: calendarAddButton.dataset.calendarAddDate });
+        return;
+      }
+      if (calendarEventButton) {
+        if (suppressCalendarEventTap) return;
+        openCalendarEventSheet(calendarEventButton.dataset.calendarEvent);
+        return;
+      }
+      if (calendarDayTarget) {
+        if (suppressCalendarEventTap) return;
+        selectedCalendarDate = calendarDayTarget.dataset.calendarDay;
+        openCalendarDaySheet(selectedCalendarDate);
+        renderCalendar();
         return;
       }
       if (!event.target.closest("[data-swipe-row]")) {
@@ -762,7 +933,6 @@
       if (openTaskButton) openTaskSheet();
       if (openPriorityButton) openPrioritySheet();
       if (openHabitButton) openHabitSheet();
-      if (openBadButton) openBadHabitSheet();
       if (openNoteButton) openNoteSheet();
       if (openRewardButton) openRewardSheet();
       if (memoSummaryCard) openMemoSheet();
@@ -781,7 +951,6 @@
       if (editCard?.dataset.editCard === "note") handleEditCardTap(editCard);
       if (editTaskButton) openTaskSheet(editTaskButton.dataset.editTask);
       if (editHabitButton) openHabitSheet(editHabitButton.dataset.editHabit);
-      if (editBadButton) openBadHabitSheet(editBadButton.dataset.editBad);
       if (editNoteButton) openNoteSheet(editNoteButton.dataset.editNote);
       if (editRewardButton) openRewardSheet(editRewardButton.dataset.editReward);
       if (completeTaskButton) {
@@ -804,9 +973,6 @@
       }
       if (failTaskButton) {
         failTask(failTaskButton.dataset.failTask, failTaskButton.closest("[data-task-card]"));
-      }
-      if (triggerBadButton) {
-        triggerBadHabit(triggerBadButton.dataset.triggerBad, triggerBadButton.closest("[data-habit-card]"));
       }
       if (depositFundButton) {
         depositFund(
@@ -832,7 +998,6 @@
       if (deleteTaskButton) deleteTask(deleteTaskButton.dataset.deleteTask);
       if (deletePriorityButton) deletePriorityTask(deletePriorityButton.dataset.deletePriority);
       if (deleteHabitButton) deleteHabit(deleteHabitButton.dataset.deleteHabit);
-      if (deleteBadButton) deleteBadHabit(deleteBadButton.dataset.deleteBad);
       if (deleteNoteButton) deleteNote(deleteNoteButton.dataset.deleteNote);
       if (deleteRewardButton) deleteReward(deleteRewardButton.dataset.deleteReward);
     });

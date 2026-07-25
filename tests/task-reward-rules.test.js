@@ -33,6 +33,7 @@ function emptyState(tasks = [], coins = 1000) {
     habitFailures: {},
     taskAutoFailures: {},
     badHabits: [],
+    calendarEvents: [],
     notes: [],
     memos: [],
     rewards: [],
@@ -53,6 +54,41 @@ function emptyState(tasks = [], coins = 1000) {
     }
   };
 }
+
+test("calendar events remain standalone, normalize ranges, and persist without coin history", () => {
+  const state = emptyState();
+  state.calendarEvents = [{
+    id: "calendar-trip",
+    title: "苏格兰自驾",
+    startDate: "2026-07-20",
+    endDate: "2026-07-24",
+    allDay: true,
+    category: "travel",
+    createdAt: "2026-07-16T08:00:00.000Z"
+  }];
+  const { context } = createRuntime(state);
+
+  const middleDayEvents = vm.runInContext("calendarEventsForDate('2026-07-22')", context);
+  assert.equal(middleDayEvents.length, 1);
+  assert.equal(middleDayEvents[0].title, "苏格兰自驾");
+  assert.equal(middleDayEvents[0].color, "#a49ab2");
+  assert.equal(vm.runInContext("state.history.length", context), 0);
+  assert.equal(vm.runInContext("state.coins", context), 1000);
+
+  const normalized = vm.runInContext(`normalizeCalendarEvent({
+    id: 'calendar-range',
+    title: '整理作品集',
+    startDate: '2026-08-10',
+    endDate: '2026-08-01',
+    allDay: false,
+    startTime: '09:30',
+    endTime: '11:00',
+    category: 'work'
+  })`, context);
+  assert.equal(normalized.startDate, "2026-08-10");
+  assert.equal(normalized.endDate, "2026-08-10");
+  assert.equal(normalized.startTime, "09:30");
+});
 
 function task(overrides = {}) {
   return {
