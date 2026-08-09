@@ -178,7 +178,7 @@ function createRuntime(state) {
     clearTimeout
   };
   vm.createContext(context);
-  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/stats-data.js", "js/stats.js", "js/ui/time-picker.js"].forEach(file => {
+  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/settlement.js", "js/stats-data.js", "js/stats.js", "js/ui/time-picker.js"].forEach(file => {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), "utf8"), context, { filename: file });
   });
   vm.runInContext(`
