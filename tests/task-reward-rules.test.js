@@ -72,6 +72,26 @@ test("calendar events remain standalone and migrate legacy fields to the compact
   assert.equal(middleDayEvents.length, 1);
   assert.equal(middleDayEvents[0].title, "苏格兰自驾");
   assert.equal(middleDayEvents[0].category, "normal");
+  const indexedDays = vm.runInContext(`(() => {
+    const index = calendarEventsForDates(['2026-07-19', '2026-07-20', '2026-07-22', '2026-07-25']);
+    return Array.from(index.entries()).map(([day, events]) => [day, events.map(event => event.id)]);
+  })()`, context);
+  assert.deepEqual(JSON.parse(JSON.stringify(indexedDays)), [
+    ["2026-07-19", []],
+    ["2026-07-20", ["calendar-trip"]],
+    ["2026-07-22", ["calendar-trip"]],
+    ["2026-07-25", []]
+  ]);
+  const refreshedIndex = vm.runInContext(`(() => {
+    state.calendarEvents = [...state.calendarEvents, normalizeCalendarEvent({
+      id: 'calendar-new',
+      title: '新增计划',
+      startDate: '2026-07-22',
+      endDate: '2026-07-22'
+    })];
+    return calendarEventsForDates(['2026-07-22']).get('2026-07-22').map(event => event.id);
+  })()`, context);
+  assert.deepEqual(JSON.parse(JSON.stringify(refreshedIndex)), ["calendar-trip", "calendar-new"]);
   assert.equal(vm.runInContext("state.history.length", context), 0);
   assert.equal(vm.runInContext("state.coins", context), 1000);
 
@@ -158,7 +178,7 @@ function createRuntime(state) {
     clearTimeout
   };
   vm.createContext(context);
-  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/stats.js", "js/ui/time-picker.js"].forEach(file => {
+  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/stats-data.js", "js/stats.js", "js/ui/time-picker.js"].forEach(file => {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), "utf8"), context, { filename: file });
   });
   vm.runInContext(`

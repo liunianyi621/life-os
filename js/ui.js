@@ -341,28 +341,49 @@
       }
     }
 
+    function activeViewName() {
+      return document.querySelector(".view.active")?.dataset.view || "today";
+    }
+
+    function renderActiveView(view = activeViewName()) {
+      if (view === "today") {
+        const activeCount = activeTasksToday().length;
+        const visibleHabitCount = visibleHabitsToday().length;
+        els.todayDate.textContent = formatDate();
+        renderMemoSummary();
+        renderPriorityTask();
+        renderNextStepCard();
+        els.habitCount.textContent = `${visibleHabitCount} 项`;
+        els.todayTaskCount.textContent = `${activeCount} 项`;
+        renderHabits();
+        renderTasks();
+        return;
+      }
+      if (view === "calendar") {
+        renderCalendar();
+        return;
+      }
+      if (view === "notes") {
+        els.noteCount.textContent = `${state.notes.length} 条`;
+        renderNotes();
+        return;
+      }
+      if (view === "review") {
+        renderDailyReview();
+        return;
+      }
+      if (view === "rewards") {
+        els.rewardCount.textContent = `${state.rewards.length} 项`;
+        renderRewards();
+        return;
+      }
+      if (view === "stats") renderStatsVisuals();
+    }
+
     function render() {
-      const activeCount = activeTasksToday().length;
-      const visibleHabitCount = visibleHabitsToday().length;
-
-      els.todayDate.textContent = formatDate();
       updatePrimaryReadouts();
-      renderMemoSummary();
-      renderPriorityTask();
-      renderNextStepCard();
-      els.habitCount.textContent = `${visibleHabitCount} 项`;
-      els.todayTaskCount.textContent = `${activeCount} 项`;
-      els.noteCount.textContent = `${state.notes.length} 条`;
-      els.rewardCount.textContent = `${state.rewards.length} 项`;
-
-      renderHabits();
-      renderTasks();
-      renderNotes();
-      renderDailyReview();
-      renderRewards();
-      renderCalendar();
+      renderActiveView();
       if (!els.memoBackdrop.classList.contains("hidden")) renderMemos();
-      renderStatsVisuals();
     }
 
     function renderNextStepCard() {
@@ -658,13 +679,15 @@
       if (!els.calendarGrid || !els.calendarMonthLabel) return;
       const activeMonth = currentCalendarMonth || monthKey();
       const today = dateKey();
+      const gridDays = calendarGridDays(activeMonth);
+      const eventsByDate = calendarEventsForDates(gridDays);
       els.calendarMonthLabel.textContent = calendarMonthLabel(activeMonth);
       if (els.calendarYearLabel) els.calendarYearLabel.textContent = calendarYearLabel(activeMonth);
-      els.calendarGrid.innerHTML = calendarGridDays(activeMonth).map(day => {
+      els.calendarGrid.innerHTML = gridDays.map(day => {
         const inCurrentMonth = day.slice(0, 7) === activeMonth;
         const isToday = day === today;
         const isSelected = day === selectedCalendarDate;
-        const events = calendarEventsForDate(day);
+        const events = eventsByDate.get(day) || [];
         return `
           <article class="calendar-day-cell${inCurrentMonth ? "" : " outside-month"}${isToday ? " today" : ""}${isSelected ? " selected" : ""}" data-calendar-day="${escapeAttr(day)}">
             <button class="calendar-day-number" type="button" data-calendar-day="${escapeAttr(day)}" aria-label="${escapeAttr(day)} 的计划">${Number(day.slice(-2))}</button>
@@ -984,7 +1007,9 @@
       }
       if (navButton) {
         switchView(navButton.dataset.nav);
-        if (runAutomaticChecks()) render();
+        runAutomaticChecks();
+        render();
+        return;
       }
       if (exportDebugTarget) {
         exportDebugData();

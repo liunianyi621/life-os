@@ -83,7 +83,7 @@ function createRuntime(history) {
     clearTimeout
   };
   vm.createContext(context);
-  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/stats.js"].forEach(file => {
+  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/stats-data.js", "js/stats.js"].forEach(file => {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), "utf8"), context, { filename: file });
   });
   return context;
@@ -206,4 +206,18 @@ test("匿名化后的 7 月 4 日真实行为记录仍应得到 -8", () => {
   assert.equal(row.behaviorNet, -8);
   assert.equal(row.behaviorEarned, 6);
   assert.equal(row.behaviorDeducted, 14);
+
+  const daySummary = vm.runInContext(`dayCoinSummary("${DAY}")`, context);
+  assert.equal(daySummary.net, -68);
+  assert.equal(daySummary.behaviorNet, -8);
+  assert.equal(daySummary.habits.length, 3);
+  assert.equal(daySummary.failedHabits.length, 1);
+  assert.equal(daySummary.badHabits.length, 2);
+
+  const monthlyTaskSummary = vm.runInContext(`buildMonthlyTaskSummary("invalid-month", [{
+    focusSeconds: 1800,
+    earnedTaskCoins: 10
+  }])`, context);
+  assert.equal(monthlyTaskSummary.monthlyTaskDuration, 1800);
+  assert.equal(monthlyTaskSummary.monthlyEarnedCoinsFromTasks, 10);
 });

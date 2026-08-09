@@ -108,15 +108,48 @@
       return state.calendarEvents.find(event => event.id === eventId) || null;
     }
 
+    function compareCalendarEvents(left, right) {
+      return left.startDate.localeCompare(right.startDate)
+        || left.endDate.localeCompare(right.endDate)
+        || left.title.localeCompare(right.title, "zh-CN");
+    }
+
+    let calendarEventsForDatesCache = null;
+
+    function calendarEventsForDates(days) {
+      const normalizedDays = Array.from(new Set((Array.isArray(days) ? days : [])
+        .map(day => normalizeCalendarDate(day))));
+      const cacheKey = normalizedDays.join("|");
+      if (
+        calendarEventsForDatesCache?.events === state.calendarEvents
+        && calendarEventsForDatesCache.key === cacheKey
+      ) {
+        return calendarEventsForDatesCache.byDate;
+      }
+
+      const byDate = new Map(normalizedDays.map(day => [day, []]));
+      if (!normalizedDays.length) return byDate;
+      const firstDay = normalizedDays.reduce((first, day) => day < first ? day : first);
+      const lastDay = normalizedDays.reduce((last, day) => day > last ? day : last);
+      state.calendarEvents
+        .filter(event => event.startDate <= lastDay && event.endDate >= firstDay)
+        .sort(compareCalendarEvents)
+        .forEach(event => {
+          normalizedDays.forEach(day => {
+            if (day >= event.startDate && day <= event.endDate) byDate.get(day).push(event);
+          });
+        });
+      calendarEventsForDatesCache = {
+        events: state.calendarEvents,
+        key: cacheKey,
+        byDate
+      };
+      return byDate;
+    }
+
     function calendarEventsForDate(day) {
       const targetDate = normalizeCalendarDate(day);
-      return state.calendarEvents
-        .filter(event => event.startDate <= targetDate && event.endDate >= targetDate)
-        .sort((left, right) => {
-          return left.startDate.localeCompare(right.startDate)
-            || left.endDate.localeCompare(right.endDate)
-            || left.title.localeCompare(right.title, "zh-CN");
-        });
+      return calendarEventsForDates([targetDate]).get(targetDate) || [];
     }
 
     function firstAvailableValue(values, fallback = "") {

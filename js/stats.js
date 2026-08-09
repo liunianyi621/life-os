@@ -1,205 +1,8 @@
     function renderStatsVisuals() {
-      const rows = buildStatsRows(currentStatsRange);
-      renderHeatmap();
+      const { trendRows, heatRows } = buildStatsDashboardData(currentStatsRange, currentHeatmapMonth);
+      renderHeatmap(heatRows);
       renderAchievements();
-      renderHabitTrend(rows);
-    }
-
-    function coinEventFinancialDelta(item) {
-      if (!item) return 0;
-      if (item.coinDelta !== undefined && item.coinDelta !== null && item.coinDelta !== "") {
-        return parseCoinAmount(item.coinDelta);
-      }
-      if (typeof historyCoinDelta === "function") {
-        const historyDelta = parseCoinAmount(historyCoinDelta(item));
-        if (historyDelta !== 0) return historyDelta;
-      }
-
-      const rawAmount = [item.amount, item.coins, item.cost, item.value, item.delta]
-        .find(value => value !== undefined && value !== null && value !== "");
-      const amount = parseCoinAmount(rawAmount);
-      if (!amount) return 0;
-      const type = String(item.type || "").toLowerCase();
-      if ([
-        "task_failed",
-        "task_missed",
-        "habit_failed",
-        "priority_task_penalty",
-        "bad_habit",
-        "reward_redeemed",
-        "fund_deposit"
-      ].includes(type)) return -Math.abs(amount);
-      if ([
-        "task_completed",
-        "habit_completed",
-        "review_reward",
-        "priority_task_reward",
-        "no_bad_habit_bonus"
-      ].includes(type)) return Math.abs(amount);
-      return isRewardPageEvent(item) ? -Math.abs(amount) : 0;
-    }
-
-    function behaviorScoreDelta(item) {
-      if (!isHabitPerformanceTransaction(item)) return 0;
-      if (item.behaviorScoreDelta !== undefined && item.behaviorScoreDelta !== null && item.behaviorScoreDelta !== "") {
-        return parseCoinAmount(item.behaviorScoreDelta);
-      }
-      return coinEventFinancialDelta(item);
-    }
-
-    function buildStatsRows(range) {
-      const periods = lastDays(range === "year" ? 365 : range === "month" ? 30 : 7);
-      const rows = periods.map(period => ({
-        key: period.key,
-        label: period.label,
-        completed: 0,
-        failed: 0,
-        badHabits: 0,
-        earned: 0,
-        deducted: 0,
-        focusSeconds: 0,
-        focusMinutes: 0,
-        earnedTaskCoins: 0,
-        net: 0,
-        behaviorEarned: 0,
-        behaviorDeducted: 0,
-        behaviorNet: 0,
-        score: 0
-      }));
-      const byKey = new Map(rows.map(row => [row.key, row]));
-
-      state.history.forEach(item => {
-        const key = item.date;
-        const row = byKey.get(key);
-        if (!row) return;
-        const isBehaviorTransaction = isHabitPerformanceTransaction(item);
-        const financialDelta = coinEventFinancialDelta(item);
-        if (financialDelta > 0) row.earned += financialDelta;
-        if (financialDelta < 0) row.deducted += Math.abs(financialDelta);
-        const behaviorDelta = behaviorScoreDelta(item);
-        if (behaviorDelta > 0) row.behaviorEarned += behaviorDelta;
-        if (behaviorDelta < 0) row.behaviorDeducted += Math.abs(behaviorDelta);
-
-        if (isBehaviorTransaction && (item.type === "task_completed" || item.type === "habit_completed")) {
-          row.completed += 1;
-        }
-        if (isBehaviorTransaction && item.type === "task_completed") {
-          row.focusSeconds += taskDurationSecondsFromItem(item);
-          row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
-        }
-        if (isBehaviorTransaction && (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed")) {
-          row.failed += 1;
-        }
-        if (isBehaviorTransaction && item.type === "priority_task_penalty") {
-          row.failed += 1;
-        }
-        if (isBehaviorTransaction && item.type === "bad_habit") {
-          row.badHabits += 1;
-        }
-      });
-
-      rows.forEach(row => {
-        row.focusMinutes = Math.round(row.focusSeconds / 60);
-        row.net = row.earned - row.deducted;
-        row.behaviorNet = row.behaviorEarned - row.behaviorDeducted;
-        row.score = row.completed - row.failed - row.badHabits;
-      });
-
-      return rows;
-    }
-
-    function buildMonthlyHeatRows(month) {
-      const monthStart = monthDateFromKey(month);
-      const year = monthStart.getFullYear();
-      const monthIndex = monthStart.getMonth();
-      const dayCount = new Date(year, monthIndex + 1, 0).getDate();
-      const rows = Array.from({ length: dayCount }, (_, index) => {
-        const date = new Date(year, monthIndex, index + 1);
-        return {
-          key: dateKey(date),
-          day: index + 1,
-          completed: 0,
-          failed: 0,
-          badHabits: 0,
-          earned: 0,
-          deducted: 0,
-          focusSeconds: 0,
-          focusMinutes: 0,
-          earnedTaskCoins: 0,
-          net: 0,
-          behaviorEarned: 0,
-          behaviorDeducted: 0,
-          behaviorNet: 0,
-          hasBehaviorRecord: false
-        };
-      });
-      const byKey = new Map(rows.map(row => [row.key, row]));
-
-      state.history.forEach(item => {
-        const row = byKey.get(item.date);
-        if (!row) return;
-        const isBehaviorTransaction = isHabitPerformanceTransaction(item);
-        const financialDelta = coinEventFinancialDelta(item);
-        if (financialDelta > 0) row.earned += financialDelta;
-        if (financialDelta < 0) row.deducted += Math.abs(financialDelta);
-        const behaviorDelta = behaviorScoreDelta(item);
-        if (behaviorDelta > 0) row.behaviorEarned += behaviorDelta;
-        if (behaviorDelta < 0) row.behaviorDeducted += Math.abs(behaviorDelta);
-        if (isBehaviorTransaction) row.hasBehaviorRecord = true;
-
-        if (isBehaviorTransaction && (item.type === "task_completed" || item.type === "habit_completed")) {
-          row.completed += 1;
-        }
-        if (isBehaviorTransaction && item.type === "task_completed") {
-          row.focusSeconds += taskDurationSecondsFromItem(item);
-          row.earnedTaskCoins += taskEarnedCoinsFromItem(item);
-        }
-        if (isBehaviorTransaction && (item.type === "task_failed" || item.type === "task_missed" || item.type === "habit_failed")) {
-          row.failed += 1;
-        }
-        if (isBehaviorTransaction && item.type === "priority_task_penalty") {
-          row.failed += 1;
-        }
-        if (isBehaviorTransaction && item.type === "bad_habit") {
-          row.badHabits += 1;
-        }
-      });
-
-      rows.forEach(row => {
-        row.focusMinutes = Math.round(row.focusSeconds / 60);
-        row.net = row.earned - row.deducted;
-        row.behaviorNet = row.behaviorEarned - row.behaviorDeducted;
-      });
-
-      return rows;
-    }
-
-    function buildMonthlyTaskSummary(month) {
-      const rows = buildMonthlyHeatRows(month);
-      return {
-        monthlyTaskDuration: rows.reduce((total, row) => total + row.focusSeconds, 0),
-        monthlyEarnedCoinsFromTasks: parseCoinAmount(rows.reduce((total, row) => total + row.earnedTaskCoins, 0))
-      };
-    }
-
-    function calendarDayClass(row, maxNet, maxLoss) {
-      if (!row.hasBehaviorRecord) return "empty";
-      const behaviorNet = Number(row.behaviorNet) || 0;
-      if (behaviorNet > 0) {
-        const ratio = maxNet ? behaviorNet / maxNet : 1;
-        if (ratio > 0.75) return "net-4";
-        if (ratio > 0.5) return "net-3";
-        if (ratio > 0.25) return "net-2";
-        return "net-1";
-      }
-      if (behaviorNet < 0) {
-        const loss = Math.abs(behaviorNet);
-        const ratio = maxLoss ? loss / maxLoss : 1;
-        if (ratio > 0.66) return "bad-3";
-        if (ratio > 0.33) return "bad-2";
-        return "bad-1";
-      }
-      return "net-0";
+      renderHabitTrend(trendRows);
     }
 
     function historyTimeLabel(timestamp) {
@@ -234,10 +37,6 @@
       "no_bad_habit_bonus"
     ]);
 
-    function dayEntries(day, matcher) {
-      return state.history.filter(item => item.date === day && matcher(item));
-    }
-
     function dayHasEditableRecords(day) {
       return state.history.some(item => item.date === day && (
         DAY_DETAIL_HISTORY_TYPES.has(item.type) || isRewardPageEvent(item)
@@ -247,61 +46,54 @@
     }
 
     function dayCoinSummary(day) {
-      const completed = dayEntries(day, item => (
-        isHabitPerformanceTransaction(item) && item.type === "task_completed"
-      ));
-      const habits = dayEntries(day, item => (
-        isHabitPerformanceTransaction(item) && item.type === "habit_completed"
-      ));
-      const failed = dayEntries(day, item => (
-        isHabitPerformanceTransaction(item) && (item.type === "task_failed" || item.type === "task_missed")
-      ));
-      const failedHabits = dayEntries(day, item => (
-        isHabitPerformanceTransaction(item) && item.type === "habit_failed"
-      ));
-      const badHabits = dayEntries(day, item => (
-        isHabitPerformanceTransaction(item) && item.type === "bad_habit"
-      ));
-      const rewards = dayEntries(day, item => isRewardPageEvent(item));
-      const reviewRewards = dayEntries(day, item => item.type === "review_reward");
-      const priorityRewards = dayEntries(day, item => item.type === "priority_task_reward");
-      const priorityPenalties = dayEntries(day, item => item.type === "priority_task_penalty");
-      const noBadHabitBonuses = dayEntries(day, item => item.type === "no_bad_habit_bonus");
-      const financialEntries = dayEntries(day, item => coinEventFinancialDelta(item) !== 0);
-      const behaviorEntries = dayEntries(day, item => isHabitPerformanceTransaction(item));
-      const earned = financialEntries.reduce((sum, item) => {
-        const delta = coinEventFinancialDelta(item);
-        return sum + (delta > 0 ? delta : 0);
-      }, 0);
-      const deducted = financialEntries.reduce((sum, item) => {
-        const delta = coinEventFinancialDelta(item);
-        return sum + (delta < 0 ? Math.abs(delta) : 0);
-      }, 0);
-      const behaviorEarned = behaviorEntries.reduce((sum, item) => {
-        const delta = behaviorScoreDelta(item);
-        return sum + (delta > 0 ? delta : 0);
-      }, 0);
-      const behaviorDeducted = behaviorEntries.reduce((sum, item) => {
-        const delta = behaviorScoreDelta(item);
-        return sum + (delta < 0 ? Math.abs(delta) : 0);
-      }, 0);
+      const summary = {
+        completed: [],
+        habits: [],
+        failed: [],
+        failedHabits: [],
+        badHabits: [],
+        rewards: [],
+        reviewRewards: [],
+        priorityRewards: [],
+        priorityPenalties: [],
+        noBadHabitBonuses: [],
+        earned: 0,
+        deducted: 0,
+        behaviorEarned: 0,
+        behaviorDeducted: 0
+      };
+
+      state.history.forEach(item => {
+        if (item.date !== day) return;
+        const metrics = statsMetricsForHistoryItem(item);
+        const { isBehaviorTransaction, financialDelta, behaviorDelta } = metrics;
+
+        if (isBehaviorTransaction && item.type === "task_completed") summary.completed.push(item);
+        if (isBehaviorTransaction && item.type === "habit_completed") summary.habits.push(item);
+        if (isBehaviorTransaction && (item.type === "task_failed" || item.type === "task_missed")) {
+          summary.failed.push(item);
+        }
+        if (isBehaviorTransaction && item.type === "habit_failed") summary.failedHabits.push(item);
+        if (isBehaviorTransaction && item.type === "bad_habit") summary.badHabits.push(item);
+        if (isRewardPageEvent(item)) summary.rewards.push(item);
+        if (item.type === "review_reward") summary.reviewRewards.push(item);
+        if (item.type === "priority_task_reward") summary.priorityRewards.push(item);
+        if (item.type === "priority_task_penalty") summary.priorityPenalties.push(item);
+        if (item.type === "no_bad_habit_bonus") summary.noBadHabitBonuses.push(item);
+
+        if (financialDelta > 0) summary.earned += financialDelta;
+        if (financialDelta < 0) summary.deducted += Math.abs(financialDelta);
+
+        if (isBehaviorTransaction) {
+          if (behaviorDelta > 0) summary.behaviorEarned += behaviorDelta;
+          if (behaviorDelta < 0) summary.behaviorDeducted += Math.abs(behaviorDelta);
+        }
+      });
+
       return {
-        completed,
-        habits,
-        failed,
-        failedHabits,
-        badHabits,
-        rewards,
-        reviewRewards,
-        priorityRewards,
-        priorityPenalties,
-        noBadHabitBonuses,
-        earned,
-        deducted,
-        net: earned - deducted,
-        behaviorEarned,
-        behaviorDeducted,
-        behaviorNet: behaviorEarned - behaviorDeducted
+        ...summary,
+        net: summary.earned - summary.deducted,
+        behaviorNet: summary.behaviorEarned - summary.behaviorDeducted
       };
     }
 
@@ -560,13 +352,13 @@
       `).join("");
     }
 
-    function renderHeatmap() {
-      const rows = buildMonthlyHeatRows(currentHeatmapMonth);
-      const monthlyTaskSummary = buildMonthlyTaskSummary(currentHeatmapMonth);
+    function renderHeatmap(rows = null) {
+      const heatRows = rows || buildMonthlyHeatRows(currentHeatmapMonth);
+      const monthlyTaskSummary = buildMonthlyTaskSummary(currentHeatmapMonth, heatRows);
       const monthStart = monthDateFromKey(currentHeatmapMonth);
       const leadingDays = (monthStart.getDay() + 6) % 7;
-      const maxNet = Math.max(...rows.map(row => Math.max(0, row.behaviorNet)), 0);
-      const maxLoss = Math.max(...rows.map(row => Math.max(0, -row.behaviorNet)), 0);
+      const maxNet = Math.max(...heatRows.map(row => Math.max(0, row.behaviorNet)), 0);
+      const maxLoss = Math.max(...heatRows.map(row => Math.max(0, -row.behaviorNet)), 0);
       const today = dateKey();
       const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -580,7 +372,7 @@
           </div>
           <div class="calendar-grid">
             ${Array.from({ length: leadingDays }, () => `<span class="calendar-empty" aria-hidden="true"></span>`).join("")}
-            ${rows.map(row => {
+            ${heatRows.map(row => {
               const level = calendarDayClass(row, maxNet, maxLoss);
               const todayClass = row.key === today ? " today" : "";
               const behaviorNet = Number(row.behaviorNet) || 0;
