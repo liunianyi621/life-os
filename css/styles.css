@@ -6559,3 +6559,638 @@
       border: 0;
       touch-action: auto;
     }
+
+    /* Qonto-inspired LifeOS design system: shared tokens plus scoped Today UI. */
+    :root {
+      --bg-app: #f5f4f0;
+      --bg-surface: #ffffff;
+      --bg-surface-secondary: #efeeea;
+      --bg-surface-subtle: #f8f7f4;
+      --text-primary: #191917;
+      --text-secondary: #5f5d57;
+      --text-tertiary: #7f7c74;
+      --text-placeholder-ui: #918e86;
+      --success: #637a63;
+      --success-soft: #eef3ed;
+      --danger: #965c53;
+      --danger-soft: #f7ece9;
+      --border-soft: rgba(28, 27, 23, 0.08);
+      --border-strong: rgba(28, 27, 23, 0.14);
+      --radius-xl: 24px;
+      --radius-lg: 20px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 28px;
+      --shadow-soft: 0 5px 20px rgba(35, 33, 27, 0.045);
+      --shadow-floating: 0 12px 30px rgba(35, 33, 27, 0.09);
+
+      /* Existing components inherit the new semantic palette without changing structure. */
+      --bg: var(--bg-app);
+      --surface: var(--bg-surface);
+      --surface-soft: var(--bg-surface-secondary);
+      --surface-warm: var(--bg-surface-subtle);
+      --ink: var(--text-primary);
+      --text: var(--text-primary);
+      --muted: var(--text-secondary);
+      --quiet: var(--text-tertiary);
+      --line: var(--border-soft);
+      --green: var(--success);
+      --green-ink: var(--success);
+      --green-soft: var(--success-soft);
+      --red: var(--danger);
+      --red-ink: var(--danger);
+      --red-soft: var(--danger-soft);
+      --card-border: var(--border-soft);
+      --control-border: var(--border-soft);
+      --control-glass: var(--bg-surface);
+      --control-glass-strong: var(--bg-surface-subtle);
+      --shadow: var(--shadow-soft);
+      --soft-shadow: var(--shadow-soft);
+      --card-radius: var(--radius-xl);
+      --control-radius: var(--radius-md);
+      --small-radius: var(--radius-sm);
+      --nav-base-height: 54px;
+      --text-title: var(--text-primary);
+      --text-body: #282723;
+      --text-heading: #3c3a35;
+      --text-secondary: #5f5d57;
+      --text-tertiary: #7f7c74;
+      --text-placeholder: var(--text-placeholder-ui);
+      --text-danger: var(--danger);
+      --legend-muted: var(--text-secondary);
+    }
+
+    html,
+    body,
+    .app {
+      background: var(--bg-app);
+      color: var(--text-primary);
+    }
+
+    .screen {
+      padding-bottom: calc(82px + env(safe-area-inset-bottom));
+    }
+
+    .header h1 {
+      color: var(--text-primary);
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .section-heading h2,
+    .sheet-header h2,
+    .confirm-dialog h2 {
+      color: var(--text-primary);
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .icon-button,
+    .button,
+    .ghost-button,
+    .danger-button.icon-only-button,
+    .swipe-action {
+      border-color: var(--border-soft);
+      background: var(--bg-surface);
+      box-shadow: none;
+    }
+
+    .icon-button:focus-visible,
+    .button:focus-visible,
+    .ghost-button:focus-visible,
+    .nav-button:focus-visible {
+      outline: 2px solid rgba(25, 25, 23, 0.24);
+      outline-offset: 2px;
+    }
+
+    .sheet,
+    .confirm-dialog {
+      border-color: var(--border-soft);
+      background: var(--bg-surface);
+      box-shadow: 0 26px 70px rgba(35, 33, 27, 0.15);
+    }
+
+    .sheet-header {
+      padding: 24px 22px 14px;
+      border-bottom-color: var(--border-soft);
+    }
+
+    .sheet-header h2 {
+      font-size: 1.34rem;
+      line-height: 1.15;
+    }
+
+    .sheet-form {
+      gap: var(--space-4);
+      padding: 18px 22px max(22px, env(safe-area-inset-bottom));
+    }
+
+    .field input,
+    .field textarea,
+    .memo-form input,
+    .next-step-form input {
+      border-color: var(--border-soft);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface-subtle);
+      color: var(--text-primary);
+    }
+
+    .field input::placeholder,
+    .field textarea::placeholder,
+    .memo-form input::placeholder,
+    .next-step-form input::placeholder {
+      color: var(--text-placeholder-ui);
+    }
+
+    .field input:focus,
+    .field textarea:focus,
+    .memo-form input:focus,
+    .next-step-form input:focus {
+      border-color: var(--border-strong);
+      background: var(--bg-surface);
+      box-shadow: 0 0 0 4px rgba(25, 25, 23, 0.045);
+    }
+
+    .sheet-actions {
+      padding-top: var(--space-2);
+      border: 0;
+      background: transparent;
+    }
+
+    .sheet-actions .button.icon-only-button {
+      display: inline-flex;
+      width: 100%;
+      height: 54px;
+      min-height: 54px;
+      justify-content: center;
+      gap: 9px;
+      border: 0;
+      border-radius: 19px;
+      background: var(--text-primary);
+      color: #fff;
+      box-shadow: none;
+    }
+
+    .sheet-actions .button.icon-only-button::after {
+      content: attr(aria-label);
+      color: inherit;
+      font-size: 0.94rem;
+      font-weight: 720;
+      line-height: 1;
+    }
+
+    .sheet-actions .button.icon-only-button .sf-icon,
+    .sheet-actions .button.icon-only-button .action-icon {
+      width: 19px;
+      height: 19px;
+    }
+
+    /* Today page: cover-like header, quiet summary, and grouped list sections. */
+    .today-page .today-header {
+      align-items: center;
+      padding: 6px 2px 18px;
+    }
+
+    .today-page .today-header .eyebrow {
+      margin-bottom: 7px;
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    .today-page .today-header h1 {
+      font-size: 2.44rem;
+      line-height: 1;
+      font-weight: 810;
+    }
+
+    .today-page .today-summary {
+      gap: var(--space-3);
+      margin: 0 0 var(--space-5);
+    }
+
+    .today-page .summary-card {
+      container-type: inline-size;
+      min-width: 0;
+      min-height: 112px;
+      padding: 17px 16px 16px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      background: var(--bg-surface);
+      box-shadow: none;
+    }
+
+    .today-page .memo-summary-card {
+      background: var(--bg-surface);
+    }
+
+    .today-page .summary-label {
+      color: var(--text-secondary);
+      font-size: 0.74rem;
+      font-weight: 620;
+    }
+
+    .today-page .summary-value {
+      display: flex;
+      min-width: 0;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 6px;
+      margin-top: 15px;
+    }
+
+    .today-page .summary-value strong {
+      max-width: 100%;
+      color: var(--text-primary);
+      font-size: clamp(1.5rem, 18cqi, 1.86rem);
+      line-height: 1;
+      font-weight: 780;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .today-page .summary-value span {
+      flex-basis: 100%;
+      color: var(--text-tertiary);
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .today-page .today-priority-slot {
+      margin: 0 0 var(--space-6);
+    }
+
+    .today-page .priority-card,
+    .today-page .today-priority-slot > .swipe-row .swipe-card {
+      min-height: 0;
+      padding: 19px 18px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-xl);
+      background: var(--bg-surface);
+      box-shadow: none;
+    }
+
+    .today-page .priority-empty {
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .today-page .priority-label {
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+      font-size: 0.72rem;
+      font-weight: 650;
+    }
+
+    .today-page .priority-card h2,
+    .today-page .priority-card h3 {
+      color: var(--text-primary);
+      font-size: 1.15rem;
+      line-height: 1.28;
+      font-weight: 740;
+    }
+
+    .today-page .priority-card p {
+      margin-top: 8px;
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      line-height: 1.4;
+    }
+
+    .today-page .priority-set-button {
+      min-height: 38px;
+      padding: 8px 14px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--text-primary);
+      color: #fff;
+      font-size: 0.78rem;
+      box-shadow: none;
+    }
+
+    .today-page .today-section {
+      margin-top: var(--space-6);
+    }
+
+    .today-page .today-priority-slot + .today-section {
+      margin-top: 0;
+    }
+
+    .today-page .section-heading {
+      min-height: 44px;
+      margin: 0 2px 10px;
+      align-items: center;
+    }
+
+    .today-page .section-heading h2 {
+      color: var(--text-primary);
+      font-size: 1.04rem;
+      line-height: 1.2;
+      font-weight: 720;
+    }
+
+    .today-page .section-heading-actions {
+      gap: 10px;
+    }
+
+    .today-page .section-heading-actions > span {
+      color: var(--text-tertiary);
+      font-size: 0.74rem;
+      font-weight: 560;
+    }
+
+    .today-page .section-heading .icon-button {
+      width: 40px;
+      height: 40px;
+      min-height: 40px;
+      border: 1px solid var(--border-soft);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .today-page .next-step-card {
+      margin: 0 0 10px;
+      padding: 13px 16px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface-subtle);
+      box-shadow: none;
+    }
+
+    .today-page #todayTaskList,
+    .today-page #habitList {
+      display: grid;
+      gap: 0;
+      overflow: hidden;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-xl);
+      background: var(--bg-surface);
+      box-shadow: none;
+    }
+
+    .today-page #todayTaskList .task-time-group {
+      display: grid;
+      gap: 0;
+    }
+
+    .today-page #todayTaskList .task-time-group + .task-time-group {
+      margin-top: 0;
+      border-top: 1px solid var(--border-soft);
+    }
+
+    .today-page #todayTaskList .task-time-heading {
+      padding: 13px 16px 7px;
+      color: var(--text-tertiary);
+      font-size: 0.7rem;
+      font-weight: 620;
+    }
+
+    .today-page #todayTaskList .task-time-list {
+      display: grid;
+      gap: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .today-page #todayTaskList .swipe-row,
+    .today-page #habitList .swipe-row {
+      overflow: visible;
+      border-radius: 0;
+    }
+
+    .today-page #todayTaskList .swipe-card,
+    .today-page #habitList .swipe-card {
+      min-height: 70px;
+      gap: 10px;
+      padding: 13px 12px 13px 16px;
+      border: 0;
+      border-radius: 0;
+      background: var(--bg-surface);
+      box-shadow: none;
+    }
+
+    .today-page #todayTaskList .swipe-row[data-task-card] .swipe-card {
+      min-height: 74px;
+    }
+
+    .today-page #habitList .swipe-row[data-habit-card] .swipe-card {
+      min-height: 68px;
+    }
+
+    .today-page #todayTaskList .swipe-row + .swipe-row .swipe-card,
+    .today-page #habitList > .swipe-row + .swipe-row .swipe-card {
+      border-top: 1px solid var(--border-soft);
+    }
+
+    .today-page #todayTaskList .title-wrap h3,
+    .today-page #habitList .title-wrap h3 {
+      color: var(--text-primary);
+      font-size: 0.94rem;
+      line-height: 1.25;
+      font-weight: 670;
+    }
+
+    .today-page #todayTaskList .meta-row,
+    .today-page #habitList .meta-row {
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .today-page #todayTaskList .pill,
+    .today-page #habitList .pill {
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+      font-weight: 560;
+    }
+
+    .today-page #todayTaskList .pill.green,
+    .today-page #habitList .pill.green {
+      color: var(--success);
+    }
+
+    .today-page #todayTaskList .pill.red,
+    .today-page #habitList .pill.red {
+      color: var(--danger);
+    }
+
+    .today-page .inline-card-actions {
+      gap: 6px;
+    }
+
+    .today-page .swipe-action {
+      width: 42px;
+      height: 42px;
+      min-height: 42px;
+      border: 1px solid var(--border-soft);
+      background: var(--bg-surface-subtle);
+      box-shadow: none;
+    }
+
+    .today-page .swipe-action.green {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .today-page .swipe-action.red {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .today-page .swipe-action.blue,
+    .today-page .swipe-action.orange {
+      background: var(--bg-surface-secondary);
+      color: var(--text-primary);
+    }
+
+    .today-page .empty-state {
+      min-height: 70px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      justify-items: start;
+      align-content: center;
+      gap: 5px;
+      padding: 17px 18px;
+      border: 0;
+      border-radius: 0;
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      text-align: left;
+      box-shadow: none;
+    }
+
+    .today-page .empty-state strong {
+      grid-column: 1;
+      color: var(--text-secondary);
+      font-size: 0.86rem;
+      font-weight: 620;
+    }
+
+    .today-page .empty-state p {
+      grid-column: 1;
+      color: var(--text-tertiary);
+      font-size: 0.74rem;
+      line-height: 1.4;
+    }
+
+    .today-page .empty-state .empty-icon-action {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      align-self: center;
+      justify-self: end;
+    }
+
+    .today-page .priority-main .pill {
+      min-height: 24px;
+      padding: 4px 8px;
+      border: 0;
+      background: var(--bg-surface-secondary);
+      font-size: 0.68rem;
+    }
+
+    .today-page .priority-main .pill.green {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .today-page .priority-main .pill.red {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    /* Compact, system-like navigation shared by all five views. */
+    .bottom-nav {
+      left: 16px;
+      right: 16px;
+      bottom: max(8px, env(safe-area-inset-bottom));
+      width: auto;
+      max-width: 448px;
+      min-height: 52px;
+      margin: 0 auto;
+      padding: 4px;
+      border: 1px solid var(--border-soft);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow-floating);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .nav-button,
+    .nav-button.active {
+      display: flex;
+      min-height: 44px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 4px 2px;
+      border: 0;
+      border-radius: 18px;
+      background: transparent;
+      color: var(--text-tertiary);
+      box-shadow: none;
+      font-size: 0.61rem;
+      line-height: 1;
+      font-weight: 590;
+    }
+
+    .nav-button.active {
+      background: var(--bg-surface-secondary);
+      color: var(--text-primary);
+    }
+
+    .nav-icon,
+    .nav-icon .action-icon,
+    .nav-icon .sf-icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    .nav-icon .sf-icon {
+      stroke-width: 1.68;
+    }
+
+    @media (max-width: 374px) {
+      .today-page .today-header h1 {
+        font-size: 2.24rem;
+      }
+
+      .today-page .today-summary {
+        gap: 10px;
+      }
+
+      .today-page .summary-card {
+        padding-right: 14px;
+        padding-left: 14px;
+      }
+
+      .today-page .priority-card,
+      .today-page .today-priority-slot > .swipe-row .swipe-card {
+        padding-right: 16px;
+        padding-left: 16px;
+      }
+
+      .today-page #todayTaskList .swipe-card,
+      .today-page #habitList .swipe-card {
+        padding-left: 14px;
+      }
+    }
+
+    @media (min-width: 500px) {
+      .bottom-nav {
+        left: 50%;
+        right: auto;
+        width: 448px;
+        transform: translateX(-50%);
+      }
+    }

@@ -462,13 +462,6 @@
         els.habitList.innerHTML = `
           <div class="empty-state">
             <strong>还没有习惯</strong>
-            <p>添加一个每天固定出现的长期习惯。</p>
-            ${iconActionButtonHtml({
-              className: "icon-button empty-icon-action",
-              icon: "plus",
-              label: "添加习惯",
-              attrs: "data-open-habit"
-            })}
           </div>
         `;
         return;
@@ -565,8 +558,7 @@
       if (!tasksForToday.length) {
         els.todayTaskList.innerHTML = `
           <div class="empty-state">
-            <strong>今日任务已清空</strong>
-            <p>今天的选择已经记录。明天会重新开始。</p>
+            <strong>今天没有任务</strong>
           </div>
         `;
         return;
@@ -576,8 +568,7 @@
       if (!activeTasks.length) {
         els.todayTaskList.innerHTML = `
           <div class="empty-state">
-            <strong>今日任务已清空</strong>
-            <p>今天的选择已经记录。明天会重新开始。</p>
+            <strong>今天的任务已经完成</strong>
           </div>
         `;
         return;
