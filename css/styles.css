@@ -5858,13 +5858,13 @@
       line-height: 1;
     }
 
-    .calendar-weekdays,
-    .calendar-grid {
+    .planning-calendar-weekdays,
+    .planning-calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
     }
 
-    .calendar-weekdays {
+    .planning-calendar-weekdays {
       padding: 0 8px 7px;
       color: var(--text-tertiary);
       font-size: 0.68rem;
@@ -5872,7 +5872,7 @@
       text-align: center;
     }
 
-    .calendar-grid {
+    .planning-calendar-grid {
       border-top: 1px solid rgba(30, 30, 25, 0.075);
       touch-action: pan-y;
     }
@@ -6176,19 +6176,19 @@
       background: transparent;
     }
 
-    .calendar-weekdays {
+    .planning-calendar-weekdays {
       padding: 0 0 8px;
       color: var(--text-secondary);
       font-size: 0.7rem;
       font-weight: 720;
     }
 
-    .calendar-weekdays span:nth-child(6),
-    .calendar-weekdays span:nth-child(7) {
+    .planning-calendar-weekdays span:nth-child(6),
+    .planning-calendar-weekdays span:nth-child(7) {
       color: var(--text-tertiary);
     }
 
-    .calendar-grid {
+    .planning-calendar-grid {
       border: 0;
       gap: 0;
       touch-action: pan-y;
@@ -6540,4 +6540,22 @@
       .calendar-more-events {
         font-size: 0.55rem;
       }
+    }
+
+    /* Keep the stats heatmap independent from the MiniCal planning calendar. */
+    .calendar-heatmap .calendar-weekdays,
+    .calendar-heatmap .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(34px, 1fr));
+      gap: 7px;
+    }
+
+    .calendar-heatmap .calendar-weekdays {
+      margin-bottom: 7px;
+      padding: 0;
+    }
+
+    .calendar-heatmap .calendar-grid {
+      border: 0;
+      touch-action: auto;
     }

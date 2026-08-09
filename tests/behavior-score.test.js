@@ -167,6 +167,28 @@ test("奖励消费不会把正向习惯日变成红色", () => {
   assert.equal(row.badHabits, 0);
 });
 
+test("旧无坏习惯奖励保留财务记录但不再计入行为表现", () => {
+  const context = createRuntime([
+    {
+      id: "legacy-no-bad-habit-bonus",
+      type: "no_bad_habit_bonus",
+      coins: 20,
+      coinDelta: 20,
+      date: DAY,
+      source: "behavior",
+      category: "habit_performance",
+      entityType: "habit_day",
+      affectsBehaviorScore: true
+    }
+  ]);
+  const row = dayRow(context);
+
+  assert.equal(classify(context, "legacy-no-bad-habit-bonus").behavior, false);
+  assert.equal(row.net, 20);
+  assert.equal(row.behaviorNet, 0);
+  assert.equal(row.hasBehaviorRecord, false);
+});
+
 test("匿名化后的 7 月 4 日真实行为记录仍应得到 -8", () => {
   const context = createRuntime([
     { id: "habit-1", type: "habit_completed", coins: 2, date: DAY, habitId: "habit-1" },

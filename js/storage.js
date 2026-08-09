@@ -34,8 +34,6 @@
       },
       dailyReviews: {},
       reviewRewards: {},
-      noBadHabitBonuses: {},
-      noBadHabitBonusCheckedThroughDate: null,
       history: [],
       totals: {
         completedTasks: 0,
@@ -131,7 +129,6 @@
       "habit_completed",
       "review_reward",
       "priority_task_reward",
-      "no_bad_habit_bonus",
       "task_failed",
       "task_missed",
       "habit_failed",
@@ -187,7 +184,6 @@
       if (normalizedType.startsWith("task_")) return "task";
       if (normalizedType.startsWith("priority_task_")) return "priority_task";
       if (normalizedType === "review_reward") return "review";
-      if (normalizedType === "no_bad_habit_bonus") return "habit_day";
       return "behavior";
     }
 
@@ -674,8 +670,6 @@
             : cloneEmptyState().nextStep,
           dailyReviews: saved.dailyReviews && typeof saved.dailyReviews === "object" ? saved.dailyReviews : {},
           reviewRewards: saved.reviewRewards && typeof saved.reviewRewards === "object" ? saved.reviewRewards : {},
-          noBadHabitBonuses: saved.noBadHabitBonuses && typeof saved.noBadHabitBonuses === "object" ? saved.noBadHabitBonuses : {},
-          noBadHabitBonusCheckedThroughDate: saved.noBadHabitBonusCheckedThroughDate || null,
           history: normalizeCoinHistory(saved.history),
           completions: saved.completions && typeof saved.completions === "object" ? saved.completions : {},
           taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {},
@@ -703,9 +697,6 @@
         if (!merged.settledThroughDate) {
           merged.settledThroughDate = yesterdayKey();
         }
-        if (!merged.noBadHabitBonusCheckedThroughDate) {
-          merged.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
-        }
         if (needsLegacyCleanup || migrationApplied) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
         }
@@ -715,7 +706,6 @@
         const fresh = cloneEmptyState();
         fresh.rewards = defaultFundRewards();
         fresh.settledThroughDate = yesterdayKey();
-        fresh.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
         return fresh;
       }
     }
@@ -908,11 +898,9 @@
           "settlements",
           () => cloneDebugValue({
             settledThroughDate: state.settledThroughDate || null,
-            noBadHabitBonusCheckedThroughDate: state.noBadHabitBonusCheckedThroughDate || null,
             taskAutoFailures: state.taskAutoFailures || {},
             habitFailures: state.habitFailures || {},
             reviewRewards: state.reviewRewards || {},
-            noBadHabitBonuses: state.noBadHabitBonuses || {},
             priorityTaskByDate: state.priorityTaskByDate || {}
           }),
           errors,
@@ -929,8 +917,7 @@
             priorityTaskByDate: state.priorityTaskByDate || {},
             dailyReviews: state.dailyReviews || {},
             recaps: state.recaps || {},
-            reviewRewards: state.reviewRewards || {},
-            noBadHabitBonuses: state.noBadHabitBonuses || {}
+            reviewRewards: state.reviewRewards || {}
           }),
           errors,
           {}
@@ -1163,7 +1150,6 @@
       state = cloneEmptyState();
       state.rewards = defaultFundRewards();
       state.settledThroughDate = yesterdayKey();
-      state.noBadHabitBonusCheckedThroughDate = shiftDateKey(yesterdayKey(), -1);
       currentCalendarMonth = monthKey();
       selectedCalendarDate = dateKey();
       selectedReviewDate = dateKey();

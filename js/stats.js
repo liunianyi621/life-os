@@ -586,7 +586,7 @@
               const behaviorNet = Number(row.behaviorNet) || 0;
               const netLabel = behaviorNet > 0 ? `+${formatCoinAmount(behaviorNet)}` : formatCoinAmount(behaviorNet);
               const title = row.hasBehaviorRecord
-                ? `${formatFullDateKey(row.key)}：表现净值 ${netLabel}，完成 ${row.completed}，失败 ${row.failed}，坏习惯 ${row.badHabits} 次`
+                ? `${formatFullDateKey(row.key)}：表现净值 ${netLabel}，完成 ${row.completed}，负向 ${row.failed + row.badHabits} 条`
                 : `${formatFullDateKey(row.key)}：无记录`;
               const hasDetail = dayHasEditableRecords(row.key);
               return `<button class="calendar-day ${level}${todayClass}" type="button" data-day-detail="${escapeAttr(row.key)}" data-day-has-detail="${hasDetail ? "true" : "false"}" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><span>${row.day}</span></button>`;

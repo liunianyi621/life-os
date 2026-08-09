@@ -68,7 +68,7 @@
         <div class="list" id="habitList"></div>
       </section>
 
-      <section class="view" data-view="calendar">
+      <section class="view planning-calendar" data-view="calendar">
         <header class="header calendar-page-header">
           <div class="calendar-month-heading">
             <span id="calendarYearLabel">2026</span>
@@ -82,10 +82,10 @@
         </header>
 
         <section class="calendar-month-view" aria-label="月度计划">
-          <div class="calendar-weekdays" aria-hidden="true">
+          <div class="planning-calendar-weekdays" aria-hidden="true">
             <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
           </div>
-          <div class="calendar-grid" id="calendarGrid"></div>
+          <div class="planning-calendar-grid" id="calendarGrid"></div>
         </section>
 
         <section class="calendar-selected-day" aria-live="polite">
@@ -210,9 +210,9 @@
           </div>
           <div class="chart-scroll" id="heatmapChart"></div>
           <div class="heat-legend" aria-hidden="true">
-            <span><i class="net-low"></i>净金币低</span>
-            <span><i class="net-high"></i>净金币高</span>
-            <span><i class="bad"></i>坏习惯</span>
+            <span><i class="net-low"></i>正向低</span>
+            <span><i class="net-high"></i>正向高</span>
+            <span><i class="bad"></i>负向</span>
             <span><i class="empty"></i>无记录</span>
           </div>
         </section>

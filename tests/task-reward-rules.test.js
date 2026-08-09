@@ -354,6 +354,16 @@ test("习惯跨日结算补齐未检查日期，撤回读取历史实际扣除",
   assert.equal(value(context, "state.coins"), 1000);
 });
 
+test("自动检查不再生成无坏习惯奖励", () => {
+  const state = emptyState([], 1000);
+  const { context } = createRuntime(state);
+
+  assert.equal(value(context, "runAutomaticChecks()"), false);
+  assert.equal(value(context, "state.coins"), 1000);
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "typeof settleNoBadHabitBonuses"), "undefined");
+});
+
 test("日详情删除失败记录按历史实际金额返还", async () => {
   const { context } = createRuntime(emptyState([task({ id: "delete-failure" })]));
   value(context, `failTask("delete-failure")`);

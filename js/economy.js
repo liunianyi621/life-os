@@ -1,4 +1,3 @@
-    const NO_BAD_HABIT_BONUS = 2;
     const PRIORITY_TASK_REWARD = 100;
     const PRIORITY_TASK_PENALTY = 500;
 
@@ -6,13 +5,6 @@
       if (status === "done") return parseCoinAmount(PRIORITY_TASK_REWARD);
       if (status === "failed") return parseCoinAmount(PRIORITY_TASK_PENALTY);
       return 0;
-    }
-
-    function ensureNoBadHabitBonuses() {
-      state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object"
-        ? state.noBadHabitBonuses
-        : {};
-      return state.noBadHabitBonuses;
     }
 
     function applyCoinBalanceDelta(amount) {
@@ -898,115 +890,15 @@
       return { count: entries.length, totalPenalty, entries };
     }
 
-    function badHabitRecordedOnDate(day) {
-      return state.history.some(item => item.type === "bad_habit" && item.date === day);
-    }
-
-    function noBadHabitBonusSettled(day) {
-      return Boolean(ensureNoBadHabitBonuses()[day]);
-    }
-
-    function awardNoBadHabitBonusForDate(day, now = new Date(), reason = "correction") {
-      if (noBadHabitBonusSettled(day)) return null;
-      if (badHabitRecordedOnDate(day)) return null;
-
-      const awardedAt = now.toISOString();
-      const coinEvent = recordCoinEvent({
-        type: "no_bad_habit_bonus",
-        amount: NO_BAD_HABIT_BONUS,
-        date: day,
-        timestamp: awardedAt,
-        history: {
-          name: "无坏习惯奖励",
-          coins: NO_BAD_HABIT_BONUS,
-          reason
-        }
-      });
-      const historyId = coinEvent.historyId;
-      ensureNoBadHabitBonuses()[day] = {
-        status: "awarded",
-        historyId,
-        awardedAt,
-        reason
-      };
-      return {
-        historyId,
-        date: day,
-        amount: NO_BAD_HABIT_BONUS
-      };
-    }
-
-    function settleNoBadHabitBonuses(now = new Date()) {
-      const today = dateKey(now);
-      const lastDayToCheck = shiftDateKey(today, -1);
-      let checkedThrough = state.noBadHabitBonusCheckedThroughDate || shiftDateKey(lastDayToCheck, -1);
-      const previousCheckedThrough = checkedThrough;
-      const entries = [];
-      let totalBonus = 0;
-
-      while (checkedThrough < lastDayToCheck) {
-        const day = shiftDateKey(checkedThrough, 1);
-        checkedThrough = day;
-
-        if (noBadHabitBonusSettled(day)) continue;
-        if (badHabitRecordedOnDate(day)) continue;
-
-        const entry = awardNoBadHabitBonusForDate(day, now, "daily_settlement");
-        if (!entry) continue;
-        entries.push(entry);
-        totalBonus = parseCoinAmount(totalBonus + NO_BAD_HABIT_BONUS);
-      }
-
-      state.noBadHabitBonusCheckedThroughDate = lastDayToCheck;
-      return {
-        count: entries.length,
-        totalBonus,
-        entries,
-        checkedThroughChanged: previousCheckedThrough !== lastDayToCheck
-      };
-    }
-
-    function noBadHabitBonusToastLines(result) {
-      const firstEntry = result.entries[0];
-      const firstLine = result.count === 1 && firstEntry?.date === yesterdayKey()
-        ? "✓ 昨天没有坏习惯"
-        : result.count === 1
-          ? `✓ ${formatFullDateKey(firstEntry.date)} 没有坏习惯`
-          : `✓ ${formatNumber(result.count)} 天没有坏习惯`;
-      return [
-        firstLine,
-        `获得 ${formatNumber(result.totalBonus)} 金币`
-      ];
-    }
-
-    function showNoBadHabitBonusToast(result) {
-      if (!result.count) return;
-      showUndoToast({
-        type: "no_bad_habit_bonus",
-        historyIds: result.entries.map(entry => entry.historyId),
-        bonusEntries: result.entries,
-        amount: result.totalBonus
-      }, {
-        icon: "checkmark.circle",
-        lines: noBadHabitBonusToastLines(result),
-        undoLabel: "撤回",
-        duration: 5000,
-        iconTone: "positive"
-      });
-    }
-
     function runAutomaticChecks(options = {}) {
       const { showToast: shouldShowToast = true } = options;
       const habitResult = settleMissedHabitsThroughDate();
       const taskResult = settleTimedTaskTimeouts();
       const priorityResult = settleMissedPriorityTasks();
-      const bonusResult = settleNoBadHabitBonuses();
       const changed = habitResult.count > 0
         || taskResult.count > 0
         || priorityResult.count > 0
-        || bonusResult.count > 0
-        || habitResult.checkedThroughChanged
-        || bonusResult.checkedThroughChanged;
+        || habitResult.checkedThroughChanged;
       if (!changed) return false;
 
       saveState();
@@ -1020,21 +912,15 @@
       ) {
         showUndoToast({
           type: "priority_task_penalty",
-          historyIds: [
-            ...priorityResult.entries.map(entry => entry.historyId),
-            ...bonusResult.entries.map(entry => entry.historyId)
-          ],
+          historyIds: priorityResult.entries.map(entry => entry.historyId),
           priorityEntries: priorityResult.entries,
-          bonusEntries: bonusResult.entries,
-          bonusAmount: bonusResult.totalBonus,
           amount: priorityResult.totalPenalty
         }, {
           icon: "xmark.circle",
           lines: [
             "今天最重要的一件事未完成",
-            `扣除 ${formatNumber(priorityResult.totalPenalty)} 金币`,
-            bonusResult.count > 0 ? `同时获得 ${formatCoinAmount(bonusResult.totalBonus)} 金币` : ""
-          ].filter(Boolean),
+            `扣除 ${formatNumber(priorityResult.totalPenalty)} 金币`
+          ],
           undoLabel: "撤回",
           duration: 5000
         });
@@ -1042,8 +928,7 @@
         const historyIds = [
           ...taskResult.entries.map(entry => entry.historyId),
           ...habitResult.entries.map(entry => entry.historyId),
-          ...priorityResult.entries.map(entry => entry.historyId),
-          ...bonusResult.entries.map(entry => entry.historyId)
+          ...priorityResult.entries.map(entry => entry.historyId)
         ];
         const totalPenalty = parseCoinAmount(taskResult.totalPenalty + habitResult.totalPenalty + priorityResult.totalPenalty);
         const reasons = [
@@ -1058,22 +943,17 @@
           taskEntries: taskResult.entries,
           habitEntries: habitResult.entries,
           priorityEntries: priorityResult.entries,
-          bonusEntries: bonusResult.entries,
-          bonusAmount: bonusResult.totalBonus,
           amount: totalPenalty
         }, {
           icon: "xmark.circle",
           lines: [
             `已自动扣除 ${formatCoinAmount(totalPenalty)} 金币`,
-            bonusResult.count > 0 ? `同时获得 ${formatCoinAmount(bonusResult.totalBonus)} 金币` : "",
             `原因：${reasons}`,
             `当前金币 ${formatCoinAmount(state.coins)}`
           ].filter(Boolean),
           undoLabel: "撤回",
           duration: 5000
         });
-      } else if (shouldShowToast && bonusResult.count > 0) {
-        showNoBadHabitBonusToast(bonusResult);
       }
 
       return true;
@@ -1135,7 +1015,6 @@
         priorityTask: cloneForUndo(priorityTaskForDate(day)),
         review: cloneForUndo(state.dailyReviews?.[day]),
         reviewReward: cloneForUndo(state.reviewRewards?.[day]),
-        noBadHabitBonus: cloneForUndo(state.noBadHabitBonuses?.[day]),
         fund: item.rewardId ? cloneForUndo(state.rewards.find(fund => fund.id === item.rewardId)) : null,
         achievement: item.achievementId ? cloneForUndo((state.achievements || []).find(achievement => achievement.id === item.achievementId)) : null
       };
@@ -1197,10 +1076,6 @@
       state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
       if (snapshot.reviewReward) state.reviewRewards[snapshot.day] = snapshot.reviewReward;
       else delete state.reviewRewards[snapshot.day];
-
-      state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
-      if (snapshot.noBadHabitBonus) state.noBadHabitBonuses[snapshot.day] = cloneForUndo(snapshot.noBadHabitBonus);
-      else delete state.noBadHabitBonuses[snapshot.day];
 
       if (item.rewardId && snapshot.fund) {
         state.rewards = state.rewards.map(fund => fund.id === item.rewardId ? cloneForUndo(snapshot.fund) : fund);
@@ -1281,13 +1156,6 @@
       if (item.type === "review_reward") {
         state.reviewRewards = state.reviewRewards && typeof state.reviewRewards === "object" ? state.reviewRewards : {};
         if (state.reviewRewards[day] === item.id) delete state.reviewRewards[day];
-      }
-      if (item.type === "no_bad_habit_bonus") {
-        state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
-        state.noBadHabitBonuses[day] = {
-          status: "dismissed",
-          dismissedAt: new Date().toISOString()
-        };
       }
       if (item.type === "fund_deposit" && item.rewardId) {
         const amount = parseCoinAmount(item.amount);
@@ -1395,20 +1263,10 @@
       removeHistoryEntry(item);
       applyHistoryRecordDeletion(item, day);
 
-      const bonusEntry = item.type === "bad_habit" && !badHabitRecordedOnDate(day)
-        ? awardNoBadHabitBonusForDate(day, new Date(), "bad_habit_correction")
-        : null;
-      if (bonusEntry) {
-        undoData.historyIds.push(bonusEntry.historyId);
-        undoData.correctionDelta = parseCoinAmount(undoData.correctionDelta + bonusEntry.amount);
-      }
-
       refreshAfterDayRecordCorrection(day);
       showUndoToast(undoData, {
         icon: "checkmark.circle",
-        lines: bonusEntry
-          ? ["✓ 当天已恢复为无坏习惯", "获得 2 金币", "已删除记录"]
-          : ["已删除记录", "已同步修正当天统计"],
+        lines: ["已删除记录", "已同步修正当天统计"],
         undoLabel: "撤回",
         duration: 5000,
         iconTone: "positive"
@@ -1880,17 +1738,6 @@
         });
         undoCoinEvent({ coinDelta: -restoredAmount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
-        if (undo.type === "automatic_failures" && undo.bonusEntries?.length) {
-          const bonusAmount = undo.bonusEntries.reduce((total, entry) => parseCoinAmount(total + (entry.amount || 0)), 0);
-          undoCoinEvent({ coinDelta: bonusAmount, removeHistory: false });
-          state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
-          undo.bonusEntries.forEach(entry => {
-            state.noBadHabitBonuses[entry.date] = {
-              status: "dismissed",
-              dismissedAt: new Date().toISOString()
-            };
-          });
-        }
       }
       if (undo.type === "habit_auto_failed" || undo.type === "automatic_failures") {
         const entries = undo.habitEntries || undo.entries || [];
@@ -1919,17 +1766,6 @@
         undoCoinEvent({ coinDelta: -restoredAmount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
 
-        if (undo.type === "priority_task_penalty" && undo.bonusEntries?.length) {
-          const bonusAmount = undo.bonusEntries.reduce((total, entry) => parseCoinAmount(total + (entry.amount || 0)), 0);
-          undoCoinEvent({ coinDelta: bonusAmount, removeHistory: false });
-          state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
-          undo.bonusEntries.forEach(entry => {
-            state.noBadHabitBonuses[entry.date] = {
-              status: "dismissed",
-              dismissedAt: new Date().toISOString()
-            };
-          });
-        }
       }
       if (undo.type === "task_completed") {
         restoreTaskState(undo.taskId, undo.previousTask);
@@ -1954,18 +1790,6 @@
       if (undo.type === "bad_habit") {
         undoCoinEvent({ coinDelta: -undo.amount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - undo.amount));
-      }
-      if (undo.type === "no_bad_habit_bonus") {
-        const entries = undo.bonusEntries || (undo.date ? [undo] : []);
-        const restoredAmount = entries.reduce((total, entry) => parseCoinAmount(total + (entry.amount || 0)), 0);
-        undoCoinEvent({ coinDelta: restoredAmount, removeHistory: false });
-        state.noBadHabitBonuses = state.noBadHabitBonuses && typeof state.noBadHabitBonuses === "object" ? state.noBadHabitBonuses : {};
-        entries.forEach(entry => {
-          state.noBadHabitBonuses[entry.date] = {
-            status: "dismissed",
-            dismissedAt: new Date().toISOString()
-          };
-        });
       }
       if (undo.type === "reward_redeemed") {
         undoCoinEvent({ coinDelta: -undo.amount, removeHistory: false });
