@@ -8,13 +8,23 @@
         ? ` data-edit-card="${escapeAttr(editType)}" data-edit-id="${escapeAttr(editId)}"`
         : "";
       return `
-        <article class="swipe-row ${extraClass}" data-swipe-row style="--swipe-width: ${actionWidth}px;" ${attrs}>
-          <div class="card swipe-card" data-swipe-content${editAttrs}>
+        <article class="swipe-row q-list-row ${extraClass}" data-swipe-row style="--swipe-width: ${actionWidth}px;" ${attrs}>
+          <div class="card swipe-card q-row-surface" data-swipe-content${editAttrs}>
             ${content}
             ${actions ? `<div class="inline-card-actions" aria-label="快捷操作">${actions}</div>` : ""}
           </div>
         </article>
       `;
+    }
+
+    function visualToneForId(value) {
+      const tones = ["blue", "yellow", "purple", "green"];
+      const score = Array.from(String(value || "")).reduce((sum, character) => sum + character.charCodeAt(0), 0);
+      return tones[score % tones.length];
+    }
+
+    function rowTileHtml(content, tone = "blue", extraClass = "") {
+      return `<span class="q-row-tile q-row-tile-${tone} ${extraClass}" aria-hidden="true">${content}</span>`;
     }
     function swipeRowWidth(row) {
       const value = getComputedStyle(row).getPropertyValue("--swipe-width").trim();
@@ -399,7 +409,7 @@
       const task = priorityTaskToday();
       if (!task) {
         els.priorityTaskCard.innerHTML = `
-          <section class="priority-card priority-empty">
+          <section class="priority-card priority-empty q-feature-card">
             <div>
               <span class="priority-label">今天最重要的一件事</span>
               <h2>今天只放一件最重要的事</h2>
@@ -441,6 +451,7 @@
         editId: task.date,
         actions: priorityActions,
         content: `
+          ${rowTileHtml(actionIconHtml(done ? "checkmark.circle" : failed ? "xmark.circle" : "target"), "purple", "priority-row-tile")}
           <div class="card-main priority-main">
             <div class="title-wrap">
               <span class="priority-label">今天最重要的一件事</span>
@@ -489,6 +500,7 @@
           attrs: `data-complete-habit="${escapeAttr(habit.id)}"`
         }),
         content: `
+            ${rowTileHtml(escapeHtml(String(habit.name || "习").slice(0, 1)), visualToneForId(habit.id), "habit-row-tile")}
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(habit.name)}</h3>
@@ -587,6 +599,7 @@
                 editId: task.id,
                 actions: taskActionsHtml(task, status),
                 content: `
+            ${rowTileHtml(actionIconHtml(status === "running" ? "play.circle" : "checklist"), visualToneForId(task.id), "task-row-tile")}
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(task.name)}</h3>
@@ -702,7 +715,7 @@
         return;
       }
       els.calendarSelectedPlans.innerHTML = events.map(event => `
-        <div class="calendar-selected-event-row">
+        <div class="calendar-selected-event-row q-list-row">
           <button class="calendar-selected-event calendar-event-${escapeAttr(event.category)}" type="button" data-calendar-event="${escapeAttr(event.id)}">
             <i></i>
             <span>
@@ -748,16 +761,6 @@
       `).join("");
     }
 
-    function reviewAnswerHtml(label, value) {
-      const isEmpty = !String(value || "").trim();
-      return `
-        <div class="review-answer ${isEmpty ? "empty" : ""}">
-          <strong>${escapeHtml(label)}</strong>
-          <p>${escapeHtml(isEmpty ? "未填写" : value)}</p>
-        </div>
-      `;
-    }
-
     function renderDailyReview(options = {}) {
       const reviewDate = setSelectedReviewDate(selectedReviewDate);
       const selectedReview = dailyReviewForDate(reviewDate);
@@ -785,20 +788,21 @@
         return;
       }
 
-      els.reviewHistoryList.innerHTML = history.map(([day, review]) => `
-        <article class="card review-card" data-review-card="${escapeAttr(day)}" data-edit-card="review" data-edit-id="${escapeAttr(day)}" role="button" tabindex="0" aria-label="长按编辑复盘">
+      els.reviewHistoryList.innerHTML = history.map(([day, review]) => {
+        const summary = review.best || review.priority || review.mistake || "未填写";
+        return `
+        <article class="card review-card q-list-row" data-review-card="${escapeAttr(day)}" data-edit-card="review" data-edit-id="${escapeAttr(day)}" role="button" tabindex="0" aria-label="打开复盘">
           <div class="review-card-header">
             <div class="review-date">
-              <span class="review-date-label">日期</span>
               <span class="review-date-main">${escapeHtml(day === today ? "今天" : formatFullDateKey(day))}</span>
+              <span class="review-row-summary ${summary === "未填写" ? "empty" : ""}">${escapeHtml(summary)}</span>
             </div>
             ${day === today ? `<span class="review-today-pill">今天</span>` : ""}
+            <span class="review-row-chevron" aria-hidden="true">›</span>
           </div>
-          ${reviewAnswerHtml("今天做得最好的事情是什么？", review.best)}
-          ${reviewAnswerHtml("今天最大的失误是什么？", review.mistake)}
-          ${reviewAnswerHtml("明天最重要的一件事是什么？", review.priority)}
         </article>
-      `).join("");
+      `;
+      }).join("");
     }
 
     function renderRewards() {
@@ -836,6 +840,7 @@
             disabled: completed
           }),
           content: `
+            ${rowTileHtml(actionIconHtml(completed ? "checkmark.circle" : "target"), completed ? "green" : "blue", "reward-row-tile")}
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(reward.name)}</h3>
@@ -1002,6 +1007,10 @@
         render();
         return;
       }
+      if (reviewCard) {
+        openReviewEditSheet(reviewCard.dataset.reviewCard);
+        return;
+      }
       if (exportDebugTarget) {
         exportDebugData();
         return;
@@ -1081,12 +1090,15 @@
     els.sheetBackdrop.addEventListener("click", event => {
       if (event.target === els.sheetBackdrop) closeSheet();
     });
+    els.closeSheetBtn?.addEventListener("click", closeSheet);
     els.dayDetailBackdrop.addEventListener("click", event => {
       if (event.target === els.dayDetailBackdrop) closeDayDetail();
     });
+    els.closeDayDetailBtn?.addEventListener("click", closeDayDetail);
     els.memoBackdrop.addEventListener("click", event => {
       if (event.target === els.memoBackdrop) closeMemoSheet();
     });
+    els.closeMemoBtn?.addEventListener("click", closeMemoSheet);
     els.confirmAcceptBtn.addEventListener("click", () => closeConfirm(true));
     els.confirmCancelBtn?.addEventListener("click", () => closeConfirm(false));
     els.confirmBackdrop.addEventListener("click", event => {

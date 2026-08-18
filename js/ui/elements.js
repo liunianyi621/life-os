@@ -12,6 +12,12 @@
           <path d="m14.7 9.3-5.4 5.4"></path>
         </svg>
       `,
+      xmark: `
+        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
+          <path d="m7.4 7.4 9.2 9.2"></path>
+          <path d="m16.6 7.4-9.2 9.2"></path>
+        </svg>
+      `,
       "minus.circle": `
         <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
           <circle cx="12" cy="12" r="8.25"></circle>
@@ -183,14 +189,17 @@
       sheetBackdrop: document.getElementById("sheetBackdrop"),
       sheetTitle: document.getElementById("sheetTitle"),
       sheetForm: document.getElementById("sheetForm"),
+      closeSheetBtn: document.getElementById("closeSheetBtn"),
       dayDetailBackdrop: document.getElementById("dayDetailBackdrop"),
       dayDetailTitle: document.getElementById("dayDetailTitle"),
       dayDetailContent: document.getElementById("dayDetailContent"),
+      closeDayDetailBtn: document.getElementById("closeDayDetailBtn"),
       memoBackdrop: document.getElementById("memoBackdrop"),
       memoForm: document.getElementById("memoForm"),
       memoInput: document.getElementById("memoInput"),
       saveMemoBtn: document.getElementById("saveMemoBtn"),
       memoList: document.getElementById("memoList"),
+      closeMemoBtn: document.getElementById("closeMemoBtn"),
       confirmBackdrop: document.getElementById("confirmBackdrop"),
       confirmTitle: document.getElementById("confirmTitle"),
       confirmMessage: document.getElementById("confirmMessage"),

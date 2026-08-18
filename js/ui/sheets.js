@@ -8,12 +8,7 @@
     }
 
     function submitSheetButtonHtml(label) {
-      return iconActionButtonHtml({
-        className: "button icon-only-button",
-        type: "submit",
-        icon: "checkmark.circle",
-        label
-      });
+      return `<button class="button q-primary-button" type="submit">${escapeHtml(label || "保存")}</button>`;
     }
 
     function openPrioritySheet(day = dateKey()) {

@@ -7,34 +7,35 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="自律系统">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#f5f4f0">
+  <meta name="theme-color" content="#f6f6f6">
   <meta name="color-scheme" content="light">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/qonto-system.css">
 </head>
 <body>
-  <div class="app">
-    <main class="screen">
+  <div class="app q-app">
+    <main class="screen q-screen">
       <section class="view active today-page" data-view="today">
-        <header class="header today-header">
+        <header class="header today-header q-page-header">
           <div>
             <span class="eyebrow" id="todayDate">今天</span>
             <h1>自律系统</h1>
           </div>
+          <button class="icon-button q-icon-button" type="button" data-open-task aria-label="新建任务" data-icon-button="plus"></button>
         </header>
 
-        <section class="summary-grid today-summary" aria-label="今日概览">
-          <div class="summary-card">
+        <section class="summary-grid today-summary q-summary-grid" aria-label="今日概览">
+          <div class="summary-card q-summary-card">
             <span class="summary-label">当前金币</span>
             <div class="summary-value">
               <strong id="homeCoins">0</strong>
               <span>金币</span>
             </div>
           </div>
-          <button class="summary-card memo-summary-card" type="button" id="memoSummaryCard" aria-label="打开备忘录">
+          <button class="summary-card memo-summary-card q-summary-card" type="button" id="memoSummaryCard" aria-label="打开备忘录">
             <span class="summary-label">备忘录</span>
             <div class="summary-value">
               <strong id="homeMemoCount">0</strong>
@@ -46,34 +47,34 @@
         <section class="priority-task-slot today-priority-slot" id="priorityTaskCard" aria-live="polite"></section>
 
         <section class="today-section today-task-section">
-          <div class="section-heading">
+          <div class="section-heading q-section-header">
             <h2>今日任务</h2>
             <div class="section-heading-actions">
               <span id="todayTaskCount">0 项</span>
-              <button class="icon-button section-add-button" type="button" data-open-task aria-label="新建任务" data-icon-button="plus"></button>
+              <button class="icon-button q-icon-button section-add-button" type="button" data-open-task aria-label="新建任务" data-icon-button="plus"></button>
             </div>
           </div>
           <section class="next-step-card hidden" id="nextStepCard" aria-live="polite">
             <span>下一步</span>
             <strong id="nextStepTitle"></strong>
           </section>
-          <div class="list" id="todayTaskList"></div>
+          <div class="list q-list-section" id="todayTaskList"></div>
         </section>
 
         <section class="today-section today-habit-section">
-          <div class="section-heading">
+          <div class="section-heading q-section-header">
             <h2>习惯</h2>
             <div class="section-heading-actions">
               <span id="habitCount">0 项</span>
-              <button class="icon-button habit-add-button" type="button" data-open-habit aria-label="添加习惯" data-icon-button="plus"></button>
+              <button class="icon-button q-icon-button habit-add-button" type="button" data-open-habit aria-label="添加习惯" data-icon-button="plus"></button>
             </div>
           </div>
-          <div class="list" id="habitList"></div>
+          <div class="list q-list-section" id="habitList"></div>
         </section>
       </section>
 
       <section class="view planning-calendar" data-view="calendar">
-        <header class="header calendar-page-header">
+        <header class="header calendar-page-header q-page-header">
           <div class="calendar-month-heading">
             <span id="calendarYearLabel">2026</span>
             <h1 id="calendarMonthLabel">7月</h1>
@@ -102,24 +103,24 @@
         </section>
       </section>
 
-      <section class="view" data-view="notes">
-        <header class="header">
+      <section class="view q-notes-page" data-view="notes">
+        <header class="header q-page-header">
           <div>
             <span class="eyebrow">简单提醒</span>
             <h1>笔记</h1>
           </div>
-          <button class="icon-button" data-open-note aria-label="新建笔记" data-icon-button="plus"></button>
+          <button class="icon-button q-icon-button" data-open-note aria-label="新建笔记" data-icon-button="plus"></button>
         </header>
 
-        <div class="section-heading">
+        <div class="section-heading q-section-header">
           <h2>笔记</h2>
           <span id="noteCount">0 条</span>
         </div>
-        <div class="list" id="noteList"></div>
+        <div class="list q-list-section" id="noteList"></div>
       </section>
 
-      <section class="view" data-view="review">
-        <header class="header">
+      <section class="view q-review-page" data-view="review">
+        <header class="header q-page-header">
           <div>
             <div class="review-date-control">
               <button class="review-date-button" type="button" id="reviewDateButton" aria-label="切换复盘日期">
@@ -132,7 +133,7 @@
           </div>
         </header>
 
-        <form class="review-form" id="dailyReviewForm">
+        <form class="review-form q-form-section" id="dailyReviewForm">
           <label class="review-question">
             <span class="field-label">今天做得最好的事情是什么？</span>
             <textarea id="reviewBest" name="best" maxlength="500" placeholder="写下今天最值得保留的一件事"></textarea>
@@ -147,63 +148,63 @@
           </label>
           <div class="review-save-row">
             <span class="review-save-status" id="reviewSaveStatus" role="status" aria-live="polite">✓ 已保存</span>
-            <button class="button icon-only-button" type="submit" aria-label="保存复盘" data-icon-button="checkmark.circle"></button>
+            <button class="button q-primary-button" type="submit">保存复盘</button>
           </div>
         </form>
 
-        <div class="section-heading">
+        <div class="section-heading q-section-header">
           <h2>历史复盘</h2>
           <span id="reviewHistoryCount">0 条</span>
         </div>
-        <div class="review-history-list" id="reviewHistoryList"></div>
+        <div class="review-history-list q-list-section" id="reviewHistoryList"></div>
       </section>
 
-      <section class="view" data-view="rewards">
-        <header class="header">
+      <section class="view q-rewards-page" data-view="rewards">
+        <header class="header q-page-header">
           <div>
             <span class="eyebrow">人生主线基金</span>
             <h1>主线基金</h1>
           </div>
-          <button class="icon-button" data-open-reward aria-label="新建基金" data-icon-button="plus"></button>
+          <button class="icon-button q-icon-button" data-open-reward aria-label="新建基金" data-icon-button="plus"></button>
         </header>
 
-        <section class="balance-strip" aria-label="当前金币">
+        <section class="balance-strip q-balance-card" aria-label="当前金币">
           <span>当前金币</span>
           <strong id="rewardCoins">0</strong>
           <span>金币</span>
         </section>
 
-        <div class="section-heading">
+        <div class="section-heading q-section-header">
           <h2>基金</h2>
           <span id="rewardCount">0 项</span>
         </div>
-        <div class="list" id="rewardList"></div>
+        <div class="list q-list-section" id="rewardList"></div>
       </section>
 
-      <section class="view" data-view="stats">
-        <header class="header">
+      <section class="view q-stats-page" data-view="stats">
+        <header class="header q-page-header">
           <div>
             <span class="eyebrow">只看必要信息</span>
             <h1>统计</h1>
           </div>
         </header>
 
-        <div class="stats-grid">
-          <div class="stat-card">
+        <div class="stats-grid q-summary-grid">
+          <div class="stat-card q-summary-card">
             <span class="stat-label">当前连续</span>
             <strong class="stat-value" id="statStreak">0</strong>
           </div>
-          <div class="stat-card">
+          <div class="stat-card q-summary-card">
             <span class="stat-label">当前金库</span>
             <strong class="stat-value" id="statCoins">0</strong>
           </div>
-          <div class="stat-card stat-card-wide achievement-card">
+          <div class="stat-card stat-card-wide achievement-card q-list-section">
             <span class="stat-label">成就</span>
             <div class="achievement-list" id="achievementsList"></div>
           </div>
         </div>
 
-        <section class="card chart-card" aria-label="自律热力图">
+        <section class="card chart-card q-chart-section" aria-label="自律热力图">
           <div class="chart-title">
             <h2>日历热力图</h2>
             <div class="month-controls" aria-label="切换月份">
@@ -221,7 +222,7 @@
           </div>
         </section>
 
-        <section class="card chart-card" aria-label="习惯趋势">
+        <section class="card chart-card q-chart-section" aria-label="习惯趋势">
           <div class="chart-title">
             <h2>习惯趋势</h2>
             <span>次数 / 分钟</span>
@@ -239,17 +240,17 @@
           </div>
         </section>
 
-        <section class="reset-card debug-export-card" data-export-debug>
+        <section class="reset-card debug-export-card q-tool-row" data-export-debug>
           <div class="reset-row">
             <div>
               <h2>导出调试数据</h2>
               <p>导出当前 LifeOS 的本地数据，用于排查统计和历史记录问题。</p>
             </div>
-            <button class="icon-button" type="button" id="exportDebugBtn" aria-label="导出调试数据" data-icon-button="arrow.down.circle"></button>
+            <button class="icon-button q-icon-button" type="button" id="exportDebugBtn" aria-label="导出调试数据" data-icon-button="arrow.down.circle"></button>
           </div>
         </section>
 
-        <section class="reset-card">
+        <section class="reset-card q-tool-row">
           <div class="reset-row">
             <div>
               <h2>重置所有数据</h2>
@@ -262,24 +263,24 @@
 
     </main>
 
-    <nav class="bottom-nav" aria-label="主要导航">
-      <button class="nav-button active" data-nav="today">
+    <nav class="bottom-nav q-tab-bar" aria-label="主要导航">
+      <button class="nav-button q-tab-item active" data-nav="today">
         <span class="nav-icon today" data-icon-button="checklist" aria-hidden="true"></span>
         <span>今天</span>
       </button>
-      <button class="nav-button" data-nav="calendar">
+      <button class="nav-button q-tab-item" data-nav="calendar">
         <span class="nav-icon calendar" data-icon-button="calendar" aria-hidden="true"></span>
         <span>日历</span>
       </button>
-      <button class="nav-button" data-nav="review">
+      <button class="nav-button q-tab-item" data-nav="review">
         <span class="nav-icon review" data-icon-button="book.closed" aria-hidden="true"></span>
         <span>复盘</span>
       </button>
-      <button class="nav-button" data-nav="rewards">
+      <button class="nav-button q-tab-item" data-nav="rewards">
         <span class="nav-icon rewards" data-icon-button="target" aria-hidden="true"></span>
         <span>奖励</span>
       </button>
-      <button class="nav-button" data-nav="stats">
+      <button class="nav-button q-tab-item" data-nav="stats">
         <span class="nav-icon stats" data-icon-button="chart.xyaxis.line" aria-hidden="true"></span>
         <span>统计</span>
       </button>
@@ -287,8 +288,9 @@
   </div>
 
   <div class="sheet-backdrop hidden" id="sheetBackdrop" aria-hidden="true">
-    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-      <div class="sheet-header">
+    <section class="sheet q-sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-header q-sheet-header">
+        <button class="icon-button q-icon-button sheet-close-button" type="button" id="closeSheetBtn" aria-label="关闭" data-icon-button="xmark"></button>
         <h2 id="sheetTitle">新建</h2>
       </div>
       <form class="sheet-form" id="sheetForm"></form>
@@ -296,8 +298,9 @@
   </div>
 
   <div class="sheet-backdrop hidden" id="dayDetailBackdrop" aria-hidden="true">
-    <section class="sheet day-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="dayDetailTitle">
-      <div class="sheet-header">
+    <section class="sheet day-detail-sheet q-sheet" role="dialog" aria-modal="true" aria-labelledby="dayDetailTitle">
+      <div class="sheet-header q-sheet-header">
+        <button class="icon-button q-icon-button sheet-close-button" type="button" id="closeDayDetailBtn" aria-label="关闭" data-icon-button="xmark"></button>
         <h2 id="dayDetailTitle">日详情</h2>
       </div>
       <div class="day-detail-content" id="dayDetailContent"></div>
@@ -305,8 +308,9 @@
   </div>
 
   <div class="sheet-backdrop hidden" id="memoBackdrop" aria-hidden="true">
-    <section class="sheet memo-sheet" role="dialog" aria-modal="true" aria-labelledby="memoSheetTitle">
-      <div class="sheet-header">
+    <section class="sheet memo-sheet q-sheet" role="dialog" aria-modal="true" aria-labelledby="memoSheetTitle">
+      <div class="sheet-header q-sheet-header">
+        <button class="icon-button q-icon-button sheet-close-button" type="button" id="closeMemoBtn" aria-label="关闭" data-icon-button="xmark"></button>
         <div>
           <span class="eyebrow">临时待办</span>
           <h2 id="memoSheetTitle">备忘录</h2>
@@ -321,7 +325,7 @@
   </div>
 
   <div class="confirm-backdrop hidden" id="confirmBackdrop" aria-hidden="true">
-    <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <section class="confirm-dialog q-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
       <div>
         <h2 id="confirmTitle">确认操作</h2>
         <p id="confirmMessage">确认执行此操作吗？</p>
@@ -334,7 +338,7 @@
   </div>
 
   <div class="confirm-backdrop hidden" id="fundCelebrationBackdrop" aria-hidden="true">
-    <section class="confirm-dialog fund-celebration-dialog" role="dialog" aria-modal="true" aria-labelledby="fundCelebrationTitle">
+    <section class="confirm-dialog fund-celebration-dialog q-dialog" role="dialog" aria-modal="true" aria-labelledby="fundCelebrationTitle">
       <span class="fund-celebration-icon" data-icon-button="checkmark.circle" aria-hidden="true"></span>
       <div>
         <h2 id="fundCelebrationTitle">基金完成</h2>
