@@ -2132,66 +2132,98 @@ button.summary-card {
   color: #ffffff;
 }
 
-.toast {
+.snackbar {
   position: fixed;
-  z-index: 140;
-  right: 20px;
-  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 30px);
-  left: 20px;
-  display: flex;
+  z-index: 90;
+  right: max(20px, calc((100vw - 720px) / 2 + 20px));
+  bottom: var(--snackbar-bottom, calc(var(--nav-height) + env(safe-area-inset-bottom) + 24px));
+  left: max(20px, calc((100vw - 720px) / 2 + 20px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: center;
-  min-height: 54px;
-  margin: auto;
-  padding: 12px 15px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  background: rgba(20, 20, 20, 0.96);
-  color: #ffffff;
-  box-shadow: var(--shadow-floating);
+  gap: 10px;
+  height: 60px;
+  max-height: 64px;
+  padding: 0 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #111111;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(14px);
-  transition: opacity 170ms ease, transform 170ms ease;
+  transform: translateY(10px);
+  transition: opacity 180ms ease, transform 200ms ease;
 }
 
-.toast.show {
+.snackbar.show {
   opacity: 1;
-  pointer-events: auto;
   transform: translateY(0);
 }
 
-.toast.interactive {
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.toast-message,
-.toast-message-stacked {
-  display: flex;
+.snackbar-content {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 
-.toast-message-stacked {
-  align-items: flex-start;
-  flex-direction: column;
+.snackbar-icon {
+  width: 22px;
+  height: 22px;
+  color: #5f6266;
 }
 
-.toast-line {
+.snackbar-icon.positive {
+  color: #32835c;
+}
+
+.snackbar-icon.negative {
+  color: #b45b52;
+}
+
+.snackbar-message {
+  min-width: 0;
+  overflow: hidden;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 560;
   line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.toast-undo-button {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 17px;
+.snackbar.updating .snackbar-message {
+  animation: q-snackbar-content 160ms ease;
+}
+
+.snackbar-action {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 12px;
   background: transparent;
-  color: #ffffff;
+  color: #111111;
+  font-size: 16px;
   font-weight: 650;
+  pointer-events: auto;
+}
+
+.snackbar-action:active {
+  background: #f1f1f1;
+}
+
+@keyframes q-snackbar-content {
+  from {
+    opacity: 0.45;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .floating-reward-message,
@@ -2384,6 +2416,11 @@ button.summary-card {
   .bottom-nav {
     right: 14px;
     left: 14px;
+  }
+
+  .snackbar {
+    right: 16px;
+    left: 16px;
   }
 }
 

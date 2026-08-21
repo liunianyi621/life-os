@@ -31,11 +31,73 @@
     function installSheetViewportSync() {
       const update = () => {
         if (document.body.classList.contains("modal-open")) syncSheetViewport();
+        syncSnackbarPosition();
       };
       window.visualViewport?.addEventListener("resize", update);
       window.visualViewport?.addEventListener("scroll", update);
       window.addEventListener("resize", update);
       syncSheetViewport();
+      syncSnackbarPosition();
+    }
+
+    function syncSnackbarPosition() {
+      if (!els.toast) return;
+      const nav = document.querySelector(".bottom-nav");
+      const navRect = nav?.getClientRects?.().length ? nav.getBoundingClientRect() : null;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const bottom = navRect ? Math.max(0, viewportHeight - navRect.top) + 12 : 20;
+      els.toast.style.setProperty("--snackbar-bottom", `${Math.round(bottom)}px`);
+    }
+
+    function hideSnackbar(clearContent = true) {
+      if (!els.toast) return;
+      els.toast.classList.remove("show", "updating");
+      clearTimeout(hideSnackbar.timer);
+      if (!clearContent) return;
+      hideSnackbar.timer = window.setTimeout(() => {
+        if (!els.toast.classList.contains("show")) els.toast.textContent = "";
+      }, 180);
+    }
+
+    function renderSnackbar({ message, icon = "", tone = "neutral", actionLabel = "" }) {
+      if (!els.toast) return;
+      const wasVisible = els.toast.classList.contains("show");
+      clearTimeout(hideSnackbar.timer);
+      syncSnackbarPosition();
+      els.toast.textContent = "";
+      els.toast.className = `snackbar${actionLabel ? " interactive" : ""}`;
+
+      const content = document.createElement("span");
+      content.className = "snackbar-content";
+      if (icon && actionIcons[icon]) {
+        const iconEl = document.createElement("span");
+        iconEl.className = `snackbar-icon action-icon ${tone}`;
+        iconEl.setAttribute("aria-hidden", "true");
+        iconEl.innerHTML = actionIcons[icon];
+        content.append(iconEl);
+      }
+
+      const messageEl = document.createElement("span");
+      messageEl.className = "snackbar-message";
+      messageEl.textContent = message;
+      content.append(messageEl);
+      els.toast.append(content);
+
+      if (actionLabel) {
+        const action = document.createElement("button");
+        action.type = "button";
+        action.dataset.undoAction = "";
+        action.className = "snackbar-action";
+        action.textContent = actionLabel;
+        els.toast.append(action);
+      }
+
+      if (wasVisible) {
+        els.toast.classList.add("show", "updating");
+        window.setTimeout(() => els.toast.classList.remove("updating"), 160);
+        return;
+      }
+      window.requestAnimationFrame(() => els.toast.classList.add("show"));
     }
 
     function prepareActionCard(card) {
@@ -99,13 +161,9 @@
     function showToast(message, duration = 1800) {
       if (pendingUndo) return;
       clearPendingUndo(false);
-      els.toast.textContent = message;
-      els.toast.classList.remove("interactive");
-      els.toast.classList.add("show");
+      renderSnackbar({ message });
       clearTimeout(showToast.timer);
-      showToast.timer = setTimeout(() => {
-        els.toast.classList.remove("show");
-      }, duration);
+      showToast.timer = setTimeout(() => hideSnackbar(), duration);
     }
 
     function showReviewSavedStatus() {

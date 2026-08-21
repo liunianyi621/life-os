@@ -277,11 +277,9 @@
       scheduleRender(sourceEl ? 380 : 0);
       showTaskRewardToast({
         earnedCoins,
-        durationSeconds,
-        currentCoins: state.coins,
-        showDuration: true,
         undoData: {
           type: "task_completed",
+          name: task.name,
           historyId,
           taskId: task.id,
           date: today,
@@ -353,9 +351,9 @@
       scheduleRender(sourceEl ? 380 : 0);
       showTaskRewardToast({
         earnedCoins,
-        currentCoins: state.coins,
         undoData: {
           type: "task_completed",
+          name: task.name,
           historyId,
           taskId: task.id,
           date: today,
@@ -409,6 +407,7 @@
       scheduleRender(sourceEl ? 380 : 0);
       showUndoToast({
         type: "priority_task_reward",
+        name: task.title,
         historyId,
         date,
         amount,
@@ -469,6 +468,7 @@
       scheduleRender(sourceEl ? 380 : 0);
       showUndoToast({
         type: "priority_task_penalty",
+        name: task.title,
         historyIds: [historyId],
         priorityEntries: [{ historyId, date, amount, previousTask }],
         amount
@@ -513,6 +513,7 @@
       scheduleRender(sourceEl ? 380 : 0);
       showUndoToast({
         type: "habit_completed",
+        name: habit.name,
         historyId,
         habitId: habit.id,
         date: today,
@@ -583,6 +584,7 @@
       scheduleRender(sourceEl ? 380 : 0);
       showUndoToast({
         type: "task_failed",
+        name: task.name,
         historyId,
         taskId: task.id,
         date: today,
@@ -1307,6 +1309,7 @@
       scheduleRender(840);
       showUndoToast({
         type: "fund_deposit",
+        name: fund.name,
         historyId,
         rewardId,
         amount,
@@ -1374,14 +1377,11 @@
       delta.addEventListener("animationend", () => delta.remove(), { once: true });
     }
 
-    function showTaskRewardToast({ earnedCoins, durationSeconds = 0, currentCoins, showDuration = false, undoData = null }) {
-      const lines = [`获得 ${formatCoinAmount(earnedCoins)} 金币`];
-      if (showDuration) lines.push(`用时 ${formatTaskDurationClock(durationSeconds)}`);
-      lines.push(`当前金币 ${formatCoinAmount(currentCoins)}`);
+    function showTaskRewardToast({ earnedCoins, undoData = null }) {
       if (undoData) {
         showUndoToast(undoData, {
           icon: "checkmark.circle",
-          lines,
+          message: `已完成「${undoData.name || "任务"}」 · +${formatCoinAmount(earnedCoins)} 金币`,
           undoLabel: "撤回",
           duration: 5000,
           iconTone: "positive"
@@ -1391,54 +1391,24 @@
 
       clearPendingUndo(false);
       clearTimeout(showToast.timer);
-      els.toast.textContent = "";
-      const toastMessage = document.createElement("span");
-      toastMessage.className = "toast-message toast-message-stacked";
-      const iconEl = document.createElement("span");
-      iconEl.className = "toast-icon action-icon positive";
-      iconEl.setAttribute("aria-hidden", "true");
-      iconEl.innerHTML = actionIcons["checkmark.circle"];
-      toastMessage.append(iconEl);
-      lines.forEach(line => {
-        const lineEl = document.createElement("span");
-        lineEl.className = "toast-line";
-        lineEl.textContent = line;
-        toastMessage.append(lineEl);
+      renderSnackbar({
+        message: `任务已完成 · +${formatCoinAmount(earnedCoins)} 金币`,
+        icon: "checkmark.circle",
+        tone: "positive"
       });
-      els.toast.append(toastMessage);
-      els.toast.classList.remove("interactive");
-      els.toast.classList.add("show");
-      showToast.timer = setTimeout(() => {
-        els.toast.classList.remove("show");
-      }, 3600);
+      showToast.timer = setTimeout(() => hideSnackbar(), 3600);
     }
 
     function showInfoToast(lines, duration = 2200, icon = "") {
       if (pendingUndo) return;
       clearPendingUndo(false);
       clearTimeout(showToast.timer);
-      els.toast.textContent = "";
-      const toastMessage = document.createElement("span");
-      toastMessage.className = "toast-message toast-message-stacked";
-      if (icon && actionIcons[icon]) {
-        const iconEl = document.createElement("span");
-        iconEl.className = "toast-icon action-icon positive";
-        iconEl.setAttribute("aria-hidden", "true");
-        iconEl.innerHTML = actionIcons[icon];
-        toastMessage.append(iconEl);
-      }
-      lines.forEach(line => {
-        const lineEl = document.createElement("span");
-        lineEl.className = "toast-line";
-        lineEl.textContent = line;
-        toastMessage.append(lineEl);
+      renderSnackbar({
+        message: lines.filter(Boolean).join(" · "),
+        icon,
+        tone: icon === "checkmark.circle" ? "positive" : "neutral"
       });
-      els.toast.append(toastMessage);
-      els.toast.classList.remove("interactive");
-      els.toast.classList.add("show");
-      showToast.timer = setTimeout(() => {
-        els.toast.classList.remove("show");
-      }, duration);
+      showToast.timer = setTimeout(() => hideSnackbar(), duration);
     }
 
     function clearPendingUndo(hideToast = false) {
@@ -1446,11 +1416,54 @@
         clearTimeout(pendingUndo.timer);
       }
       pendingUndo = null;
-      els.toast.classList.remove("interactive");
-      if (hideToast) {
+      if (hideToast && typeof hideSnackbar === "function") {
+        hideSnackbar();
+      } else if (hideToast && els.toast) {
         els.toast.classList.remove("show");
         els.toast.textContent = "";
       }
+    }
+
+    function undoSnackbarName(undoData) {
+      if (undoData.name) return undoData.name;
+      if (undoData.taskId) return state.tasks.find(item => item.id === undoData.taskId)?.name || "";
+      if (undoData.habitId) return state.habits.find(item => item.id === undoData.habitId)?.name || "";
+      if (undoData.rewardId) return state.rewards.find(item => item.id === undoData.rewardId)?.name || "";
+      return "";
+    }
+
+    function undoSnackbarPresentation(undoData = {}, options = {}) {
+      const amount = formatCoinAmount(Math.abs(parseCoinAmount(undoData.amount)));
+      const name = undoSnackbarName(undoData);
+      const named = fallback => name ? `「${name}」` : fallback;
+      const presentations = {
+        task_completed: { message: `已完成${named("任务")} · +${amount} 金币`, icon: "checkmark.circle", tone: "positive" },
+        habit_completed: { message: `已完成${named("习惯")} · +${amount} 金币`, icon: "checkmark.circle", tone: "positive" },
+        priority_task_reward: { message: `今日重点已完成 · +${amount} 金币`, icon: "checkmark.circle", tone: "positive" },
+        task_failed: { message: `${named("任务")}未完成 · -${amount} 金币`, icon: "xmark.circle", tone: "negative" },
+        task_auto_failed: { message: `${named("任务")}未完成 · -${amount} 金币`, icon: "xmark.circle", tone: "negative" },
+        habit_auto_failed: { message: `习惯未完成 · -${amount} 金币`, icon: "minus.circle", tone: "negative" },
+        priority_task_penalty: { message: `今日重点未完成 · -${amount} 金币`, icon: "xmark.circle", tone: "negative" },
+        automatic_failures: { message: `未完成事项已结算 · -${amount} 金币`, icon: "minus.circle", tone: "negative" },
+        fund_deposit: {
+          message: undoData.completed ? `${named("基金")}已完成` : `已注入${named("基金")} · ${amount} 金币`,
+          icon: undoData.completed ? "checkmark.circle" : "plus.circle",
+          tone: undoData.completed ? "positive" : "neutral"
+        },
+        reward_redeemed: { message: `已兑换${named("奖励")} · -${amount} 金币`, icon: "minus.circle", tone: "negative" },
+        bad_habit: { message: `已记录负向行为 · -${amount} 金币`, icon: "minus.circle", tone: "negative" },
+        day_record_delete: { message: "已删除记录 · 已同步统计", icon: "minus.circle", tone: "neutral" }
+      };
+      if (presentations[undoData.type]) return presentations[undoData.type];
+
+      const fallbackLines = (Array.isArray(options.lines) ? options.lines : [options.message || "操作已完成"])
+        .map(line => String(line || "").replace(/^✓\s*/, "").trim())
+        .filter(line => line && !line.startsWith("当前金币") && !line.startsWith("用时"));
+      return {
+        message: fallbackLines.join(" · ") || "操作已完成",
+        icon: options.icon || "",
+        tone: options.iconTone || "neutral"
+      };
     }
 
     function showUndoToast(undoData, options = {}) {
@@ -1470,34 +1483,8 @@
           clearPendingUndo(true);
         }, duration)
       };
-      els.toast.textContent = "";
-      const toastMessage = document.createElement("span");
-      toastMessage.className = "toast-message";
-      if (icon && actionIcons[icon]) {
-        const iconEl = document.createElement("span");
-        iconEl.className = `toast-icon action-icon${iconTone ? ` ${iconTone}` : ""}`;
-        iconEl.setAttribute("aria-hidden", "true");
-        iconEl.innerHTML = actionIcons[icon];
-        toastMessage.append(iconEl);
-      }
-      const messageLines = Array.isArray(lines) && lines.length ? lines : [message];
-      if (messageLines.length > 1) toastMessage.classList.add("toast-message-stacked");
-      messageLines.forEach(line => {
-        const messageEl = document.createElement("span");
-        messageEl.className = "toast-line";
-        messageEl.textContent = line;
-        toastMessage.append(messageEl);
-      });
-      const separatorEl = document.createElement("span");
-      separatorEl.setAttribute("aria-hidden", "true");
-      separatorEl.textContent = "·";
-      const undoButton = document.createElement("button");
-      undoButton.type = "button";
-      undoButton.dataset.undoAction = "";
-      undoButton.className = "toast-undo-button";
-      undoButton.textContent = undoLabel;
-      els.toast.append(toastMessage, separatorEl, undoButton);
-      els.toast.classList.add("interactive", "show");
+      const presentation = undoSnackbarPresentation(undoData, { icon, message, lines, iconTone });
+      renderSnackbar({ ...presentation, actionLabel: undoLabel });
     }
 
     function undoLastAction() {
@@ -1630,5 +1617,5 @@
           closeDayDetail();
         }
       }
-      showToast("已撤回");
+      showToast("已撤回", 1500);
     }
