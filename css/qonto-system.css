@@ -1156,8 +1156,8 @@ button.summary-card {
   background: var(--color-surface);
 }
 
-.habit-bar-day,
-.habit-bar-group {
+.stats-trend-chart__day,
+.stats-trend-chart__bar-group {
   display: flex;
   height: 100%;
   align-items: flex-end;
@@ -1165,14 +1165,34 @@ button.summary-card {
   gap: 2px;
 }
 
-.habit-bar {
-  width: min(6px, 40%);
+.stats-trend-chart__day {
+  min-width: 0;
+}
+
+.stats-trend-chart__bar-group {
+  width: min(22px, 100%);
+  min-width: 0;
+}
+
+.stats-trend-chart__bar {
+  width: min(5px, 28%);
+  min-width: 1px;
   min-height: 0;
   border-radius: 3px 3px 0 0;
 }
 
-.habit-bar.good { background: #75a889; }
-.habit-bar.bad { background: #c98b82; }
+.stats-trend-chart__bar--completed { background: #75a889; }
+.stats-trend-chart__bar--failure { background: #c98b82; }
+.stats-trend-chart__bar--focus { background: #858e9d; }
+
+.stats-trend-chart__empty {
+  display: grid;
+  grid-column: 1 / -1;
+  height: 100%;
+  place-items: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
 
 .habit-bar-axis {
   display: grid;

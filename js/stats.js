@@ -439,31 +439,52 @@
       `;
     }
 
+    function buildHabitTrendSeries(rows) {
+      return {
+        labels: rows.map(row => trendDateLabel(row, rows)),
+        completedSeries: rows.map(row => Math.max(0, Number(row.completed) || 0)),
+        failureSeries: rows.map(row => Math.max(0, Number(row.badHabits) || 0)),
+        focusSeries: rows.map(row => Math.max(0, (Number(row.focusSeconds) || 0) / 60))
+      };
+    }
+
     function renderHabitTrend(rows) {
       const width = trendWidth(rows);
-      const values = rows.flatMap(row => [row.completed, row.badHabits]);
-      const spread = Math.max(1, ...values);
+      const series = buildHabitTrendSeries(rows);
+      const activitySpread = Math.max(1, ...series.completedSeries, ...series.failureSeries);
+      const focusSpread = Math.max(1, ...series.focusSeries);
+      const hasData = [...series.completedSeries, ...series.failureSeries, ...series.focusSeries]
+        .some(value => value > 0);
       const ticks = new Set(trendDateTickIndexes(rows));
       const focusSeconds = rows.reduce((total, row) => total + row.focusSeconds, 0);
       const completedTotal = rows.reduce((total, row) => total + row.completed, 0);
       const badTotal = rows.reduce((total, row) => total + row.badHabits, 0);
+      const summaryHasData = completedTotal > 0 || badTotal > 0 || focusSeconds > 0;
+      if (summaryHasData && !hasData && ["localhost", "127.0.0.1"].includes(window.location?.hostname)) {
+        console.warn("Habit trend summary contains data but all chart series are empty.");
+      }
       const gridTemplate = `repeat(${rows.length}, minmax(4px, 1fr))`;
       els.habitTrendChart.innerHTML = `
-        <div class="habit-bar-chart" style="--trend-width: ${width}px;">
-          <div class="habit-bar-grid" style="grid-template-columns: ${gridTemplate};" role="img" aria-label="习惯趋势柱状图">
-            ${rows.map(row => {
-              const completedHeight = row.completed > 0 ? Math.max(8, (row.completed / spread) * 100) : 0;
-              const badHeight = row.badHabits > 0 ? Math.max(8, (row.badHabits / spread) * 100) : 0;
-              const title = `${trendDateLabel(row, rows)}：完成 ${row.completed}，坏习惯 ${row.badHabits} 次`;
+        <div class="habit-bar-chart stats-trend-chart" style="--trend-width: ${width}px;">
+          <div class="habit-bar-grid stats-trend-chart__plot" style="grid-template-columns: ${gridTemplate};" role="img" aria-label="习惯趋势柱状图">
+            ${hasData ? rows.map((row, index) => {
+              const completed = series.completedSeries[index];
+              const failed = series.failureSeries[index];
+              const focusMinutes = series.focusSeries[index];
+              const completedHeight = completed > 0 ? Math.max(8, (completed / activitySpread) * 100) : 0;
+              const badHeight = failed > 0 ? Math.max(8, (failed / activitySpread) * 100) : 0;
+              const focusHeight = focusMinutes > 0 ? Math.max(8, (focusMinutes / focusSpread) * 100) : 0;
+              const title = `${series.labels[index]}：完成 ${completed}，坏习惯 ${failed} 次，专注 ${formatNumber(focusMinutes)} 分钟`;
               return `
-                <div class="habit-bar-day" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}">
-                  <div class="habit-bar-group">
-                    <span class="habit-bar good" style="height: ${completedHeight.toFixed(1)}%;"></span>
-                    <span class="habit-bar bad" style="height: ${badHeight.toFixed(1)}%;"></span>
+                <div class="habit-bar-day stats-trend-chart__day" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}">
+                  <div class="habit-bar-group stats-trend-chart__bar-group">
+                    <span class="habit-bar good stats-trend-chart__bar stats-trend-chart__bar--completed" style="height: ${completedHeight.toFixed(1)}%;"></span>
+                    <span class="habit-bar bad stats-trend-chart__bar stats-trend-chart__bar--failure" style="height: ${badHeight.toFixed(1)}%;"></span>
+                    <span class="habit-bar focus stats-trend-chart__bar stats-trend-chart__bar--focus" style="height: ${focusHeight.toFixed(1)}%;"></span>
                   </div>
                 </div>
               `;
-            }).join("")}
+            }).join("") : `<div class="stats-trend-chart__empty">该周期暂无记录</div>`}
           </div>
           <div class="habit-bar-axis" style="grid-template-columns: ${gridTemplate};" aria-label="趋势日期标注">
             ${rows.map((row, index) => `<span>${ticks.has(index) ? escapeHtml(trendDateLabel(row, rows)) : ""}</span>`).join("")}

@@ -51,3 +51,11 @@ test("Snackbar 保持 60px 高、白色背景并位于 sheet 下层", () => {
   assert.match(productionCss, /\.snackbar-action\s*\{[\s\S]*?border:\s*0;/);
   assert.match(feedbackSource, /nav\.getBoundingClientRect\(\)/);
 });
+
+test("习惯趋势柱组拥有确定宽度且三种 series 使用独立样式", () => {
+  assert.match(productionCss, /\.stats-trend-chart__bar-group\s*\{[\s\S]*?width:\s*min\(22px, 100%\);/);
+  assert.match(productionCss, /\.stats-trend-chart__bar\s*\{[\s\S]*?min-width:\s*1px;/);
+  assert.match(productionCss, /\.stats-trend-chart__bar--completed\s*\{\s*background:\s*#75a889;/);
+  assert.match(productionCss, /\.stats-trend-chart__bar--failure\s*\{\s*background:\s*#c98b82;/);
+  assert.match(productionCss, /\.stats-trend-chart__bar--focus\s*\{\s*background:\s*#858e9d;/);
+});
