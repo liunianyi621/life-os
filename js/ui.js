@@ -913,6 +913,8 @@
       const heatMonthButton = event.target.closest("[data-heat-month]");
       const dayDetailButton = event.target.closest("[data-day-detail]");
       const deleteDayRecordButton = event.target.closest("[data-delete-day-record]");
+      const openDayRecordButton = event.target.closest("[data-open-day-record]");
+      const correctDayRecordButton = event.target.closest("[data-correct-day-record]");
       const deleteTaskButton = event.target.closest("[data-delete-task]");
       const deletePriorityButton = event.target.closest("[data-delete-priority]");
       const deleteHabitButton = event.target.closest("[data-delete-habit]");
@@ -935,6 +937,16 @@
       }
       if (deleteDayRecordButton) {
         deleteDayRecord(deleteDayRecordButton.dataset.deleteDayRecord);
+        return;
+      }
+      if (correctDayRecordButton) {
+        const recordId = correctDayRecordButton.dataset.correctDayRecord;
+        closeSheet();
+        deleteDayRecord(recordId);
+        return;
+      }
+      if (openDayRecordButton) {
+        openDayTimelineRecord(openDayRecordButton.dataset.openDayRecord);
         return;
       }
       if (dayDetailButton) {

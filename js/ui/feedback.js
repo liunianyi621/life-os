@@ -11,6 +11,8 @@
         : 0;
       document.documentElement.style.setProperty("--sheet-viewport-height", `${viewportHeight}px`);
       document.documentElement.style.setProperty("--sheet-keyboard-offset", `${keyboardOffset}px`);
+      document.documentElement.style.setProperty("--sheet-viewport-offset-top", `${Math.max(0, Math.round(viewport?.offsetTop || 0))}px`);
+      document.body.classList.toggle("keyboard-open", keyboardOffset > 80 && hasOpenModal());
     }
 
     function hasOpenModal() {

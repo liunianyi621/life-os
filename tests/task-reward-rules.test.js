@@ -385,7 +385,11 @@ test("自动检查不再生成无坏习惯奖励", () => {
 });
 
 test("日详情删除失败记录按历史实际金额返还", async () => {
-  const { context } = createRuntime(emptyState([task({ id: "delete-failure" })]));
+  const { context } = createRuntime(emptyState([task({
+    id: "delete-failure",
+    timeStart: "9:00 AM",
+    timeEnd: "10:00 AM"
+  })]));
   value(context, `failTask("delete-failure")`);
   const historyId = value(context, "state.history[0].id");
   value(context, `
@@ -403,6 +407,87 @@ test("日详情删除失败记录按历史实际金额返还", async () => {
   assert.equal(value(context, "state.history[0].type"), "day_record_correction");
   assert.equal(value(context, "state.history[0].coinDelta"), 200);
   assert.equal(value(context, "lastUndoData.correctionDelta"), 200);
+  assert.equal(value(context, "Boolean(state.taskAutoFailures['2026-07-16']['delete-failure'])"), true);
+  assert.equal(value(context, "settleTimedTaskTimeouts(new Date('2026-07-16T23:00:00.000Z')).count"), 0);
+});
+
+test("当天时间线按真实时间倒序并兼容任务、习惯和奖励流水", () => {
+  const state = emptyState([], 1000);
+  state.history = [
+    {
+      id: "task-event",
+      type: "task_completed",
+      taskId: "task-legacy",
+      name: "剪辑视频",
+      coins: 20,
+      timestamp: "2026-07-16T10:25:00.000Z"
+    },
+    {
+      id: "habit-event",
+      type: "habit_completed",
+      habitId: "habit-legacy",
+      name: "收拾房间",
+      coins: 10,
+      date: DAY,
+      timestamp: "2026-07-16T22:36:00.000Z"
+    },
+    {
+      id: "fund-event",
+      type: "fund_deposit",
+      rewardId: "fund-legacy",
+      name: "中东基金",
+      amount: 100,
+      date: DAY,
+      timestamp: "2026-07-16T17:42:00.000Z"
+    }
+  ];
+  const { context } = createRuntime(state);
+  const records = value(context, `dayTimelineRecords("${DAY}").map(record => ({
+    key: record.key,
+    title: record.title,
+    amount: record.amount,
+    canCorrect: record.canCorrect
+  }))`);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(records)), [
+    { key: "habit-event", title: "完成习惯「收拾房间」", amount: 10, canCorrect: true },
+    { key: "fund-event", title: "已注入「中东基金」", amount: -100, canCorrect: true },
+    { key: "task-event", title: "完成任务「剪辑视频」", amount: 20, canCorrect: true }
+  ]);
+});
+
+test("当天纠正自动习惯失败后保留既有结算标记", async () => {
+  const state = emptyState([], 1000);
+  state.habits = [{ id: "habit-corrected", name: "看书", coins: 10, createdDate: DAY }];
+  const { context } = createRuntime(state);
+  value(context, `settleMissedHabits("${DAY}")`);
+  const historyId = value(context, "state.history[0].id");
+  value(context, `askForConfirmation = async () => true; refreshAfterDayRecordCorrection = () => {};`);
+
+  await value(context, `deleteHistoryDayRecord("${historyId}")`);
+
+  assert.equal(value(context, `Boolean(state.habitFailures["${DAY}"]["habit-corrected"])`), true);
+  assert.equal(value(context, `settleMissedHabits("${DAY}").count`), 0);
+});
+
+test("当天纠正自动重点事项失败后不会再次跨日扣除", async () => {
+  const previousDay = "2026-07-15";
+  const state = emptyState([], 2000);
+  state.priorityTaskByDate[previousDay] = {
+    date: previousDay,
+    title: "发布视频",
+    status: "pending",
+    settledPenalty: false
+  };
+  const { context } = createRuntime(state);
+  value(context, `settleMissedPriorityTasks(new Date("${FIXED_NOW}"))`);
+  const historyId = value(context, "state.history[0].id");
+  value(context, `askForConfirmation = async () => true; refreshAfterDayRecordCorrection = () => {};`);
+
+  await value(context, `deleteHistoryDayRecord("${historyId}")`);
+
+  assert.equal(value(context, `state.priorityTaskByDate["${previousDay}"].settledPenalty`), true);
+  assert.equal(value(context, `settleMissedPriorityTasks(new Date("${FIXED_NOW}")).count`), 0);
 });
 
 test("迁移标记存在时，新任务的 20 和 200 不会再次乘以 10", () => {
@@ -475,7 +560,7 @@ test("重点事项跨日自动失败使用同一处罚 helper", () => {
   assert.equal(value(context, `state.priorityTaskByDate["${previousDay}"].status`), "failed");
 });
 
-test("重点事项当天详情优先显示历史事件里的实际金额", () => {
+test("重点事项当天时间线优先显示历史事件里的实际金额", () => {
   const state = emptyState([], 2000);
   state.priorityTaskByDate[DAY] = {
     date: DAY,
@@ -496,15 +581,10 @@ test("重点事项当天详情优先显示历史事件里的实际金额", () =>
     affectsBehaviorScore: true
   }];
   const { context } = createRuntime(state);
-  value(context, `
-    escapeHtml = value => String(value);
-    escapeAttr = value => String(value);
-    iconActionButtonHtml = () => "";
-  `);
-  const html = value(context, `priorityTaskDetailHtml("${DAY}")`);
+  const record = value(context, `dayTimelineRecords("${DAY}").find(item => item.key === "old-priority-reward")`);
 
-  assert.match(html, /\+10\.00/);
-  assert.doesNotMatch(html, /\+100\.00/);
+  assert.equal(record.amount, 10);
+  assert.notEqual(record.amount, 100);
 });
 
 test("旧重点事项启动字段会被清理且不影响原有结算", () => {

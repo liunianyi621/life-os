@@ -1679,6 +1679,10 @@ button.summary-card {
   padding-top: max(14px, env(safe-area-inset-top));
 }
 
+.sheet-backdrop[data-sheet-layer="above"] {
+  z-index: 120;
+}
+
 .q-sheet,
 .sheet {
   display: flex;
@@ -1733,6 +1737,40 @@ button.summary-card {
   display: grid;
   gap: 16px;
   padding: 10px 22px calc(22px + env(safe-area-inset-bottom) + var(--sheet-keyboard-offset));
+}
+
+.sheet-form.task-sheet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.task-sheet-fields {
+  display: grid;
+  min-height: 0;
+  gap: 14px;
+  padding: 8px 22px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.task-sheet-form > .delete-row {
+  flex: 0 0 auto;
+  padding: 4px 22px 0;
+}
+
+.task-sheet-actions {
+  position: static;
+  flex: 0 0 auto;
+  padding: 10px 22px max(16px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.task-sheet-actions .q-primary-button {
+  min-height: 56px;
 }
 
 .field {
@@ -1864,7 +1902,7 @@ button.summary-card {
   color: var(--color-danger);
 }
 
-/* Time picker retains its current behavior with the new field language. */
+/* The task form keeps the time wheel collapsed until the compact row is opened. */
 .time-picker {
   overflow: hidden;
   border-radius: var(--radius-md);
@@ -1876,7 +1914,23 @@ button.summary-card {
   align-items: center;
   justify-content: space-between;
   min-height: 52px;
-  padding: 0 12px 0 15px;
+  padding: 0 10px 0 15px;
+}
+
+.time-picker-trigger {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+  gap: 12px;
+  padding: 0 12px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 15px;
+  text-align: left;
 }
 
 .time-picker-value {
@@ -1886,11 +1940,24 @@ button.summary-card {
 }
 
 .time-clear {
-  width: 38px;
-  height: 38px;
+  min-height: 36px;
+  padding: 0 10px;
   border: 0;
+  border-radius: 10px;
   background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 620;
   box-shadow: none;
+}
+
+.time-picker-panel {
+  display: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.time-picker.expanded .time-picker-panel {
+  display: block;
 }
 
 .time-wheels {
@@ -1901,7 +1968,6 @@ button.summary-card {
   height: 156px;
   padding: 52px 8px;
   overflow: hidden;
-  border-top: 1px solid var(--color-border);
 }
 
 .time-wheels::after {
@@ -1946,10 +2012,82 @@ button.summary-card {
   font-weight: 650;
 }
 
+.time-picker-done {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 680;
+}
+
+body.keyboard-open .sheet-backdrop[data-sheet-position="top"] {
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+
+body.keyboard-open .sheet-backdrop[data-sheet-position="top"] .q-sheet-header {
+  min-height: 64px;
+  padding: 9px 18px 7px;
+}
+
+body.keyboard-open .sheet-backdrop[data-sheet-kind="task"] .q-sheet {
+  height: calc(var(--sheet-viewport-height) - 16px);
+}
+
+body.keyboard-open .sheet-backdrop[data-sheet-position="top"] .sheet-header h2 {
+  font-size: 24px;
+}
+
+body.keyboard-open .task-sheet-fields {
+  gap: 8px;
+  padding: 4px 18px 6px;
+}
+
+body.keyboard-open .task-sheet-form .field {
+  gap: 4px;
+}
+
+body.keyboard-open .task-sheet-form .field input {
+  min-height: 48px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+body.keyboard-open .task-sheet-form .field-help {
+  overflow: hidden;
+  max-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.keyboard-open .task-sheet-form .time-picker-header {
+  min-height: 48px;
+}
+
+body.keyboard-open .task-sheet-actions {
+  padding: 8px 18px max(8px, env(safe-area-inset-bottom));
+}
+
+body.keyboard-open .task-sheet-actions .q-primary-button {
+  min-height: 54px;
+}
+
+@media (max-height: 620px) {
+  .task-sheet-fields {
+    gap: 8px;
+  }
+
+  .task-sheet-form .field-help {
+    display: none;
+  }
+}
+
 /* Day detail */
 .day-detail-content {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   padding: 8px 22px calc(24px + env(safe-area-inset-bottom));
 }
 
@@ -1961,21 +2099,21 @@ button.summary-card {
 
 .detail-metric {
   min-width: 0;
-  padding: 15px;
+  padding: 12px 14px;
   border-radius: var(--radius-sm);
   background: var(--color-surface-muted);
 }
 
 .detail-metric span {
   display: block;
-  margin-bottom: 7px;
+  margin-bottom: 5px;
   color: var(--color-text-secondary);
   font-size: 12px;
 }
 
 .detail-metric strong {
   color: var(--color-text-primary);
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .positive { color: var(--color-success) !important; }
@@ -2077,6 +2215,155 @@ button.summary-card {
 
 .detail-record-body {
   grid-column: 1 / -1;
+}
+
+.day-timeline-section {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.day-timeline-section > h3 {
+  margin: 0;
+  padding: 17px 16px 13px;
+  color: var(--color-text-primary);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.day-timeline-list {
+  display: grid;
+}
+
+.day-timeline-row {
+  display: grid;
+  grid-template-columns: 45px 24px minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 74px;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.day-timeline-row:active {
+  background: var(--color-surface-muted);
+}
+
+.day-timeline-row time {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-timeline-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  color: var(--color-text-secondary);
+}
+
+.day-timeline-icon .action-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.day-timeline-icon.positive { color: var(--color-success) !important; }
+.day-timeline-icon.negative { color: var(--color-danger) !important; }
+
+.day-timeline-main {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.day-timeline-main strong,
+.day-timeline-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-timeline-main strong {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.day-timeline-main small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.day-timeline-row .detail-amount {
+  font-size: 14px;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.day-record-detail {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.day-record-detail-row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  min-height: 54px;
+  padding: 16px;
+}
+
+.day-record-detail-row + .day-record-detail-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.day-record-detail-row > span {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.day-record-detail-row > strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.day-record-correct-button {
+  min-height: 54px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 15px;
+  font-weight: 680;
+}
+
+.day-record-readonly {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 370px) {
+  .day-timeline-row {
+    grid-template-columns: 40px 22px minmax(0, 1fr) auto;
+    gap: 7px;
+    padding-right: 11px;
+    padding-left: 11px;
+  }
 }
 
 /* Confirmation, celebration and toast */

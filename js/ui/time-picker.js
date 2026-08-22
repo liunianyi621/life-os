@@ -177,9 +177,29 @@
         const minuteButton = event.target.closest("[data-time-minute]");
         const periodButton = event.target.closest("[data-time-period]");
         const clearButton = event.target.closest("[data-clear-time]");
+        const toggleButton = event.target.closest("[data-toggle-time-picker]");
+        const closeButton = event.target.closest("[data-close-time-picker]");
+
+        if (toggleButton || closeButton) {
+          const shouldExpand = Boolean(toggleButton) && !picker.classList.contains("expanded");
+          picker.classList.toggle("expanded", shouldExpand);
+          picker.querySelector("[data-toggle-time-picker]")?.setAttribute("aria-expanded", String(shouldExpand));
+          if (shouldExpand) {
+            document.activeElement?.blur?.();
+            const parts = currentTimeParts();
+            requestAnimationFrame(() => {
+              scrollWheelTo("hour", parts.hour, "auto");
+              scrollWheelTo("minute", parts.minute, "auto");
+              scrollWheelTo("period", parts.period, "auto");
+            });
+          }
+          return;
+        }
 
         if (clearButton) {
           clearTime();
+          picker.classList.remove("expanded");
+          picker.querySelector("[data-toggle-time-picker]")?.setAttribute("aria-expanded", "false");
           return;
         }
 

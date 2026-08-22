@@ -8,6 +8,9 @@ const productionCss = fs.readFileSync(path.join(ROOT, "css/qonto-system.css"), "
 const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const feedbackSource = fs.readFileSync(path.join(ROOT, "js/ui/feedback.js"), "utf8");
 const economySource = fs.readFileSync(path.join(ROOT, "js/economy.js"), "utf8");
+const sheetSource = fs.readFileSync(path.join(ROOT, "js/ui/sheets.js"), "utf8");
+const timePickerSource = fs.readFileSync(path.join(ROOT, "js/ui/time-picker.js"), "utf8");
+const statsSource = fs.readFileSync(path.join(ROOT, "js/stats.js"), "utf8");
 
 test("生产样式覆盖全部热力图状态 class", () => {
   [
@@ -58,4 +61,26 @@ test("习惯趋势柱组拥有确定宽度且三种 series 使用独立样式", 
   assert.match(productionCss, /\.stats-trend-chart__bar--completed\s*\{\s*background:\s*#75a889;/);
   assert.match(productionCss, /\.stats-trend-chart__bar--failure\s*\{\s*background:\s*#c98b82;/);
   assert.match(productionCss, /\.stats-trend-chart__bar--focus\s*\{\s*background:\s*#858e9d;/);
+});
+
+test("新建任务使用独立字段滚动区、折叠时间选择和固定底部操作区", () => {
+  assert.match(sheetSource, /class="task-sheet-fields"/);
+  assert.match(sheetSource, /class="sheet-actions task-sheet-actions"/);
+  assert.match(sheetSource, /openSheet\(\{ position: "top", kind: "task" \}\)/);
+  assert.match(sheetSource, /data-toggle-time-picker aria-expanded="false"/);
+  assert.match(timePickerSource, /picker\.classList\.toggle\("expanded", shouldExpand\)/);
+  assert.match(productionCss, /\.sheet-form\.task-sheet-form\s*\{[\s\S]*?overflow:\s*hidden;/);
+  assert.match(productionCss, /\.task-sheet-actions\s*\{[\s\S]*?position:\s*static;/);
+  assert.match(productionCss, /\.time-picker-panel\s*\{[\s\S]*?display:\s*none;/);
+  assert.match(productionCss, /body\.keyboard-open \.sheet-backdrop\[data-sheet-kind="task"\] \.q-sheet\s*\{[\s\S]*?height:\s*calc\(var\(--sheet-viewport-height\) - 16px\);/);
+});
+
+test("当天详情以可点击时间线为主体并复用现有历史纠错入口", () => {
+  assert.match(statsSource, /function dayTimelineRecords\(/);
+  assert.match(statsSource, /class="day-timeline-row"[^>]*data-open-day-record/);
+  assert.match(statsSource, /data-correct-day-record=/);
+  assert.match(statsSource, /\$\{dayTimelineHtml\(day\)\}/);
+  assert.match(productionCss, /\.day-timeline-row\s*\{[\s\S]*?grid-template-columns:/);
+  assert.match(economySource, /title:\s*"撤销这条记录？"/);
+  assert.match(economySource, /confirmText:\s*"撤销记录"/);
 });

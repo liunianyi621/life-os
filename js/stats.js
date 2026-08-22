@@ -37,12 +37,143 @@
       "no_bad_habit_bonus"
     ]);
 
+    const DAY_TIMELINE_TYPE_LABELS = {
+      task_completed: "完成任务",
+      task_failed: "任务未完成",
+      task_missed: "任务未完成",
+      habit_completed: "完成习惯",
+      habit_failed: "习惯未完成",
+      bad_habit: "坏习惯记录",
+      fund_deposit: "基金注入",
+      fund_withdraw: "基金取出",
+      reward_redeemed: "奖励兑换",
+      reward_refund: "奖励退款",
+      review_reward: "复盘奖励",
+      priority_task_reward: "重点事项完成",
+      priority_task_penalty: "重点事项未完成",
+      no_bad_habit_bonus: "无坏习惯奖励",
+      day_record_correction: "历史纠错"
+    };
+
+    let currentDayDetailDate = null;
+
+    function dayTimelineTimestamp(item = {}) {
+      return item.timestamp || item.completedAt || item.failedAt || item.createdAt || item.updatedAt || "";
+    }
+
+    function dayTimelineDateKey(item = {}) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(item.date || ""))) return item.date;
+      const timestamp = dayTimelineTimestamp(item);
+      if (!timestamp) return "";
+      const parsed = new Date(timestamp);
+      return Number.isNaN(parsed.getTime()) ? "" : dateKey(parsed);
+    }
+
+    function dayTimelineTitle(item = {}) {
+      const name = String(item.name || item.title || item.description || "未命名记录").trim();
+      const quoted = `「${name}」`;
+      const titles = {
+        task_completed: `完成任务${quoted}`,
+        task_failed: `${quoted}未完成`,
+        task_missed: `${quoted}未完成`,
+        habit_completed: `完成习惯${quoted}`,
+        habit_failed: `习惯${quoted}未完成`,
+        bad_habit: `记录坏习惯${quoted}`,
+        fund_deposit: `已注入${quoted}`,
+        fund_withdraw: `从${quoted}取出`,
+        reward_redeemed: `兑换奖励${quoted}`,
+        reward_refund: `撤销奖励${quoted}`,
+        priority_task_reward: `完成重点事项${quoted}`,
+        priority_task_penalty: `重点事项${quoted}未完成`,
+        review_reward: "保存每日复盘",
+        no_bad_habit_bonus: "无坏习惯奖励",
+        day_record_correction: name
+      };
+      return titles[item.type] || name;
+    }
+
+    function dayTimelineIsAutomatic(item = {}) {
+      const reason = String(item.reason || item.action || "").toLowerCase();
+      return Boolean(item.settlementKey)
+        || item.type === "task_missed"
+        || reason === "timeout"
+        || reason === "habit_missed"
+        || reason.includes("automatic")
+        || reason.includes("cross_day");
+    }
+
+    function dayTimelineRecordFromHistory(item) {
+      const timestamp = dayTimelineTimestamp(item);
+      const durationSeconds = taskDurationSecondsFromItem(item);
+      const detailParts = [dayTimelineIsAutomatic(item) ? "自动记录" : "手动记录"];
+      if (durationSeconds > 0) detailParts.push(`专注 ${formatFocusDuration(durationSeconds)}`);
+      return {
+        key: item.id,
+        raw: item,
+        timestamp,
+        time: historyTimeLabel(timestamp) || "时间未知",
+        sortTime: timestamp && !Number.isNaN(new Date(timestamp).getTime()) ? new Date(timestamp).getTime() : -Infinity,
+        title: dayTimelineTitle(item),
+        typeLabel: DAY_TIMELINE_TYPE_LABELS[item.type] || item.type || "其他记录",
+        amount: historyCoinDelta(item),
+        detail: detailParts.join(" · "),
+        automatic: dayTimelineIsAutomatic(item),
+        canCorrect: item.type !== "day_record_correction" && (
+          DAY_DETAIL_HISTORY_TYPES.has(item.type)
+          || isRewardPageEvent(item)
+          || item.coinDelta !== undefined
+        )
+      };
+    }
+
+    function dayTimelineRecords(day) {
+      const records = (Array.isArray(state.history) ? state.history : [])
+        .filter(item => dayTimelineDateKey(item) === day)
+        .map(dayTimelineRecordFromHistory);
+      const review = state.dailyReviews?.[day];
+      const hasReviewHistory = records.some(record => record.raw?.type === "review_reward");
+      if (review && !hasReviewHistory) {
+        const timestamp = review.updatedAt || review.createdAt || "";
+        records.push({
+          key: `review:${day}`,
+          raw: review,
+          timestamp,
+          time: historyTimeLabel(timestamp) || "时间未知",
+          sortTime: timestamp && !Number.isNaN(new Date(timestamp).getTime()) ? new Date(timestamp).getTime() : -Infinity,
+          title: "保存每日复盘",
+          typeLabel: "每日复盘",
+          amount: 0,
+          detail: "手动记录",
+          automatic: false,
+          canCorrect: true
+        });
+      }
+      const priority = priorityTaskForDate(day);
+      const hasPriorityHistory = records.some(record => (
+        record.raw?.type === "priority_task_reward" || record.raw?.type === "priority_task_penalty"
+      ));
+      if (priority && priority.status !== "pending" && !hasPriorityHistory) {
+        const timestamp = priority.completedAt || priority.failedAt || priority.updatedAt || "";
+        const completed = priority.status === "done";
+        records.push({
+          key: `priority:${day}`,
+          raw: priority,
+          timestamp,
+          time: historyTimeLabel(timestamp) || "时间未知",
+          sortTime: timestamp && !Number.isNaN(new Date(timestamp).getTime()) ? new Date(timestamp).getTime() : -Infinity,
+          title: completed ? `完成重点事项「${priority.title}」` : `重点事项「${priority.title}」未完成`,
+          typeLabel: completed ? "重点事项完成" : "重点事项未完成",
+          amount: completed ? priorityTaskSettlementAmount("done") : -priorityTaskSettlementAmount("failed"),
+          detail: "手动记录",
+          automatic: false,
+          canCorrect: true
+        });
+      }
+      return records.sort((left, right) => right.sortTime - left.sortTime);
+    }
+
     function dayHasEditableRecords(day) {
-      return state.history.some(item => item.date === day && (
-        DAY_DETAIL_HISTORY_TYPES.has(item.type) || isRewardPageEvent(item)
-      ))
-        || Boolean(priorityTaskForDate(day))
-        || Boolean(state.dailyReviews?.[day]);
+      return dayTimelineRecords(day).length > 0;
     }
 
     function dayCoinSummary(day) {
@@ -64,7 +195,7 @@
       };
 
       state.history.forEach(item => {
-        if (item.date !== day) return;
+        if (dayTimelineDateKey(item) !== day) return;
         const metrics = statsMetricsForHistoryItem(item);
         const { isBehaviorTransaction, financialDelta, behaviorDelta } = metrics;
 
@@ -97,121 +228,55 @@
       };
     }
 
-    function dayRecordDeleteButtonHtml(recordId, label = "删除这条记录") {
-      if (!recordId) return "";
-      return iconActionButtonHtml({
-        className: "detail-action-button icon-only-button",
-        icon: "minus.circle",
-        label,
-        attrs: `data-delete-day-record="${escapeAttr(recordId)}"`
-      });
-    }
-
-    function detailListHtml(items, emptyText, amountForItem, actionForItem = null) {
-      if (!items.length) {
-        return `<p class="detail-empty">${escapeHtml(emptyText)}</p>`;
-      }
+    function dayTimelineHtml(day) {
+      const records = dayTimelineRecords(day);
+      if (!records.length) return `<p class="detail-empty">当天没有记录。</p>`;
       return `
-        <div class="detail-list">
-          ${items.map(item => {
-            const time = historyTimeLabel(item.timestamp);
-            return `
-              <div class="detail-item detail-record-card">
-                <span class="detail-item-main">
-                  ${escapeHtml(item.name || "未命名")}
-                  ${time ? `<small>${escapeHtml(time)}</small>` : ""}
-                </span>
-                <span class="detail-item-side">
-                  ${signedAmountHtml(amountForItem(item))}
-                  ${actionForItem ? actionForItem(item) : ""}
-                </span>
-              </div>
-            `;
-          }).join("")}
-        </div>
-      `;
-    }
-
-    function historyRecordActionHtml(item) {
-      return dayRecordDeleteButtonHtml(item.id);
-    }
-
-    function detailSectionHtml(title, count, body) {
-      return `
-        <section class="detail-section">
-          <div class="detail-section-title">
-            <span>${escapeHtml(title)}</span>
-            <span>${formatNumber(count)} 条</span>
+        <section class="day-timeline-section">
+          <h3>当天时间线</h3>
+          <div class="day-timeline-list">
+            ${records.map(record => {
+              const icon = record.amount < 0 ? "xmark.circle" : record.amount > 0 ? "checkmark.circle" : "minus.circle";
+              const tone = record.amount < 0 ? "negative" : record.amount > 0 ? "positive" : "neutral";
+              return `
+                <button class="day-timeline-row" type="button" data-open-day-record="${escapeAttr(record.key)}">
+                  <time>${escapeHtml(record.time)}</time>
+                  <span class="day-timeline-icon ${tone}">${actionIconHtml(icon)}</span>
+                  <span class="day-timeline-main">
+                    <strong>${escapeHtml(record.title)}</strong>
+                    <small>${escapeHtml(record.detail)}</small>
+                  </span>
+                  ${signedAmountHtml(record.amount)}
+                </button>
+              `;
+            }).join("")}
           </div>
-          ${body}
         </section>
       `;
     }
 
-    function priorityTaskDetailHtml(day) {
-      const task = priorityTaskForDate(day);
-      if (!task) {
-        return `<p class="detail-empty">当天没有设置今天最重要的一件事。</p>`;
-      }
-      const statusLabel = task.status === "done"
-        ? "已完成"
-        : task.status === "failed"
-          ? "未完成，已扣除"
-          : "未完成";
-      const historyId = task.status === "done"
-        ? task.rewardHistoryId
-        : task.status === "failed"
-          ? task.penaltyHistoryId
-          : null;
-      const historyEntry = historyId
-        ? state.history.find(item => item.id === historyId)
-        : null;
-      const amount = historyEntry
-        ? historyCoinDelta(historyEntry)
-        : task.status === "done"
-          ? priorityTaskSettlementAmount("done")
-          : task.status === "failed"
-            ? -priorityTaskSettlementAmount("failed")
-            : 0;
-      return `
-        <div class="detail-list">
-          <div class="detail-item detail-record-card">
-            <span class="detail-item-main">
-              ${escapeHtml(task.title)}
-              <small>${escapeHtml(statusLabel)}</small>
-            </span>
-            <span class="detail-item-side">
-              ${amount ? signedAmountHtml(amount) : `<span class="detail-amount">0.00</span>`}
-              ${dayRecordDeleteButtonHtml(`priority:${day}`)}
-            </span>
-          </div>
+    function openDayTimelineRecord(recordKey) {
+      if (!currentDayDetailDate) return;
+      const record = dayTimelineRecords(currentDayDetailDate).find(item => item.key === recordKey);
+      if (!record) return;
+      sheetMode = "day-record";
+      editingId = record.key;
+      els.sheetTitle.textContent = "记录详情";
+      els.sheetForm.innerHTML = `
+        <div class="day-record-detail">
+          <div class="day-record-detail-row"><span>时间</span><strong>${escapeHtml(record.time)}</strong></div>
+          <div class="day-record-detail-row"><span>事件</span><strong>${escapeHtml(record.title)}</strong></div>
+          <div class="day-record-detail-row"><span>类型</span><strong>${escapeHtml(record.typeLabel)}</strong></div>
+          <div class="day-record-detail-row"><span>金币变化</span><strong>${signedAmountHtml(record.amount)}</strong></div>
+          <div class="day-record-detail-row"><span>记录方式</span><strong>${record.automatic ? "自动" : "手动"}</strong></div>
         </div>
+        ${record.canCorrect ? `
+          <button class="day-record-correct-button" type="button" data-correct-day-record="${escapeAttr(record.key)}">
+            撤销这条历史记录
+          </button>
+        ` : `<p class="day-record-readonly">这是一条纠错流水，不能再次直接撤销。</p>`}
       `;
-    }
-
-    function dayReviewDetailHtml(day) {
-      const review = state.dailyReviews?.[day];
-      if (!review || (!review.best && !review.mistake && !review.priority)) {
-        return `<p class="detail-empty">当天没有保存每日复盘。</p>`;
-      }
-      return `
-        <div class="detail-list">
-          <div class="detail-item detail-record-card detail-record-stack">
-            <span class="detail-item-main">
-              每日复盘
-              <small>已保存</small>
-            </span>
-            <span class="detail-item-side">
-              ${dayRecordDeleteButtonHtml(`review:${day}`)}
-            </span>
-            <div class="detail-record-body">
-              ${reviewAnswerHtml("今天做得最好的事情是什么？", review.best)}
-              ${reviewAnswerHtml("今天最大的失误是什么？", review.mistake)}
-              ${reviewAnswerHtml("明天最重要的一件事是什么？", review.priority)}
-            </div>
-          </div>
-        </div>
-      `;
+      openSheet({ position: "top", layer: "above" });
     }
 
     function buildDayDetailHtml(day) {
@@ -252,61 +317,12 @@
 
       return `
         ${summaryHtml}
-        ${detailSectionHtml(
-          "完成任务",
-          summary.completed.length,
-          detailListHtml(summary.completed, "当天没有完成任务。", item => taskEarnedCoinsFromItem(item), historyRecordActionHtml)
-        )}
-        ${detailSectionHtml(
-          "完成习惯",
-          summary.habits.length,
-          detailListHtml(summary.habits, "当天没有完成习惯。", item => parseAmount(item.coins), historyRecordActionHtml)
-        )}
-        ${detailSectionHtml(
-          "今天最重要的一件事",
-          priorityTaskForDate(day) ? 1 : 0,
-          priorityTaskDetailHtml(day)
-        )}
-        ${detailSectionHtml(
-          "失败任务",
-          summary.failed.length,
-          detailListHtml(summary.failed, "当天没有失败任务。", item => -(item.type === "task_failed" ? parseCoinAmount(item.coins) : parseAmount(item.coins)), historyRecordActionHtml)
-        )}
-        ${detailSectionHtml(
-          "失败习惯",
-          summary.failedHabits.length,
-          detailListHtml(summary.failedHabits, "当天没有失败习惯。", item => -parseCoinAmount(item.coins), historyRecordActionHtml)
-        )}
-        ${detailSectionHtml(
-          "坏习惯记录",
-          summary.badHabits.length,
-          detailListHtml(
-            summary.badHabits,
-            "当天没有坏习惯记录。",
-            item => -parseAmount(item.coins),
-            historyRecordActionHtml
-          )
-        )}
-        ${detailSectionHtml(
-          "基金注入",
-          summary.rewards.length,
-          detailListHtml(summary.rewards, "当天没有基金注入记录。", item => coinEventFinancialDelta(item), historyRecordActionHtml)
-        )}
-        ${detailSectionHtml(
-          "复盘奖励",
-          summary.reviewRewards.length,
-          detailListHtml(summary.reviewRewards, "当天没有复盘奖励。", item => parseCoinAmount(item.coins), historyRecordActionHtml)
-        )}
-        ${detailSectionHtml(
-          "无坏习惯奖励",
-          summary.noBadHabitBonuses.length,
-          detailListHtml(summary.noBadHabitBonuses, "当天没有无坏习惯奖励。", item => parseCoinAmount(item.coins), historyRecordActionHtml)
-        )}
-        ${detailSectionHtml("每日复盘", state.dailyReviews?.[day] ? 1 : 0, dayReviewDetailHtml(day))}
+        ${dayTimelineHtml(day)}
       `;
     }
 
     function openDayDetail(day) {
+      currentDayDetailDate = day;
       const { month, day: dayNumber } = datePartsFromKey(day);
       els.dayDetailTitle.textContent = month && dayNumber ? `${month}月${dayNumber}日 · 当天记录` : "当天记录";
       els.dayDetailContent.innerHTML = buildDayDetailHtml(day);
@@ -317,6 +333,7 @@
     }
 
     function closeDayDetail() {
+      currentDayDetailDate = null;
       els.dayDetailBackdrop.classList.add("hidden");
       els.dayDetailBackdrop.setAttribute("aria-hidden", "true");
       els.dayDetailContent.innerHTML = "";

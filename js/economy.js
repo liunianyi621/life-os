@@ -900,11 +900,19 @@
       ].sort((left, right) => String(right.timestamp || "").localeCompare(String(left.timestamp || "")));
     }
 
-    function resetTaskAfterRecordDeletion(item, day) {
+    function resetTaskAfterRecordDeletion(item, day, preserveFailureSettlement = false) {
       if (!item.taskId) return;
       removeDayValue("taskResults", day, item.taskId);
       removeDayValue("completions", day, item.taskId);
-      removeDayValue("taskAutoFailures", day, item.taskId);
+      if (preserveFailureSettlement) {
+        state.taskAutoFailures = state.taskAutoFailures && typeof state.taskAutoFailures === "object" ? state.taskAutoFailures : {};
+        state.taskAutoFailures[day] = state.taskAutoFailures[day] && typeof state.taskAutoFailures[day] === "object"
+          ? state.taskAutoFailures[day]
+          : {};
+        state.taskAutoFailures[day][item.taskId] = state.taskAutoFailures[day][item.taskId] || `corrected:${item.id}`;
+      } else {
+        removeDayValue("taskAutoFailures", day, item.taskId);
+      }
       state.tasks = state.tasks.map(task => (
         task.id === item.taskId
           ? {
@@ -927,13 +935,17 @@
         resetTaskAfterRecordDeletion(item, day);
       }
       if (item.type === "task_failed" || item.type === "task_missed") {
-        resetTaskAfterRecordDeletion(item, day);
+        resetTaskAfterRecordDeletion(item, day, true);
       }
       if (item.type === "habit_completed") {
         removeDayValue("habitCompletions", day, item.habitId);
       }
       if (item.type === "habit_failed") {
-        removeDayValue("habitFailures", day, item.habitId);
+        state.habitFailures = state.habitFailures && typeof state.habitFailures === "object" ? state.habitFailures : {};
+        state.habitFailures[day] = state.habitFailures[day] && typeof state.habitFailures[day] === "object"
+          ? state.habitFailures[day]
+          : {};
+        state.habitFailures[day][item.habitId] = state.habitFailures[day][item.habitId] || `corrected:${item.id}`;
       }
       if (item.type === "priority_task_reward" || item.type === "priority_task_penalty") {
         const task = priorityTaskForDate(day);
@@ -943,7 +955,7 @@
             status: "pending",
             completedAt: null,
             failedAt: null,
-            settledPenalty: false,
+            settledPenalty: item.type === "priority_task_penalty",
             rewardHistoryId: null,
             penaltyHistoryId: null,
             updatedAt: new Date().toISOString()
@@ -1042,9 +1054,9 @@
       }
       const day = item.date || dateKey();
       const confirmed = await askForConfirmation({
-        title: "删除这条记录？",
-        message: "这会同步修正当天统计和相关金币记录。",
-        confirmText: "删除"
+        title: "撤销这条记录？",
+        message: "金币和统计数据会同步恢复。",
+        confirmText: "撤销记录"
       });
       if (!confirmed) return;
 
@@ -1078,9 +1090,9 @@
         return;
       }
       const confirmed = await askForConfirmation({
-        title: "删除这条记录？",
-        message: "这会同步修正当天统计和相关金币记录。",
-        confirmText: "删除"
+        title: "撤销这条记录？",
+        message: "金币和统计数据会同步恢复。",
+        confirmText: "撤销记录"
       });
       if (!confirmed) return;
 
@@ -1120,9 +1132,9 @@
         return;
       }
       const confirmed = await askForConfirmation({
-        title: "删除这条记录？",
-        message: "这会同步修正当天统计和相关金币记录。",
-        confirmText: "删除"
+        title: "撤销这条记录？",
+        message: "金币和统计数据会同步恢复。",
+        confirmText: "撤销记录"
       });
       if (!confirmed) return;
 
