@@ -308,7 +308,7 @@
   </div>
 
   <div class="sheet-backdrop hidden" id="memoBackdrop" aria-hidden="true">
-    <section class="sheet memo-sheet q-sheet" role="dialog" aria-modal="true" aria-labelledby="memoSheetTitle">
+    <section class="sheet memo-sheet q-sheet keyboard-form-sheet" role="dialog" aria-modal="true" aria-labelledby="memoSheetTitle">
       <div class="sheet-header q-sheet-header">
         <button class="icon-button q-icon-button sheet-close-button" type="button" id="closeMemoBtn" aria-label="关闭" data-icon-button="xmark"></button>
         <div>
@@ -316,11 +316,15 @@
           <h2 id="memoSheetTitle">备忘录</h2>
         </div>
       </div>
-      <form class="memo-form" id="memoForm">
+      <div class="keyboard-form-sheet__body memo-sheet__body">
+        <div class="memo-list" id="memoList"></div>
+      </div>
+      <form class="memo-form keyboard-form-sheet__footer" id="memoForm">
         <input id="memoInput" name="memo" type="text" maxlength="120" placeholder="记下一件临时想到的事" autocomplete="off">
-        <button class="button icon-only-button" type="submit" id="saveMemoBtn" aria-label="新增备忘录" data-icon-button="plus"></button>
+        <button class="button q-primary-button memo-submit-button" type="submit" id="saveMemoBtn" aria-label="新增备忘录" data-icon-button="plus">
+          <span>新增备忘录</span>
+        </button>
       </form>
-      <div class="memo-list" id="memoList"></div>
     </section>
   </div>
 

@@ -31,7 +31,7 @@
     function setMemoSubmitIcon(icon, label) {
       if (!els.saveMemoBtn) return;
       els.saveMemoBtn.setAttribute("aria-label", label);
-      els.saveMemoBtn.innerHTML = actionIconHtml(icon);
+      els.saveMemoBtn.innerHTML = `${actionIconHtml(icon)}<span>${escapeHtml(label)}</span>`;
     }
 
     function clearMemoForm() {
@@ -92,11 +92,12 @@
         } catch {
           els.memoInput?.focus();
         }
-        els.memoInput?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        ensureFocusedFormFieldVisible(els.memoInput);
       }, 150);
     }
 
     function closeMemoSheet() {
+      if (els.memoBackdrop.contains(document.activeElement)) document.activeElement.blur();
       clearMemoForm();
       els.memoBackdrop.classList.add("hidden");
       els.memoBackdrop.setAttribute("aria-hidden", "true");
@@ -146,7 +147,7 @@
       } catch {
         els.memoInput.focus();
       }
-      els.memoInput.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      ensureFocusedFormFieldVisible(els.memoInput);
       els.memoInput.setSelectionRange(els.memoInput.value.length, els.memoInput.value.length);
     }
 

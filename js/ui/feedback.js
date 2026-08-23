@@ -6,13 +6,43 @@
     function syncSheetViewport() {
       const viewport = window.visualViewport;
       const viewportHeight = Math.max(320, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
-      const keyboardOffset = viewport
+      const viewportTop = Math.max(0, Math.round(viewport?.offsetTop || 0));
+      const layoutHeight = Math.max(viewportHeight, Math.round(window.innerHeight || document.documentElement.clientHeight || viewportHeight));
+      const activeElement = document.activeElement;
+      const editableFocused = activeElement instanceof HTMLElement
+        && activeElement.matches("input:not([type='hidden']), textarea, select");
+      syncSheetViewport.stableHeight = Math.max(syncSheetViewport.stableHeight || 0, layoutHeight);
+      const viewportKeyboardOffset = viewport
         ? Math.max(0, Math.round((window.innerHeight || viewportHeight) - viewport.height - viewport.offsetTop))
         : 0;
-      document.documentElement.style.setProperty("--sheet-viewport-height", `${viewportHeight}px`);
-      document.documentElement.style.setProperty("--sheet-keyboard-offset", `${keyboardOffset}px`);
-      document.documentElement.style.setProperty("--sheet-viewport-offset-top", `${Math.max(0, Math.round(viewport?.offsetTop || 0))}px`);
+      const stableKeyboardOffset = editableFocused
+        ? Math.max(0, syncSheetViewport.stableHeight - viewportHeight - viewportTop)
+        : 0;
+      const keyboardOffset = Math.max(viewportKeyboardOffset, stableKeyboardOffset);
+      document.documentElement.style.setProperty("--app-visible-height", `${viewportHeight}px`);
+      document.documentElement.style.setProperty("--keyboard-height", `${keyboardOffset}px`);
+      document.documentElement.style.setProperty("--viewport-offset-top", `${viewportTop}px`);
       document.body.classList.toggle("keyboard-open", keyboardOffset > 80 && hasOpenModal());
+    }
+
+    function ensureFocusedFormFieldVisible(target = document.activeElement) {
+      if (!(target instanceof HTMLElement) || !target.matches("input, textarea, select")) return;
+      const body = target.closest(".keyboard-form-sheet__body");
+      if (body) {
+        const fieldRect = target.getBoundingClientRect();
+        const bodyRect = body.getBoundingClientRect();
+        const topLimit = bodyRect.top + 8;
+        const bottomLimit = bodyRect.bottom - 8;
+        if (fieldRect.top < topLimit) {
+          body.scrollBy({ top: fieldRect.top - topLimit, behavior: "smooth" });
+        } else if (fieldRect.bottom > bottomLimit) {
+          body.scrollBy({ top: fieldRect.bottom - bottomLimit, behavior: "smooth" });
+        }
+        return;
+      }
+      if (target.closest(".review-form")) {
+        target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
     }
 
     function hasOpenModal() {
@@ -31,13 +61,26 @@
     }
 
     function installSheetViewportSync() {
+      if (installSheetViewportSync.installed) return;
+      installSheetViewportSync.installed = true;
       const update = () => {
         if (document.body.classList.contains("modal-open")) syncSheetViewport();
         syncSnackbarPosition();
+        window.requestAnimationFrame(() => ensureFocusedFormFieldVisible());
+      };
+      const updateOrientation = () => {
+        syncSheetViewport.stableHeight = 0;
+        update();
       };
       window.visualViewport?.addEventListener("resize", update);
       window.visualViewport?.addEventListener("scroll", update);
       window.addEventListener("resize", update);
+      window.addEventListener("orientationchange", updateOrientation);
+      document.addEventListener("focusin", event => {
+        if (event.target?.matches?.(".keyboard-form-sheet input, .keyboard-form-sheet textarea, .keyboard-form-sheet select, .review-form textarea")) {
+          window.requestAnimationFrame(() => ensureFocusedFormFieldVisible(event.target));
+        }
+      });
       syncSheetViewport();
       syncSnackbarPosition();
     }

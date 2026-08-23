@@ -63,16 +63,22 @@ test("习惯趋势柱组拥有确定宽度且三种 series 使用独立样式", 
   assert.match(productionCss, /\.stats-trend-chart__bar--focus\s*\{\s*background:\s*#858e9d;/);
 });
 
-test("新建任务使用独立字段滚动区、折叠时间选择和固定底部操作区", () => {
+test("所有动态输入 Sheet 共用 Keyboard Form，任务时间选择保持折叠", () => {
   assert.match(sheetSource, /class="task-sheet-fields"/);
-  assert.match(sheetSource, /class="sheet-actions task-sheet-actions"/);
-  assert.match(sheetSource, /openSheet\(\{ position: "top", kind: "task" \}\)/);
+  assert.match(sheetSource, /function keyboardFormSheetHtml\(/);
+  assert.match(sheetSource, /openSheet\(\{ position: "top", kind: "task", keyboardForm: true \}\)/);
+  ["priority", "calendar-event", "habit", "note", "reward", "review-edit"].forEach(kind => {
+    assert.match(sheetSource, new RegExp(`kind: "${kind}", keyboardForm: true`));
+  });
   assert.match(sheetSource, /data-toggle-time-picker aria-expanded="false"/);
   assert.match(timePickerSource, /picker\.classList\.toggle\("expanded", shouldExpand\)/);
-  assert.match(productionCss, /\.sheet-form\.task-sheet-form\s*\{[\s\S]*?overflow:\s*hidden;/);
-  assert.match(productionCss, /\.task-sheet-actions\s*\{[\s\S]*?position:\s*static;/);
+  assert.match(productionCss, /\.keyboard-form-sheet\s*\{[\s\S]*?grid-template-rows:\s*auto minmax\(0, 1fr\);/);
+  assert.match(productionCss, /\.keyboard-form-sheet__form\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0, 1fr\) auto;/);
+  assert.match(productionCss, /\.keyboard-form-sheet__body\s*\{[\s\S]*?overflow-y:\s*auto;/);
+  assert.match(productionCss, /\.sheet-actions\s*\{[\s\S]*?position:\s*static;/);
+  assert.doesNotMatch(productionCss, /\.sheet-actions\s*\{[\s\S]*?position:\s*sticky;/);
   assert.match(productionCss, /\.time-picker-panel\s*\{[\s\S]*?display:\s*none;/);
-  assert.match(productionCss, /body\.keyboard-open \.sheet-backdrop\[data-sheet-kind="task"\] \.q-sheet\s*\{[\s\S]*?height:\s*calc\(var\(--sheet-viewport-height\) - 16px\);/);
+  assert.match(productionCss, /body\.keyboard-open \.keyboard-form-sheet\s*\{[\s\S]*?height:\s*calc\(var\(--app-visible-height\) - 16px\);/);
 });
 
 test("当天详情以可点击时间线为主体并复用现有历史纠错入口", () => {

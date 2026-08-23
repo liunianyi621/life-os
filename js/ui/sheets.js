@@ -1,14 +1,27 @@
-    function deleteIconButtonHtml({ action, id, label }) {
-      return iconActionButtonHtml({
-        className: "danger-button icon-only-button",
-        icon: "trash",
-        label,
-        attrs: `data-delete-${action}="${escapeAttr(id || "")}"`
-      });
+    function deleteSheetButtonHtml({ action, id, label }) {
+      return `
+        <button class="keyboard-form-sheet__danger" type="button" data-delete-${action}="${escapeAttr(id || "")}">
+          ${escapeHtml(label)}
+        </button>
+      `;
     }
 
     function submitSheetButtonHtml(label) {
       return `<button class="button q-primary-button" type="submit">${escapeHtml(label || "保存")}</button>`;
+    }
+
+    function keyboardFormSheetHtml({ bodyHtml, submitLabel, dangerHtml = "" }) {
+      return `
+        <div class="keyboard-form-sheet__body">
+          ${bodyHtml}
+        </div>
+        <div class="keyboard-form-sheet__footer">
+          ${dangerHtml}
+          <div class="sheet-actions">
+            ${submitSheetButtonHtml(submitLabel)}
+          </div>
+        </div>
+      `;
     }
 
     function openPrioritySheet(day = dateKey()) {
@@ -17,19 +30,19 @@
       sheetMode = "priority";
       editingId = priorityDate;
       els.sheetTitle.textContent = task ? "编辑重点" : "设定重点";
-      els.sheetForm.innerHTML = `
-        <label class="field">
-          <span class="field-label">今天最重要的一件事</span>
-          <input name="title" type="text" maxlength="80" value="${escapeAttr(task?.title || "")}" placeholder="只写一件最重要的事" required>
-        </label>
-        <div class="sheet-actions">
-          ${submitSheetButtonHtml(task ? "保存重点" : "设定重点")}
-        </div>
-        <div class="delete-row ${task ? "" : "hidden"}">
-          ${deleteIconButtonHtml({ action: "priority", id: priorityDate, label: "移除重点" })}
-        </div>
-      `;
-      openSheet({ position: "top" });
+      els.sheetForm.innerHTML = keyboardFormSheetHtml({
+        bodyHtml: `
+          <label class="field">
+            <span class="field-label">今天最重要的一件事</span>
+            <input name="title" type="text" maxlength="80" value="${escapeAttr(task?.title || "")}" placeholder="只写一件最重要的事" required>
+          </label>
+        `,
+        submitLabel: task ? "保存重点" : "设定重点",
+        dangerHtml: task
+          ? deleteSheetButtonHtml({ action: "priority", id: priorityDate, label: "删除重点" })
+          : ""
+      });
+      openSheet({ position: "top", kind: "priority", keyboardForm: true });
       focusSheetField("input[name='title']");
     }
 
@@ -41,9 +54,9 @@
       const startTimeValue = task ? taskStartTimeValue(task) : defaultRange.start;
       const parsedStartTime = parseTimeValue(startTimeValue);
       const initialStartTimeValue = parsedStartTime ? formatTimeParts(parsedStartTime) : "";
-      els.sheetForm.classList.add("task-sheet-form");
       els.sheetTitle.textContent = task ? "编辑任务" : "新建任务";
-      els.sheetForm.innerHTML = `
+      els.sheetForm.innerHTML = keyboardFormSheetHtml({
+        bodyHtml: `
         <div class="task-sheet-fields">
           <label class="field">
             <span class="field-label">任务名称</span>
@@ -82,14 +95,13 @@
             <span class="field-help">结束时间会自动设为开始时间后一小时。</span>
           </div>
         </div>
-        <div class="delete-row ${task ? "" : "hidden"}">
-          ${deleteIconButtonHtml({ action: "task", id: task?.id, label: "移除任务" })}
-        </div>
-        <div class="sheet-actions task-sheet-actions">
-          ${submitSheetButtonHtml(task ? "保存任务" : "创建任务")}
-        </div>
-      `;
-      openSheet({ position: "top", kind: "task" });
+        `,
+        submitLabel: task ? "保存任务" : "创建任务",
+        dangerHtml: task
+          ? deleteSheetButtonHtml({ action: "task", id: task.id, label: "删除任务" })
+          : ""
+      });
+      openSheet({ position: "top", kind: "task", keyboardForm: true });
       initTimePicker();
       initTaskSheetValidation();
       focusSheetField("input[name='name']");
@@ -125,29 +137,29 @@
       sheetMode = "calendar-event";
       editingId = event?.id || null;
       els.sheetTitle.textContent = event ? "编辑计划" : "新增计划";
-      els.sheetForm.innerHTML = `
-        <label class="calendar-title-field">
-          <input name="title" type="text" maxlength="120" value="${escapeAttr(event?.title || defaults.title || "")}" placeholder="计划名称" required>
-        </label>
-        <div class="calendar-date-fields calendar-date-fields-compact">
-          <label class="field">
-            <span class="field-label">开始日期</span>
-            <input name="startDate" type="date" value="${escapeAttr(startDate)}" required>
+      els.sheetForm.innerHTML = keyboardFormSheetHtml({
+        bodyHtml: `
+          <label class="calendar-title-field">
+            <input name="title" type="text" maxlength="120" value="${escapeAttr(event?.title || defaults.title || "")}" placeholder="计划名称" required>
           </label>
-          <label class="field">
-            <span class="field-label">结束日期</span>
-            <input name="endDate" type="date" value="${escapeAttr(endDate)}" required>
-          </label>
-        </div>
-        ${calendarCategoryControlHtml(category)}
-        <div class="sheet-actions">
-          ${submitSheetButtonHtml(event ? "保存计划" : "创建计划")}
-        </div>
-        <div class="delete-row ${event ? "" : "hidden"}">
-          ${deleteIconButtonHtml({ action: "calendar-event", id: event?.id, label: "删除计划" })}
-        </div>
-      `;
-      openSheet({ position: "top" });
+          <div class="calendar-date-fields calendar-date-fields-compact">
+            <label class="field">
+              <span class="field-label">开始日期</span>
+              <input name="startDate" type="date" value="${escapeAttr(startDate)}" required>
+            </label>
+            <label class="field">
+              <span class="field-label">结束日期</span>
+              <input name="endDate" type="date" value="${escapeAttr(endDate)}" required>
+            </label>
+          </div>
+          ${calendarCategoryControlHtml(category)}
+        `,
+        submitLabel: event ? "保存计划" : "创建计划",
+        dangerHtml: event
+          ? deleteSheetButtonHtml({ action: "calendar-event", id: event.id, label: "删除计划" })
+          : ""
+      });
+      openSheet({ position: "top", kind: "calendar-event", keyboardForm: true });
       focusSheetField("input[name='title']");
     }
 
@@ -233,23 +245,23 @@
       editingId = habitId;
       const habit = habitId ? state.habits.find(item => item.id === habitId) : null;
       els.sheetTitle.textContent = habit ? "编辑习惯" : "新建习惯";
-      els.sheetForm.innerHTML = `
-        <label class="field">
-          <span class="field-label">习惯名称</span>
-          <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入习惯名称" required>
-        </label>
-        <label class="field">
-          <span class="field-label">金币数量</span>
-          <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${habit?.coins ?? ""}" placeholder="0">
-        </label>
-        <div class="sheet-actions">
-          ${submitSheetButtonHtml(habit ? "保存习惯" : "创建习惯")}
-        </div>
-        <div class="delete-row ${habit ? "" : "hidden"}">
-          ${deleteIconButtonHtml({ action: "habit", id: habit?.id, label: "移除习惯" })}
-        </div>
-      `;
-      openSheet({ position: "top" });
+      els.sheetForm.innerHTML = keyboardFormSheetHtml({
+        bodyHtml: `
+          <label class="field">
+            <span class="field-label">习惯名称</span>
+            <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入习惯名称" required>
+          </label>
+          <label class="field">
+            <span class="field-label">金币数量</span>
+            <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${habit?.coins ?? ""}" placeholder="0">
+          </label>
+        `,
+        submitLabel: habit ? "保存习惯" : "创建习惯",
+        dangerHtml: habit
+          ? deleteSheetButtonHtml({ action: "habit", id: habit.id, label: "删除习惯" })
+          : ""
+      });
+      openSheet({ position: "top", kind: "habit", keyboardForm: true });
       focusSheetField("input[name='name']");
     }
 
@@ -258,19 +270,19 @@
       editingId = noteId;
       const note = noteId ? state.notes.find(item => item.id === noteId) : null;
       els.sheetTitle.textContent = note ? "编辑笔记" : "新建笔记";
-      els.sheetForm.innerHTML = `
-        <label class="field">
-          <span class="field-label">笔记内容</span>
-          <textarea name="text" maxlength="500" placeholder="输入提醒内容" required>${escapeHtml(note?.text || "")}</textarea>
-        </label>
-        <div class="sheet-actions">
-          ${submitSheetButtonHtml(note ? "保存笔记" : "创建笔记")}
-        </div>
-        <div class="delete-row ${note ? "" : "hidden"}">
-          ${deleteIconButtonHtml({ action: "note", id: note?.id, label: "移除笔记" })}
-        </div>
-      `;
-      openSheet({ position: "top" });
+      els.sheetForm.innerHTML = keyboardFormSheetHtml({
+        bodyHtml: `
+          <label class="field">
+            <span class="field-label">笔记内容</span>
+            <textarea name="text" maxlength="500" placeholder="输入提醒内容" required>${escapeHtml(note?.text || "")}</textarea>
+          </label>
+        `,
+        submitLabel: note ? "保存笔记" : "创建笔记",
+        dangerHtml: note
+          ? deleteSheetButtonHtml({ action: "note", id: note.id, label: "删除笔记" })
+          : ""
+      });
+      openSheet({ position: "top", kind: "note", keyboardForm: true });
       focusSheetField("textarea[name='text']");
     }
 
@@ -279,27 +291,27 @@
       editingId = rewardId;
       const reward = rewardId ? state.rewards.find(item => item.id === rewardId) : null;
       els.sheetTitle.textContent = reward ? "编辑基金" : "新建基金";
-      els.sheetForm.innerHTML = `
-        <label class="field">
-          <span class="field-label">基金名称</span>
-          <input name="name" type="text" maxlength="80" value="${escapeAttr(reward?.name || "")}" placeholder="输入基金名称" required>
-        </label>
-        <label class="field">
-          <span class="field-label">目标金币</span>
-          <input name="totalCoins" type="number" min="1" step="1" inputmode="numeric" value="${reward ? fundTotalCoins(reward) : ""}" placeholder="2000">
-        </label>
-        <label class="field">
-          <span class="field-label">每次注入金币</span>
-          <input name="amountPerDeposit" type="number" min="1" step="1" inputmode="numeric" value="${reward ? fundAmountPerDeposit(reward) : ""}" placeholder="100">
-        </label>
-        <div class="sheet-actions">
-          ${submitSheetButtonHtml(reward ? "保存基金" : "创建基金")}
-        </div>
-        <div class="delete-row ${reward ? "" : "hidden"}">
-          ${deleteIconButtonHtml({ action: "reward", id: reward?.id, label: "移除基金" })}
-        </div>
-      `;
-      openSheet({ position: "top" });
+      els.sheetForm.innerHTML = keyboardFormSheetHtml({
+        bodyHtml: `
+          <label class="field">
+            <span class="field-label">基金名称</span>
+            <input name="name" type="text" maxlength="80" value="${escapeAttr(reward?.name || "")}" placeholder="输入基金名称" required>
+          </label>
+          <label class="field">
+            <span class="field-label">目标金币</span>
+            <input name="totalCoins" type="number" min="1" step="1" inputmode="numeric" value="${reward ? fundTotalCoins(reward) : ""}" placeholder="2000">
+          </label>
+          <label class="field">
+            <span class="field-label">每次注入金币</span>
+            <input name="amountPerDeposit" type="number" min="1" step="1" inputmode="numeric" value="${reward ? fundAmountPerDeposit(reward) : ""}" placeholder="100">
+          </label>
+        `,
+        submitLabel: reward ? "保存基金" : "创建基金",
+        dangerHtml: reward
+          ? deleteSheetButtonHtml({ action: "reward", id: reward.id, label: "删除基金" })
+          : ""
+      });
+      openSheet({ position: "top", kind: "reward", keyboardForm: true });
       focusSheetField("input[name='name']");
     }
 
@@ -315,28 +327,28 @@
       editingId = null;
       editingReviewDate = reviewDate;
       els.sheetTitle.textContent = "编辑复盘";
-      els.sheetForm.innerHTML = `
-        <label class="field">
-          <span class="field-label">日期</span>
-          <input name="date" type="date" max="${escapeAttr(dateKey())}" value="${escapeAttr(reviewDate)}" required>
-        </label>
-        <label class="field">
-          <span class="field-label">今天做得最好的事情是什么？</span>
-          <textarea name="best" maxlength="500" placeholder="写下值得保留的部分">${escapeHtml(review.best || "")}</textarea>
-        </label>
-        <label class="field">
-          <span class="field-label">今天最大的失误是什么？</span>
-          <textarea name="mistake" maxlength="500" placeholder="写下需要调整的部分">${escapeHtml(review.mistake || "")}</textarea>
-        </label>
-        <label class="field">
-          <span class="field-label">明天最重要的一件事是什么？</span>
-          <textarea name="priority" maxlength="500" placeholder="写下下一步">${escapeHtml(review.priority || "")}</textarea>
-        </label>
-        <div class="sheet-actions">
-          ${submitSheetButtonHtml("保存复盘")}
-        </div>
-      `;
-      openSheet({ position: "top" });
+      els.sheetForm.innerHTML = keyboardFormSheetHtml({
+        bodyHtml: `
+          <label class="field">
+            <span class="field-label">日期</span>
+            <input name="date" type="date" max="${escapeAttr(dateKey())}" value="${escapeAttr(reviewDate)}" required>
+          </label>
+          <label class="field">
+            <span class="field-label">今天做得最好的事情是什么？</span>
+            <textarea name="best" maxlength="500" placeholder="写下值得保留的部分">${escapeHtml(review.best || "")}</textarea>
+          </label>
+          <label class="field">
+            <span class="field-label">今天最大的失误是什么？</span>
+            <textarea name="mistake" maxlength="500" placeholder="写下需要调整的部分">${escapeHtml(review.mistake || "")}</textarea>
+          </label>
+          <label class="field">
+            <span class="field-label">明天最重要的一件事是什么？</span>
+            <textarea name="priority" maxlength="500" placeholder="写下下一步">${escapeHtml(review.priority || "")}</textarea>
+          </label>
+        `,
+        submitLabel: "保存复盘"
+      });
+      openSheet({ position: "top", kind: "review-edit", keyboardForm: true });
       focusSheetField("textarea[name='best']");
     }
 
@@ -347,6 +359,9 @@
       else delete els.sheetBackdrop.dataset.sheetLayer;
       if (options.kind) els.sheetBackdrop.dataset.sheetKind = options.kind;
       else delete els.sheetBackdrop.dataset.sheetKind;
+      const sheet = els.sheetBackdrop.querySelector(".sheet");
+      sheet?.classList.toggle("keyboard-form-sheet", Boolean(options.keyboardForm));
+      els.sheetForm.classList.toggle("keyboard-form-sheet__form", Boolean(options.keyboardForm));
       els.sheetBackdrop.classList.remove("hidden");
       els.sheetBackdrop.setAttribute("aria-hidden", "false");
       els.sheetForm.scrollTop = 0;
@@ -360,11 +375,12 @@
       delete els.sheetBackdrop.dataset.sheetPosition;
       delete els.sheetBackdrop.dataset.sheetLayer;
       delete els.sheetBackdrop.dataset.sheetKind;
+      els.sheetBackdrop.querySelector(".sheet")?.classList.remove("keyboard-form-sheet");
       sheetMode = null;
       editingId = null;
       editingReviewDate = null;
       els.sheetForm.innerHTML = "";
-      els.sheetForm.classList.remove("task-sheet-form");
+      els.sheetForm.classList.remove("keyboard-form-sheet__form");
       syncModalState();
     }
 
@@ -377,9 +393,7 @@
         } catch {
           target.focus();
         }
-        if (!els.sheetForm.classList.contains("task-sheet-form")) {
-          target.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        }
+        ensureFocusedFormFieldVisible(target);
       }, 150);
     }
 

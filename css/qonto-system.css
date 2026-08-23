@@ -32,8 +32,9 @@
   --space-6: 32px;
   --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.035);
   --shadow-floating: 0 10px 32px rgba(0, 0, 0, 0.09);
-  --sheet-viewport-height: 100dvh;
-  --sheet-keyboard-offset: 0px;
+  --app-visible-height: 100dvh;
+  --keyboard-height: 0px;
+  --viewport-offset-top: 0px;
   --nav-height: 76px;
 
   /* Compatibility aliases used by the existing rendering layer. */
@@ -1594,9 +1595,8 @@ button.summary-card {
 
 .memo-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 0 22px 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
 }
 
 .memo-form input {
@@ -1610,8 +1610,24 @@ button.summary-card {
   color: var(--color-text-primary);
 }
 
+.memo-submit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.memo-submit-button .action-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.memo-sheet__body {
+  padding: 4px 22px 12px;
+}
+
 .memo-list {
-  margin: 0 22px 22px;
+  margin: 0;
   overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -1674,6 +1690,12 @@ button.summary-card {
   backdrop-filter: blur(6px);
 }
 
+.sheet-backdrop {
+  inset: auto 0 auto;
+  top: var(--viewport-offset-top);
+  height: var(--app-visible-height);
+}
+
 .sheet-backdrop[data-sheet-position="top"] {
   align-items: flex-start;
   padding-top: max(14px, env(safe-area-inset-top));
@@ -1688,7 +1710,7 @@ button.summary-card {
   display: flex;
   flex-direction: column;
   width: min(100%, 620px);
-  max-height: min(calc(var(--sheet-viewport-height) - 24px), 820px);
+  max-height: min(calc(var(--app-visible-height) - 24px), 820px);
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.045);
   border-radius: var(--radius-xl);
@@ -1736,41 +1758,66 @@ button.summary-card {
 .sheet-form {
   display: grid;
   gap: 16px;
-  padding: 10px 22px calc(22px + env(safe-area-inset-bottom) + var(--sheet-keyboard-offset));
+  padding: 10px 22px calc(22px + env(safe-area-inset-bottom));
 }
 
-.sheet-form.task-sheet-form {
-  display: flex;
-  flex-direction: column;
+.keyboard-form-sheet {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: auto;
+  max-height: min(calc(var(--app-visible-height) - 28px), 820px);
+}
+
+.memo-sheet.keyboard-form-sheet {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.keyboard-form-sheet__form {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 0;
   padding: 0;
   overflow: hidden;
 }
 
-.task-sheet-fields {
+.keyboard-form-sheet__body {
   display: grid;
+  align-content: start;
   min-height: 0;
-  gap: 14px;
-  padding: 8px 22px 10px;
+  gap: 16px;
+  padding: 8px 22px 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
-.task-sheet-form > .delete-row {
-  flex: 0 0 auto;
-  padding: 4px 22px 0;
+.task-sheet-fields {
+  display: grid;
+  gap: 14px;
 }
 
-.task-sheet-actions {
-  position: static;
+.keyboard-form-sheet__footer {
+  display: grid;
   flex: 0 0 auto;
+  gap: 8px;
   padding: 10px 22px max(16px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
 }
 
-.task-sheet-actions .q-primary-button {
-  min-height: 56px;
+.keyboard-form-sheet__danger {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-danger);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.keyboard-form-sheet__danger:active {
+  background: var(--color-danger-soft);
 }
 
 .field {
@@ -1804,24 +1851,10 @@ button.summary-card {
 }
 
 .sheet-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+  position: static;
   display: grid;
-  padding-top: 3px;
-  background: var(--color-surface);
-}
-
-.delete-row {
-  display: flex;
-  justify-content: center;
-  padding-top: 2px;
-}
-
-.delete-row .danger-button {
-  width: 46px;
-  height: 46px;
   padding: 0;
+  background: transparent;
 }
 
 .calendar-title-field {
@@ -2032,54 +2065,70 @@ body.keyboard-open .sheet-backdrop[data-sheet-position="top"] .q-sheet-header {
   padding: 9px 18px 7px;
 }
 
-body.keyboard-open .sheet-backdrop[data-sheet-kind="task"] .q-sheet {
-  height: calc(var(--sheet-viewport-height) - 16px);
+body.keyboard-open .keyboard-form-sheet {
+  height: calc(var(--app-visible-height) - 16px);
+  max-height: none;
 }
 
 body.keyboard-open .sheet-backdrop[data-sheet-position="top"] .sheet-header h2 {
   font-size: 24px;
 }
 
-body.keyboard-open .task-sheet-fields {
+body.keyboard-open .keyboard-form-sheet__body {
   gap: 8px;
   padding: 4px 18px 6px;
 }
 
-body.keyboard-open .task-sheet-form .field {
+body.keyboard-open .keyboard-form-sheet .field {
   gap: 4px;
 }
 
-body.keyboard-open .task-sheet-form .field input {
+body.keyboard-open .keyboard-form-sheet .field input,
+body.keyboard-open .keyboard-form-sheet .field textarea {
   min-height: 48px;
   padding-top: 10px;
   padding-bottom: 10px;
 }
 
-body.keyboard-open .task-sheet-form .field-help {
+body.keyboard-open .keyboard-form-sheet .field textarea {
+  min-height: 80px;
+}
+
+body.keyboard-open .keyboard-form-sheet .field-help {
   overflow: hidden;
   max-height: 17px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-body.keyboard-open .task-sheet-form .time-picker-header {
+body.keyboard-open .keyboard-form-sheet .field-label {
+  margin-bottom: 5px;
+}
+
+body.keyboard-open .keyboard-form-sheet .time-picker-header {
   min-height: 48px;
 }
 
-body.keyboard-open .task-sheet-actions {
-  padding: 8px 18px max(8px, env(safe-area-inset-bottom));
+body.keyboard-open .keyboard-form-sheet__footer {
+  gap: 5px;
+  padding: 8px 18px 10px;
 }
 
-body.keyboard-open .task-sheet-actions .q-primary-button {
+body.keyboard-open .keyboard-form-sheet__danger {
+  min-height: 34px;
+}
+
+body.keyboard-open .keyboard-form-sheet__footer .q-primary-button {
   min-height: 54px;
 }
 
 @media (max-height: 620px) {
+  .keyboard-form-sheet__body,
   .task-sheet-fields {
     gap: 8px;
   }
 
-  .task-sheet-form .field-help {
+  .keyboard-form-sheet .field-help {
     display: none;
   }
 }
