@@ -351,6 +351,20 @@
       }
     }
 
+    let lastKnownLocalDate = dateKey();
+
+    function syncLocalDateContext() {
+      const currentDate = dateKey();
+      if (currentDate === lastKnownLocalDate) return false;
+      if (selectedReviewDate === lastKnownLocalDate) selectedReviewDate = currentDate;
+      if (selectedCalendarDate === lastKnownLocalDate) selectedCalendarDate = currentDate;
+      if (currentCalendarMonth === lastKnownLocalDate.slice(0, 7)) {
+        currentCalendarMonth = currentDate.slice(0, 7);
+      }
+      lastKnownLocalDate = currentDate;
+      return true;
+    }
+
     function activeViewName() {
       return document.querySelector(".view.active")?.dataset.view || "today";
     }
@@ -767,6 +781,9 @@
       const today = dateKey();
       const history = sortedDailyReviews(true);
       const shouldClearInputs = options.clearInputs === true;
+      const storedReview = state.dailyReviews?.[reviewDate] || null;
+      const dailyScore = normalizeDailyScore(selectedReview.dailyScore);
+      const scoreHasValue = dailyScore !== null || !storedReview;
 
       els.reviewDate.textContent = formatReviewDateLabel(reviewDate);
       if (els.reviewDateInput) {
@@ -775,7 +792,9 @@
       }
       els.reviewBest.value = shouldClearInputs ? "" : selectedReview.best || "";
       els.reviewMistake.value = shouldClearInputs ? "" : selectedReview.mistake || "";
-      els.reviewPriority.value = shouldClearInputs ? "" : selectedReview.priority || "";
+      els.reviewPriority.value = shouldClearInputs ? "" : reviewPriorityInputValue(reviewDate, selectedReview);
+      els.reviewDailyScore.value = String(dailyScore ?? 5);
+      syncDailyScoreControl(els.reviewDailyScore, scoreHasValue);
       els.reviewHistoryCount.textContent = `${history.length} 条`;
 
       if (!history.length) {
@@ -790,12 +809,14 @@
 
       els.reviewHistoryList.innerHTML = history.map(([day, review]) => {
         const summary = review.best || review.priority || review.mistake || "未填写";
+        const score = normalizeDailyScore(review.dailyScore);
         return `
         <article class="card review-card q-list-row" data-review-card="${escapeAttr(day)}" data-edit-card="review" data-edit-id="${escapeAttr(day)}" role="button" tabindex="0" aria-label="打开复盘">
           <div class="review-card-header">
             <div class="review-date">
               <span class="review-date-main">${escapeHtml(day === today ? "今天" : formatFullDateKey(day))}</span>
               <span class="review-row-summary ${summary === "未填写" ? "empty" : ""}">${escapeHtml(summary)}</span>
+              <span class="review-row-score"><b>今日评分</b>${score === null ? "未评分" : `${score} / 10`}</span>
             </div>
             ${day === today ? `<span class="review-today-pill">今天</span>` : ""}
             <span class="review-row-chevron" aria-hidden="true">›</span>
@@ -803,6 +824,17 @@
         </article>
       `;
       }).join("");
+    }
+
+    function syncDailyScoreControl(input, hasValue = true) {
+      if (!input) return;
+      const score = normalizeDailyScore(input.value) ?? 5;
+      input.value = String(score);
+      input.dataset.hasValue = hasValue ? "true" : "false";
+      const output = input.dataset.scoreOutput
+        ? document.getElementById(input.dataset.scoreOutput)
+        : input.closest(".review-score-field")?.querySelector("output");
+      if (output) output.textContent = hasValue ? `${score} / 10` : "未评分";
     }
 
     function renderRewards() {
@@ -930,9 +962,14 @@
       const calendarDeleteButton = event.target.closest("[data-calendar-delete]");
       const calendarTaskButton = event.target.closest("[data-calendar-to-task]");
       const deleteCalendarEventButton = event.target.closest("[data-delete-calendar-event]");
+      const scoreTrendPoint = event.target.closest("[data-score-trend-point]");
 
       if (undoButton) {
         undoLastAction();
+        return;
+      }
+      if (scoreTrendPoint) {
+        selectDailyScoreTrendPoint(scoreTrendPoint);
         return;
       }
       if (deleteDayRecordButton) {
@@ -1014,6 +1051,7 @@
         return;
       }
       if (navButton) {
+        syncLocalDateContext();
         switchView(navButton.dataset.nav);
         runAutomaticChecks();
         render();
@@ -1083,7 +1121,8 @@
         document.querySelectorAll("[data-stats-range]").forEach(button => {
           button.classList.toggle("active", button === statsRangeButton);
         });
-        renderHabitTrend(buildStatsRows(currentStatsRange));
+        selectedDailyScoreTrendKey = null;
+        renderDailyScoreTrend(buildDailyScoreTrend(currentStatsRange));
       }
       if (heatMonthButton) {
         currentHeatmapMonth = shiftMonthKey(
@@ -1137,13 +1176,27 @@
       event.target.value = nextDate;
       renderDailyReview();
     });
+    document.addEventListener("input", event => {
+      if (event.target?.matches?.("[data-daily-score]")) {
+        syncDailyScoreControl(event.target, true);
+      }
+    });
+    document.addEventListener("pointerdown", event => {
+      if (!event.target?.matches?.("[data-daily-score]")) return;
+      if (document.activeElement?.matches?.("textarea, input:not([type='range'])")) {
+        document.activeElement.blur();
+      }
+    });
     els.dailyReviewForm.addEventListener("submit", event => {
       event.preventDefault();
       const formData = new FormData(els.dailyReviewForm);
       saveDailyReview({
         best: formData.get("best"),
         mistake: formData.get("mistake"),
-        priority: formData.get("priority")
+        priority: formData.get("priority"),
+        dailyScore: els.reviewDailyScore.dataset.hasValue === "true"
+          ? formData.get("dailyScore")
+          : null
       }, selectedReviewDate);
     });
     els.resetAllBtn.addEventListener("click", async () => {
@@ -1204,7 +1257,13 @@
     });
 
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && runAutomaticChecks()) render();
+      if (document.visibilityState !== "visible") return;
+      const dateChanged = syncLocalDateContext();
+      if (runAutomaticChecks() || dateChanged) render();
+    });
+    window.addEventListener("focus", () => {
+      const dateChanged = syncLocalDateContext();
+      if (runAutomaticChecks() || dateChanged) render();
     });
 
     installSheetViewportSync();

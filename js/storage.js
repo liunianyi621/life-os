@@ -421,7 +421,7 @@
     function normalizePriorityTasks(priorityTasks) {
       const entries = priorityTasks && typeof priorityTasks === "object" ? Object.entries(priorityTasks) : [];
       return entries.reduce((normalized, [day, task]) => {
-        const date = normalizeReviewDateKey(task?.date || day);
+        const date = normalizePriorityDateKey(task?.date || day);
         const title = String(task?.title || task?.name || "").trim();
         if (!title) return normalized;
         const status = ["pending", "done", "failed"].includes(task?.status) ? task.status : "pending";
@@ -435,6 +435,10 @@
           rewardHistoryId: task?.rewardHistoryId || null,
           penaltyHistoryId: task?.penaltyHistoryId || null,
           linkedTaskId: task?.linkedTaskId || null,
+          source: task?.source || null,
+          sourceReviewDate: task?.sourceReviewDate
+            ? normalizeReviewDateKey(task.sourceReviewDate)
+            : null,
           createdAt: task?.createdAt || new Date().toISOString(),
           updatedAt: task?.updatedAt || new Date().toISOString()
         };
@@ -1137,7 +1141,7 @@
     }
 
     function priorityTaskForDate(day = dateKey()) {
-      return ensurePriorityTasks()[normalizeReviewDateKey(day)] || null;
+      return ensurePriorityTasks()[normalizePriorityDateKey(day)] || null;
     }
 
     function priorityTaskToday() {
@@ -1149,7 +1153,7 @@
     }
 
     function setPriorityTaskForDate(day, title, options = {}) {
-      const date = normalizeReviewDateKey(day);
+      const date = normalizePriorityDateKey(day);
       const now = new Date().toISOString();
       const previous = priorityTaskForDate(date);
       ensurePriorityTasks()[date] = {
@@ -1162,6 +1166,10 @@
         rewardHistoryId: previous?.rewardHistoryId || null,
         penaltyHistoryId: previous?.penaltyHistoryId || null,
         linkedTaskId: options.linkedTaskId ?? previous?.linkedTaskId ?? null,
+        source: options.source ?? previous?.source ?? null,
+        sourceReviewDate: options.sourceReviewDate
+          ? normalizeReviewDateKey(options.sourceReviewDate)
+          : previous?.sourceReviewDate || null,
         createdAt: previous?.createdAt || now,
         updatedAt: now
       };
@@ -1169,7 +1177,7 @@
     }
 
     function restorePriorityTask(day, snapshot) {
-      const date = normalizeReviewDateKey(day);
+      const date = normalizePriorityDateKey(day);
       if (snapshot) {
         ensurePriorityTasks()[date] = { ...snapshot };
       } else {
@@ -1198,16 +1206,37 @@
       return value > today ? today : value;
     }
 
+    function normalizePriorityDateKey(key) {
+      const value = String(key || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return dateKey();
+      const parsed = dateFromKey(value);
+      return Number.isNaN(parsed.getTime()) || dateKey(parsed) !== value ? dateKey() : value;
+    }
+
+    function normalizeDailyScore(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const score = Number(value);
+      return Number.isInteger(score) && score >= 1 && score <= 10 ? score : null;
+    }
+
     function setSelectedReviewDate(key) {
       selectedReviewDate = normalizeReviewDateKey(key);
       return selectedReviewDate;
     }
 
     function dailyReviewForDate(key = selectedReviewDate) {
-      return state.dailyReviews[normalizeReviewDateKey(key)] || {
+      const review = state.dailyReviews[normalizeReviewDateKey(key)];
+      if (review) {
+        return {
+          ...review,
+          dailyScore: normalizeDailyScore(review.dailyScore)
+        };
+      }
+      return {
         best: "",
         mistake: "",
-        priority: ""
+        priority: "",
+        dailyScore: null
       };
     }
 
@@ -1225,13 +1254,60 @@
         .sort(([left], [right]) => right.localeCompare(left));
     }
 
+    function priorityTaskHasSettlementEvidence(day, task = priorityTaskForDate(day)) {
+      if (!task) return false;
+      if (task.status !== "pending" || task.settledPenalty || task.rewardHistoryId || task.penaltyHistoryId) {
+        return true;
+      }
+      return state.history.some(item => (
+        item?.date === day
+        && (item.type === "priority_task_reward" || item.type === "priority_task_penalty")
+      ));
+    }
+
+    function reviewPriorityInputValue(reviewDate, review = dailyReviewForDate(reviewDate)) {
+      const normalizedDate = normalizeReviewDateKey(reviewDate);
+      const linkedPriority = priorityTaskForDate(shiftDateKey(normalizedDate, 1));
+      if (normalizedDate === dateKey() && linkedPriority) return linkedPriority.title;
+      return String(review?.priority || "");
+    }
+
+    function syncReviewPriorityForDate(reviewDate, title) {
+      const sourceReviewDate = normalizeReviewDateKey(reviewDate);
+      const priorityDate = shiftDateKey(sourceReviewDate, 1);
+      const today = dateKey();
+      const nextTitle = String(title || "").trim();
+      const existing = priorityTaskForDate(priorityDate);
+
+      if (priorityDate < today || priorityTaskHasSettlementEvidence(priorityDate, existing)) {
+        return { changed: false, protected: true, date: priorityDate };
+      }
+
+      if (!nextTitle) {
+        const generatedByReview = existing?.source === "daily_review"
+          && existing?.sourceReviewDate === sourceReviewDate;
+        if (generatedByReview) {
+          delete ensurePriorityTasks()[priorityDate];
+          return { changed: true, protected: false, date: priorityDate };
+        }
+        return { changed: false, protected: false, date: priorityDate };
+      }
+
+      setPriorityTaskForDate(priorityDate, nextTitle, {
+        source: "daily_review",
+        sourceReviewDate
+      });
+      return { changed: true, protected: false, date: priorityDate };
+    }
+
     function saveDailyReview(reviewData, key = selectedReviewDate) {
       const reviewDate = setSelectedReviewDate(key);
       const best = String(reviewData.best || "").trim();
       const mistake = String(reviewData.mistake || "").trim();
       const priority = String(reviewData.priority || "").trim();
+      const dailyScore = normalizeDailyScore(reviewData.dailyScore);
 
-      if (!best && !mistake && !priority) {
+      if (!best && !mistake && !priority && dailyScore === null) {
         showToast("至少填写一项复盘");
         return;
       }
@@ -1243,13 +1319,24 @@
         best,
         mistake,
         priority,
+        dailyScore,
         createdAt: previous.createdAt || savedAt,
         updatedAt: savedAt
       };
+      syncReviewPriorityForDate(reviewDate, priority);
       saveState();
       renderDailyReview();
+      if (
+        typeof renderDailyScoreTrend === "function"
+        && typeof buildDailyScoreTrend === "function"
+        && typeof els !== "undefined"
+        && els.dailyScoreTrendChart
+      ) {
+        renderDailyScoreTrend(buildDailyScoreTrend(currentStatsRange));
+      }
       showReviewSavedStatus();
-      showToast("✓ 复盘已保存", 2000);
+      showToast("复盘已保存", 2000);
+      return state.dailyReviews[reviewDate];
     }
 
     function moveReviewRewardDate(fromDate, toDate) {
@@ -1272,13 +1359,14 @@
       const best = String(reviewData.best || "").trim();
       const mistake = String(reviewData.mistake || "").trim();
       const priority = String(reviewData.priority || "").trim();
+      const dailyScore = normalizeDailyScore(reviewData.dailyScore);
 
       if (!state.dailyReviews?.[previousDate]) {
         showToast("找不到这条复盘");
         return false;
       }
 
-      if (!best && !mistake && !priority) {
+      if (!best && !mistake && !priority && dailyScore === null) {
         showToast("至少填写一项复盘");
         return false;
       }
@@ -1300,18 +1388,29 @@
         best,
         mistake,
         priority,
+        dailyScore,
         createdAt: previous.createdAt || now,
         updatedAt: now
       };
       if (reviewDate !== previousDate) {
+        syncReviewPriorityForDate(previousDate, "");
         delete state.dailyReviews[previousDate];
         moveReviewRewardDate(previousDate, reviewDate);
         if (selectedReviewDate === previousDate) selectedReviewDate = reviewDate;
       }
+      syncReviewPriorityForDate(reviewDate, priority);
 
       saveState();
       closeSheet();
       renderDailyReview();
+      if (
+        typeof renderDailyScoreTrend === "function"
+        && typeof buildDailyScoreTrend === "function"
+        && typeof els !== "undefined"
+        && els.dailyScoreTrendChart
+      ) {
+        renderDailyScoreTrend(buildDailyScoreTrend(currentStatsRange));
+      }
       showToast("复盘已更新");
       return true;
     }

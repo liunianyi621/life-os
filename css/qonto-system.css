@@ -737,6 +737,16 @@ button.summary-card {
   box-shadow: var(--shadow-card);
 }
 
+.review-keyboard-form__body {
+  gap: 0;
+  padding: 0 20px;
+}
+
+.review-keyboard-form > .keyboard-form-sheet__footer {
+  padding-right: 20px;
+  padding-left: 20px;
+}
+
 .review-question {
   display: block;
   padding: 20px 0;
@@ -775,6 +785,66 @@ button.summary-card {
 .calendar-title-field input::placeholder {
   color: var(--color-placeholder);
   opacity: 1;
+}
+
+.review-score-field {
+  display: block;
+}
+
+.review-score-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.review-score-heading .field-label {
+  margin-bottom: 0;
+}
+
+.review-score-heading output {
+  flex: 0 0 auto;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 680;
+}
+
+.review-score-control {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  text-align: center;
+}
+
+.review-score-control input[type="range"] {
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  accent-color: #2b2b2b;
+  cursor: pointer;
+  touch-action: pan-x;
+}
+
+.review-score-control input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #d8d8d8;
+}
+
+.review-score-control input[type="range"]::-webkit-slider-thumb {
+  width: 24px;
+  height: 24px;
+  margin-top: -10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2b2b2b;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+  -webkit-appearance: none;
 }
 
 .review-save-row {
@@ -841,6 +911,21 @@ button.summary-card {
 
 .review-row-summary.empty {
   color: var(--color-text-tertiary);
+}
+
+.review-row-score {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.review-row-score b {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 620;
 }
 
 .review-today-pill,
@@ -1220,6 +1305,212 @@ button.summary-card {
   margin-top: 14px;
   color: var(--color-text-secondary);
   font-size: 12px;
+}
+
+.daily-score-chart {
+  width: max(100%, var(--trend-width, 320px));
+}
+
+.daily-score-plot {
+  position: relative;
+  height: 172px;
+  margin-top: 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.daily-score-reference {
+  position: absolute;
+  right: 8px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.daily-score-reference--ten { top: 8px; }
+.daily-score-reference--five { top: 50%; }
+
+.daily-score-reference i {
+  flex: 1;
+  height: 1px;
+  background: #ededed;
+}
+
+.daily-score-reference b {
+  width: 17px;
+  font-weight: 540;
+  text-align: right;
+}
+
+.daily-score-bars {
+  position: absolute;
+  inset: 8px 30px 0 24px;
+  display: grid;
+  align-items: end;
+}
+
+.daily-score-point {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+}
+
+.daily-score-bar {
+  width: min(13px, 72%);
+  min-height: 5px;
+  border-radius: 5px 5px 1px 1px;
+  background: #667784;
+  transition: background 160ms ease, opacity 160ms ease;
+}
+
+.daily-score-point.today .daily-score-bar {
+  background: #2f80ed;
+}
+
+.daily-score-point.selected .daily-score-bar {
+  background: #171717;
+}
+
+.daily-score-point:focus-visible {
+  outline: 2px solid #2b2b2b;
+  outline-offset: -2px;
+}
+
+.daily-score-axis {
+  display: grid;
+  min-height: 31px;
+  margin: 0 30px 0 24px;
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  text-align: center;
+}
+
+.daily-score-axis span {
+  overflow: visible;
+  padding-top: 7px;
+  white-space: nowrap;
+}
+
+.daily-score-tooltip-slot:empty {
+  display: none;
+}
+
+.daily-score-tooltip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.daily-score-tooltip strong {
+  color: var(--color-text-primary);
+  font-weight: 650;
+}
+
+.daily-score-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.daily-score-summary strong {
+  color: var(--color-text-primary);
+  font-weight: 660;
+}
+
+.daily-score-summary.empty {
+  justify-content: flex-start;
+}
+
+body.keyboard-open .keyboard-form-sheet .review-score-heading {
+  margin-bottom: 2px;
+}
+
+body.keyboard-open .keyboard-form-sheet .review-score-control {
+  min-height: 42px;
+}
+
+body.keyboard-open .q-review-page.active {
+  position: fixed;
+  z-index: 80;
+  top: var(--viewport-offset-top);
+  right: 0;
+  left: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: var(--app-visible-height);
+  padding: max(8px, env(safe-area-inset-top)) 20px 8px;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+body.keyboard-open .q-review-page.active > .q-page-header {
+  min-height: 58px;
+  margin: 0;
+  padding: 0 2px 6px;
+}
+
+body.keyboard-open .q-review-page.active > .q-page-header h1 {
+  font-size: 25px;
+}
+
+body.keyboard-open .q-review-page.active > .section-heading,
+body.keyboard-open .q-review-page.active > .review-history-list {
+  display: none;
+}
+
+body.keyboard-open .review-keyboard-form {
+  min-height: 0;
+  border-radius: var(--radius-lg);
+}
+
+body.keyboard-open .review-keyboard-form__body {
+  gap: 0;
+  padding: 0 16px;
+}
+
+body.keyboard-open .review-keyboard-form .review-question {
+  padding: 10px 0;
+}
+
+body.keyboard-open .review-keyboard-form .review-question textarea {
+  min-height: 68px;
+  padding: 10px 12px;
+}
+
+body.keyboard-open .review-keyboard-form .review-score-heading {
+  margin-bottom: 0;
+}
+
+body.keyboard-open .review-keyboard-form .review-score-control {
+  min-height: 38px;
+}
+
+body.keyboard-open .review-keyboard-form > .keyboard-form-sheet__footer {
+  padding: 8px 16px 10px;
+}
+
+body.keyboard-open .review-keyboard-form .q-primary-button {
+  min-height: 54px;
 }
 
 .q-tool-row,

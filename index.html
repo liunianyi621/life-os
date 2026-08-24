@@ -133,20 +133,33 @@
           </div>
         </header>
 
-        <form class="review-form q-form-section" id="dailyReviewForm">
-          <label class="review-question">
-            <span class="field-label">今天做得最好的事情是什么？</span>
-            <textarea id="reviewBest" name="best" maxlength="500" placeholder="写下今天最值得保留的一件事"></textarea>
-          </label>
-          <label class="review-question">
-            <span class="field-label">今天最大的失误是什么？</span>
-            <textarea id="reviewMistake" name="mistake" maxlength="500" placeholder="写下今天最需要修正的地方"></textarea>
-          </label>
-          <label class="review-question">
-            <span class="field-label">明天最重要的一件事是什么？</span>
-            <textarea id="reviewPriority" name="priority" maxlength="500" placeholder="只选一件最重要的事"></textarea>
-          </label>
-          <div class="review-save-row">
+        <form class="review-form q-form-section review-keyboard-form keyboard-form-sheet__form" id="dailyReviewForm">
+          <div class="keyboard-form-sheet__body review-keyboard-form__body">
+            <label class="review-question">
+              <span class="field-label">今天做得最好的事情是什么？</span>
+              <textarea id="reviewBest" name="best" maxlength="500" placeholder="写下今天最值得保留的一件事"></textarea>
+            </label>
+            <label class="review-question">
+              <span class="field-label">今天最大的失误是什么？</span>
+              <textarea id="reviewMistake" name="mistake" maxlength="500" placeholder="写下今天最需要修正的地方"></textarea>
+            </label>
+            <div class="review-question review-score-field">
+              <div class="review-score-heading">
+                <label class="field-label" for="reviewDailyScore">今天给自己打几分？</label>
+                <output id="reviewDailyScoreValue" for="reviewDailyScore">5 / 10</output>
+              </div>
+              <div class="review-score-control">
+                <span aria-hidden="true">1</span>
+                <input id="reviewDailyScore" name="dailyScore" type="range" min="1" max="10" step="1" value="5" data-daily-score data-score-output="reviewDailyScoreValue" aria-label="今天给自己打几分，1 到 10 分">
+                <span aria-hidden="true">10</span>
+              </div>
+            </div>
+            <label class="review-question">
+              <span class="field-label">明天最重要的一件事是什么？</span>
+              <textarea id="reviewPriority" name="priority" maxlength="500" placeholder="只选一件最重要的事"></textarea>
+            </label>
+          </div>
+          <div class="review-save-row keyboard-form-sheet__footer">
             <span class="review-save-status" id="reviewSaveStatus" role="status" aria-live="polite">✓ 已保存</span>
             <button class="button q-primary-button" type="submit">保存复盘</button>
           </div>
@@ -222,22 +235,17 @@
           </div>
         </section>
 
-        <section class="card chart-card q-chart-section" aria-label="习惯趋势">
+        <section class="card chart-card q-chart-section" aria-label="每日评分趋势">
           <div class="chart-title">
-            <h2>习惯趋势</h2>
-            <span>次数 / 分钟</span>
+            <h2>每日评分趋势</h2>
+            <span>1–10 分</span>
           </div>
           <div class="segmented trend-range" aria-label="统计范围">
             <button class="segment-button active" data-stats-range="week" type="button">最近一周</button>
             <button class="segment-button" data-stats-range="month" type="button">最近一月</button>
             <button class="segment-button" data-stats-range="year" type="button">最近一年</button>
           </div>
-          <div class="chart-scroll" id="habitTrendChart"></div>
-          <div class="chart-legend" aria-hidden="true">
-            <span><i class="good"></i>完成</span>
-            <span><i class="bad"></i>坏习惯</span>
-            <span><i class="focus"></i>专注</span>
-          </div>
+          <div class="chart-scroll" id="dailyScoreTrendChart"></div>
         </section>
 
         <section class="reset-card debug-export-card q-tool-row" data-export-debug>

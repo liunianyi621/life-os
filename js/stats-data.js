@@ -156,6 +156,58 @@
       return { trendRows, heatRows };
     }
 
+    function recentDailyScoreRows(dayCount, anchorDate = new Date(), reviews = state.dailyReviews) {
+      const rows = [];
+      for (let offset = dayCount - 1; offset >= 0; offset -= 1) {
+        const day = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate() - offset);
+        const key = dateKey(day);
+        rows.push({
+          key,
+          label: `${day.getMonth() + 1}/${day.getDate()}`,
+          score: normalizeDailyScore(reviews?.[key]?.dailyScore),
+          ratedCount: normalizeDailyScore(reviews?.[key]?.dailyScore) === null ? 0 : 1
+        });
+      }
+      return rows;
+    }
+
+    function recentMonthlyScoreRows(anchorDate = new Date(), reviews = state.dailyReviews) {
+      return Array.from({ length: 12 }, (_, index) => {
+        const monthDate = new Date(anchorDate.getFullYear(), anchorDate.getMonth() - (11 - index), 1);
+        const key = monthKey(monthDate);
+        const scores = Object.entries(reviews || {})
+          .filter(([day]) => day.startsWith(`${key}-`))
+          .map(([, review]) => normalizeDailyScore(review?.dailyScore))
+          .filter(score => score !== null);
+        return {
+          key,
+          label: `${monthDate.getMonth() + 1}月`,
+          score: scores.length
+            ? Math.round((scores.reduce((total, score) => total + score, 0) / scores.length) * 10) / 10
+            : null,
+          ratedCount: scores.length
+        };
+      });
+    }
+
+    function buildDailyScoreTrend(range, reviews = state.dailyReviews, anchorDate = new Date()) {
+      const normalizedRange = ["week", "month", "year"].includes(range) ? range : "week";
+      const rows = normalizedRange === "year"
+        ? recentMonthlyScoreRows(anchorDate, reviews)
+        : recentDailyScoreRows(normalizedRange === "month" ? 30 : 7, anchorDate, reviews);
+      const ratedCount = rows.reduce((total, row) => total + row.ratedCount, 0);
+      const weightedTotal = rows.reduce((total, row) => (
+        row.score === null ? total : total + row.score * row.ratedCount
+      ), 0);
+      return {
+        range: normalizedRange,
+        rows,
+        average: ratedCount ? Math.round((weightedTotal / ratedCount) * 10) / 10 : null,
+        ratedCount,
+        maxScore: 10
+      };
+    }
+
     function buildMonthlyTaskSummary(month, rows = null) {
       const monthlyRows = rows || buildMonthlyHeatRows(month);
       return {

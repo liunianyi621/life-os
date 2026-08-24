@@ -11,6 +11,7 @@
       const activeElement = document.activeElement;
       const editableFocused = activeElement instanceof HTMLElement
         && activeElement.matches("input:not([type='hidden']), textarea, select");
+      const reviewFormFocused = editableFocused && Boolean(activeElement.closest?.(".review-keyboard-form"));
       syncSheetViewport.stableHeight = Math.max(syncSheetViewport.stableHeight || 0, layoutHeight);
       const viewportKeyboardOffset = viewport
         ? Math.max(0, Math.round((window.innerHeight || viewportHeight) - viewport.height - viewport.offsetTop))
@@ -22,7 +23,7 @@
       document.documentElement.style.setProperty("--app-visible-height", `${viewportHeight}px`);
       document.documentElement.style.setProperty("--keyboard-height", `${keyboardOffset}px`);
       document.documentElement.style.setProperty("--viewport-offset-top", `${viewportTop}px`);
-      document.body.classList.toggle("keyboard-open", keyboardOffset > 80 && hasOpenModal());
+      document.body.classList.toggle("keyboard-open", keyboardOffset > 80 && (hasOpenModal() || reviewFormFocused));
     }
 
     function ensureFocusedFormFieldVisible(target = document.activeElement) {
@@ -64,7 +65,9 @@
       if (installSheetViewportSync.installed) return;
       installSheetViewportSync.installed = true;
       const update = () => {
-        if (document.body.classList.contains("modal-open")) syncSheetViewport();
+        if (document.body.classList.contains("modal-open") || document.activeElement?.closest?.(".review-keyboard-form")) {
+          syncSheetViewport();
+        }
         syncSnackbarPosition();
         window.requestAnimationFrame(() => ensureFocusedFormFieldVisible());
       };
@@ -77,7 +80,8 @@
       window.addEventListener("resize", update);
       window.addEventListener("orientationchange", updateOrientation);
       document.addEventListener("focusin", event => {
-        if (event.target?.matches?.(".keyboard-form-sheet input, .keyboard-form-sheet textarea, .keyboard-form-sheet select, .review-form textarea")) {
+        if (event.target?.matches?.(".keyboard-form-sheet input, .keyboard-form-sheet textarea, .keyboard-form-sheet select, .review-keyboard-form input, .review-keyboard-form textarea")) {
+          syncSheetViewport();
           window.requestAnimationFrame(() => ensureFocusedFormFieldVisible(event.target));
         }
       });
