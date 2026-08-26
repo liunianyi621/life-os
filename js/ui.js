@@ -2,6 +2,7 @@
     let activeCalendarMonthSwipe = null;
     let activeCalendarEventPress = null;
     let suppressCalendarEventTap = false;
+    let suppressCalendarDateTap = false;
 
     function swipeRowHtml({ attrs = "", actionWidth = 84, actions = "", content = "", editType = "", editId = "", extraClass = "" }) {
       const editAttrs = editType && editId
@@ -271,18 +272,27 @@
 
     function beginCalendarMonthSwipe(event) {
       const grid = event.target.closest("#calendarGrid");
-      if (!grid || event.target.closest("[data-calendar-event], button[data-calendar-day]")) return;
+      if (!grid || event.target.closest("[data-calendar-event], [data-calendar-more]")) return;
       activeCalendarMonthSwipe = {
         startX: event.clientX,
         startY: event.clientY,
-        pointerId: event.pointerId
+        pointerId: event.pointerId,
+        moved: false
       };
     }
 
     function moveCalendarMonthSwipe(event) {
       if (!activeCalendarMonthSwipe || event.pointerId !== activeCalendarMonthSwipe.pointerId) return;
+      const deltaX = event.clientX - activeCalendarMonthSwipe.startX;
       const deltaY = event.clientY - activeCalendarMonthSwipe.startY;
-      if (Math.abs(deltaY) > 48) clearCalendarMonthSwipe();
+      if (Math.hypot(deltaX, deltaY) > 12) activeCalendarMonthSwipe.moved = true;
+      if (Math.abs(deltaY) > 48) {
+        suppressCalendarDateTap = true;
+        clearCalendarMonthSwipe();
+        window.setTimeout(() => {
+          suppressCalendarDateTap = false;
+        }, 180);
+      }
     }
 
     function endCalendarMonthSwipe(event) {
@@ -290,6 +300,12 @@
       const swipe = clearCalendarMonthSwipe();
       const deltaX = event.clientX - swipe.startX;
       const deltaY = event.clientY - swipe.startY;
+      if (swipe.moved) {
+        suppressCalendarDateTap = true;
+        window.setTimeout(() => {
+          suppressCalendarDateTap = false;
+        }, 180);
+      }
       if (Math.abs(deltaX) < 42 || Math.abs(deltaX) < Math.abs(deltaY)) return;
       currentCalendarMonth = shiftMonthKey(currentCalendarMonth, deltaX < 0 ? 1 : -1);
       selectedCalendarDate = dateKey(monthDateFromKey(currentCalendarMonth));
@@ -667,6 +683,23 @@
       return `${start} - ${end}`;
     }
 
+    function calendarDayAccessibilityLabel(day, eventCount) {
+      const dateLabel = new Intl.DateTimeFormat("zh-CN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      }).format(dateFromKey(day));
+      return eventCount
+        ? `${dateLabel}，已有${eventCount}个计划，点击空白区域新增计划`
+        : `${dateLabel}，点击新增计划`;
+    }
+
+    function openCalendarDateForCreate(day) {
+      selectedCalendarDate = normalizeCalendarDate(day);
+      renderCalendar();
+      openCalendarEventSheet(null, { date: selectedCalendarDate });
+    }
+
     function calendarSegmentHtml(event, day) {
       const startsHere = event.startDate === day;
       const endsHere = event.endDate === day;
@@ -707,11 +740,13 @@
         const isSelected = day === selectedCalendarDate;
         const events = eventsByDate.get(day) || [];
         return `
-          <article class="calendar-day-cell${inCurrentMonth ? "" : " outside-month"}${isToday ? " today" : ""}${isSelected ? " selected" : ""}" data-calendar-day="${escapeAttr(day)}">
-            <button class="calendar-day-number" type="button" data-calendar-day="${escapeAttr(day)}" aria-label="${escapeAttr(day)} 的计划">${Number(day.slice(-2))}</button>
+          <article class="calendar-day-cell${inCurrentMonth ? "" : " outside-month"}${isToday ? " today" : ""}${isSelected ? " selected" : ""}">
+            <button class="calendar-day-tap-target" type="button" data-calendar-day="${escapeAttr(day)}" aria-label="${escapeAttr(calendarDayAccessibilityLabel(day, events.length))}">
+              <span class="calendar-day-number" aria-hidden="true">${Number(day.slice(-2))}</span>
+            </button>
             <div class="calendar-day-events">
               ${events.slice(0, 3).map(event => calendarSegmentHtml(event, day)).join("")}
-              ${events.length > 3 ? `<button class="calendar-more-events" type="button" data-calendar-day="${escapeAttr(day)}">+${events.length - 3}</button>` : ""}
+              ${events.length > 3 ? `<button class="calendar-more-events" type="button" data-calendar-more="${escapeAttr(day)}" aria-label="查看${events.length}个计划">+${events.length - 3}</button>` : ""}
             </div>
           </article>
         `;
@@ -956,6 +991,7 @@
       const calendarMonthButton = event.target.closest("[data-calendar-month]");
       const calendarDayTarget = event.target.closest("[data-calendar-day]");
       const calendarEventButton = event.target.closest("[data-calendar-event]");
+      const calendarMoreButton = event.target.closest("[data-calendar-more]");
       const calendarAddSelectedButton = event.target.closest("[data-calendar-add-selected]");
       const calendarCategoryButton = event.target.closest("[data-calendar-category]");
       const calendarEditButton = event.target.closest("[data-calendar-edit]");
@@ -1037,10 +1073,14 @@
         openCalendarEventSheet(calendarEventButton.dataset.calendarEvent);
         return;
       }
-      if (calendarDayTarget) {
-        if (suppressCalendarEventTap) return;
-        selectedCalendarDate = calendarDayTarget.dataset.calendarDay;
+      if (calendarMoreButton) {
+        selectedCalendarDate = normalizeCalendarDate(calendarMoreButton.dataset.calendarMore);
         renderCalendar();
+        return;
+      }
+      if (calendarDayTarget) {
+        if (suppressCalendarEventTap || suppressCalendarDateTap) return;
+        openCalendarDateForCreate(calendarDayTarget.dataset.calendarDay);
         return;
       }
       if (!event.target.closest("[data-swipe-row]")) {
