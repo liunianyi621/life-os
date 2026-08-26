@@ -272,7 +272,7 @@
 
     function beginCalendarMonthSwipe(event) {
       const grid = event.target.closest("#calendarGrid");
-      if (!grid || event.target.closest("[data-calendar-event], [data-calendar-more]")) return;
+      if (!grid || event.target.closest("[data-calendar-event], button[data-calendar-day], [data-calendar-more]")) return;
       activeCalendarMonthSwipe = {
         startX: event.clientX,
         startY: event.clientY,
@@ -740,10 +740,8 @@
         const isSelected = day === selectedCalendarDate;
         const events = eventsByDate.get(day) || [];
         return `
-          <article class="calendar-day-cell${inCurrentMonth ? "" : " outside-month"}${isToday ? " today" : ""}${isSelected ? " selected" : ""}">
-            <button class="calendar-day-tap-target" type="button" data-calendar-day="${escapeAttr(day)}" aria-label="${escapeAttr(calendarDayAccessibilityLabel(day, events.length))}">
-              <span class="calendar-day-number" aria-hidden="true">${Number(day.slice(-2))}</span>
-            </button>
+          <article class="calendar-day-cell${inCurrentMonth ? "" : " outside-month"}${isToday ? " today" : ""}${isSelected ? " selected" : ""}" data-calendar-day="${escapeAttr(day)}">
+            <button class="calendar-day-number" type="button" data-calendar-day="${escapeAttr(day)}" aria-label="${escapeAttr(calendarDayAccessibilityLabel(day, events.length))}">${Number(day.slice(-2))}</button>
             <div class="calendar-day-events">
               ${events.slice(0, 3).map(event => calendarSegmentHtml(event, day)).join("")}
               ${events.length > 3 ? `<button class="calendar-more-events" type="button" data-calendar-more="${escapeAttr(day)}" aria-label="查看${events.length}个计划">+${events.length - 3}</button>` : ""}

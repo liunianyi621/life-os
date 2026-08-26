@@ -43,13 +43,17 @@ test("日历日期格直接复用新建计划 Sheet，计划条保持独立编�
   const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
   assert.match(uiSource, /function openCalendarDateForCreate\(day\)/);
   assert.match(uiSource, /openCalendarEventSheet\(null, \{ date: selectedCalendarDate \}\)/);
-  assert.match(uiSource, /class="calendar-day-tap-target" type="button" data-calendar-day="\$\{escapeAttr\(day\)\}"/);
+  assert.match(uiSource, /class="calendar-day-cell[^\n]*data-calendar-day="\$\{escapeAttr\(day\)\}"/);
+  assert.match(uiSource, /class="calendar-day-number" type="button" data-calendar-day="\$\{escapeAttr\(day\)\}"/);
   assert.match(uiSource, /calendarDayAccessibilityLabel\(day, events\.length\)/);
   assert.match(uiSource, /if \(calendarEventButton\)[\s\S]*openCalendarEventSheet\(calendarEventButton\.dataset\.calendarEvent\)/);
   assert.match(uiSource, /data-calendar-more="\$\{escapeAttr\(day\)\}"/);
   assert.match(uiSource, /let suppressCalendarDateTap = false;/);
   assert.match(uiSource, /Math\.hypot\(deltaX, deltaY\) > 12/);
-  assert.match(productionCss, /\.calendar-day-tap-target\s*\{[\s\S]*?position:\s*absolute;/);
+  assert.doesNotMatch(productionCss, /\.calendar-day-tap-target\s*\{/);
+  const calendarDayEventsRule = productionCss.match(/\.calendar-day-events\s*\{([^}]*)\}/)?.[1] || "";
+  assert.doesNotMatch(calendarDayEventsRule, /pointer-events\s*:/);
+  assert.doesNotMatch(calendarDayEventsRule, /z-index\s*:/);
 });
 
 test("撤回提示使用单一紧凑 Snackbar 组件", () => {
