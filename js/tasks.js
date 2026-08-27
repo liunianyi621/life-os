@@ -20,16 +20,36 @@
       return taskResultOnDate(taskId, dateKey());
     }
 
+    function taskRunningStartTime(task) {
+      const timerStarted = typeof task?.timerStarted === "string" ? task.timerStarted : null;
+      return firstPresentValue([
+        task?.startTime,
+        task?.startedAt,
+        task?.actualStartTime,
+        timerStarted,
+        (task?.isRunning || task?.timerStarted === true) ? task?.updatedAt || task?.createdAt : null
+      ]) || null;
+    }
+
+    function taskIsInProgress(task) {
+      if (!task || ["completed", "done", "failed"].includes(task.status)) return false;
+      if (task.status === "running" || task.status === "in_progress") {
+        return !task.endTime && !task.failedAt;
+      }
+      return Boolean(taskRunningStartTime(task) && !task.endTime && !task.failedAt);
+    }
+
     function taskStatusToday(task) {
       const result = taskResultToday(task.id);
       if (result === "completed" || result === "failed") return result;
-      if (taskHasTime(task) && task.status === "running" && task.startTime && !task.endTime) return "running";
+      if (taskHasTime(task) && taskIsInProgress(task)) return "running";
       return "pending";
     }
 
     function taskStartedAtLabel(task) {
-      if (!task?.startTime) return "";
-      const date = new Date(task.startTime);
+      const startedAt = taskRunningStartTime(task);
+      if (!startedAt) return "";
+      const date = new Date(startedAt);
       if (Number.isNaN(date.getTime())) return "";
       return new Intl.DateTimeFormat("zh-CN", {
         hour: "2-digit",
@@ -165,6 +185,19 @@
       return Boolean(end && now >= end);
     }
 
+    function createTaskRecord(taskData, now = new Date()) {
+      const today = dateKey(now);
+      const timestamp = now.toISOString();
+      return {
+        id: createId("task"),
+        ...taskData,
+        date: today,
+        createdDate: today,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+    }
+
     function saveTask(taskData) {
       if (!taskData.name) {
         showToast("请输入任务名称");
@@ -179,15 +212,7 @@
         ));
         showToast("任务已更新");
       } else {
-        const today = dateKey();
-        createdTask = {
-          id: createId("task"),
-          ...taskData,
-          date: today,
-          createdDate: today,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
+        createdTask = createTaskRecord(taskData);
         state.tasks.push(createdTask);
         showToast("任务已创建");
       }
@@ -196,9 +221,57 @@
       render();
       return createdTask;
     }
+
+    function scheduleHabitAsTask(habitId, startTime = new Date()) {
+      const habit = state.habits.find(item => item.id === habitId);
+      const start = new Date(startTime);
+      if (!habit || Number.isNaN(start.getTime())) return null;
+
+      const end = new Date(start);
+      end.setMinutes(end.getMinutes() + 60);
+      const startedAt = start.toISOString();
+      const task = createTaskRecord({
+        name: habit.name,
+        coins: DEFAULT_TASK_REWARD,
+        hourlyReward: DEFAULT_TASK_REWARD,
+        reward: DEFAULT_TASK_REWARD,
+        timeStart: minutesToClockLabel(start.getHours() * 60 + start.getMinutes()),
+        timeEnd: minutesToClockLabel(end.getHours() * 60 + end.getMinutes()),
+        time: minutesToClockLabel(start.getHours() * 60 + start.getMinutes()),
+        status: "running",
+        startTime: startedAt,
+        endTime: null,
+        durationMinutes: null,
+        durationSeconds: null,
+        earnedCoins: null
+      }, start);
+
+      state.tasks.push(task);
+      saveState();
+      render();
+      try {
+        if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10);
+      } catch (error) {
+        // Haptics are best-effort.
+      }
+      showUndoToast({
+        type: "habit_task_scheduled",
+        taskId: task.id,
+        habitId: habit.id,
+        name: task.name,
+        date: task.date
+      }, {
+        message: `已安排「${task.name}」 · ${task.timeStart}–${task.timeEnd}`,
+        undoLabel: "撤回",
+        duration: 5000,
+        iconTone: "neutral"
+      });
+      return task;
+    }
+
     function todayTasks() {
       const today = dateKey();
-      return state.tasks.filter(task => taskDate(task) === today);
+      return state.tasks.filter(task => taskDate(task) === today || taskIsInProgress(task));
     }
 
     function activeTasksToday() {

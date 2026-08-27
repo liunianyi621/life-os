@@ -503,6 +503,30 @@ test("迁移标记存在时，新任务的 20 和 200 不会再次乘以 10", ()
   assert.equal(value(reloaded.context, "state.history[0].coins"), 200);
 });
 
+test("习惯可以直接安排为立即开始的一小时任务且不改变习惯和金币", () => {
+  const state = emptyState([], 2000);
+  state.habits = [{ id: "habit-book", name: "看书", coins: 10, createdDate: DAY }];
+  const { context } = createRuntime(state);
+
+  const created = value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 15, 24))`);
+
+  assert.equal(created.name, "看书");
+  assert.equal(created.timeStart, "15:24");
+  assert.equal(created.timeEnd, "16:24");
+  assert.equal(created.status, "running");
+  assert.equal(Boolean(created.startTime), true);
+  assert.equal(created.hourlyReward, 20);
+  assert.equal(value(context, "state.habitCompletions['2026-07-16']?.['habit-book'] || false"), false);
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "state.coins"), 2000);
+  assert.equal(value(context, "lastUndoData.type"), "habit_task_scheduled");
+
+  value(context, "undoLastAction()");
+  assert.equal(value(context, "state.tasks.length"), 0);
+  assert.equal(value(context, "state.habits.length"), 1);
+  assert.equal(value(context, "state.coins"), 2000);
+});
+
 test("重点事项完成和主动失败固定使用 100 / 500，并按历史实际金额撤回", () => {
   const completedState = emptyState([], 2000);
   completedState.priorityTaskByDate[DAY] = {

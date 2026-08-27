@@ -414,6 +414,81 @@ button.summary-card {
   margin-top: 30px;
 }
 
+.today-task-section {
+  position: relative;
+  border-radius: var(--radius-lg);
+  transition: background-color 160ms ease, outline-color 160ms ease;
+}
+
+.today-task-section.habit-drop-available {
+  outline: 1px solid #cfdbea;
+  outline-offset: 6px;
+}
+
+.today-task-section.habit-drop-active {
+  background: #eef4fb;
+  outline-color: #9eb8d6;
+}
+
+.today-task-section.habit-drop-active::after {
+  position: absolute;
+  z-index: 8;
+  inset: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #9eb8d6;
+  border-radius: var(--radius-lg);
+  background: rgba(238, 244, 251, 0.92);
+  color: var(--color-text-primary);
+  content: "放到这里，安排接下来一小时";
+  font-size: 14px;
+  font-weight: 650;
+  pointer-events: none;
+}
+
+#habitList .habit-drag-source .swipe-card {
+  opacity: 0.65;
+  box-shadow: var(--shadow-card);
+  transform: translateX(var(--swipe-offset, 0)) scale(0.98);
+}
+
+.habit-drag-preview {
+  position: fixed;
+  z-index: 80;
+  top: 0;
+  left: 0;
+  display: grid;
+  min-width: 156px;
+  max-width: min(260px, calc(100vw - 32px));
+  gap: 3px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-floating);
+  color: var(--color-text-primary);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.habit-drag-preview strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.habit-drag-preview span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+body.habit-dragging {
+  user-select: none;
+}
+
 .q-list-section,
 .list,
 .review-history-list {

@@ -1,6 +1,7 @@
     let activeHeatmapPress = null;
     let activeCalendarMonthSwipe = null;
     let activeCalendarEventPress = null;
+    let activeHabitDrag = null;
     let suppressCalendarEventTap = false;
     let suppressCalendarDateTap = false;
 
@@ -102,11 +103,134 @@
       return press;
     }
 
+    function habitTaskDropZone() {
+      return document.querySelector("[data-habit-task-drop-zone]");
+    }
+
+    function pointInsideElement(element, x, y) {
+      if (!element) return false;
+      const rect = element.getBoundingClientRect();
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }
+
+    function positionHabitDragPreview(drag, x, y) {
+      if (!drag?.preview) return;
+      drag.preview.style.transform = `translate3d(${Math.round(x + 12)}px, ${Math.round(y + 12)}px, 0)`;
+    }
+
+    function updateHabitDropState(drag, x, y) {
+      const dropZone = habitTaskDropZone();
+      drag.overDropZone = pointInsideElement(dropZone, x, y);
+      dropZone?.classList.toggle("habit-drop-active", drag.overDropZone);
+    }
+
+    function activateHabitDrag(drag) {
+      if (!drag || activeHabitDrag !== drag || drag.moved) return;
+      drag.dragging = true;
+      suppressNextCardTap = true;
+      drag.row.classList.add("habit-drag-source");
+      document.body.classList.add("habit-dragging");
+      habitTaskDropZone()?.classList.add("habit-drop-available");
+      const preview = document.createElement("div");
+      preview.className = "habit-drag-preview";
+      preview.setAttribute("aria-hidden", "true");
+      preview.innerHTML = "<strong></strong><span>安排 1 小时</span>";
+      preview.querySelector("strong").textContent = drag.habitName;
+      document.body.appendChild(preview);
+      drag.preview = preview;
+      positionHabitDragPreview(drag, drag.lastX, drag.lastY);
+      updateHabitDropState(drag, drag.lastX, drag.lastY);
+      try {
+        if (navigator.vibrate) navigator.vibrate(10);
+      } catch (error) {
+        // Haptics are best-effort.
+      }
+    }
+
+    function clearHabitDrag() {
+      if (!activeHabitDrag) return null;
+      const drag = activeHabitDrag;
+      activeHabitDrag = null;
+      clearTimeout(drag.timer);
+      drag.card?.releasePointerCapture?.(drag.pointerId);
+      drag.row?.classList.remove("habit-drag-source");
+      drag.preview?.remove();
+      document.body.classList.remove("habit-dragging");
+      const dropZone = habitTaskDropZone();
+      dropZone?.classList.remove("habit-drop-available", "habit-drop-active");
+      return drag;
+    }
+
+    function beginHabitDrag(event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (event.target.closest("button, input, textarea, select, a")) return;
+      const row = event.target.closest("[data-habit-card]");
+      if (!row) return;
+      const card = row.querySelector("[data-swipe-content]") || row;
+      const habit = state.habits.find(item => item.id === row.dataset.habitCard);
+      if (!habit) return;
+
+      activeHabitDrag = {
+        row,
+        card,
+        habitId: habit.id,
+        habitName: habit.name,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        moved: false,
+        dragging: false,
+        overDropZone: false,
+        preview: null,
+        timer: null
+      };
+      activeHabitDrag.timer = window.setTimeout(() => activateHabitDrag(activeHabitDrag), 430);
+      card.setPointerCapture?.(event.pointerId);
+    }
+
+    function moveHabitDrag(event) {
+      if (!activeHabitDrag || event.pointerId !== activeHabitDrag.pointerId) return;
+      const drag = activeHabitDrag;
+      drag.lastX = event.clientX;
+      drag.lastY = event.clientY;
+      const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+      if (!drag.dragging && distance > 12) {
+        drag.moved = true;
+        clearHabitDrag();
+        return;
+      }
+      if (!drag.dragging) return;
+      event.preventDefault();
+      positionHabitDragPreview(drag, event.clientX, event.clientY);
+      updateHabitDropState(drag, event.clientX, event.clientY);
+    }
+
+    function endHabitDrag(event, cancelled = false) {
+      if (!activeHabitDrag || event.pointerId !== activeHabitDrag.pointerId) return;
+      const drag = activeHabitDrag;
+      const shouldSchedule = drag.dragging
+        && !cancelled
+        && pointInsideElement(habitTaskDropZone(), event.clientX, event.clientY);
+      clearHabitDrag();
+      if (!drag.dragging) return;
+      window.setTimeout(() => {
+        suppressNextCardTap = false;
+      }, 220);
+      if (shouldSchedule) scheduleHabitAsTask(drag.habitId, new Date());
+    }
+
+    function cancelHabitDrag(event) {
+      endHabitDrag(event, true);
+    }
+
     function beginSwipe(event) {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       if (event.target.closest("button, input, textarea, select, a")) return;
       const card = event.target.closest("[data-edit-card]");
       if (!card) return;
+      if (card.closest("[data-habit-card]")) return;
       const row = card.closest("[data-swipe-row]");
       if (!row) return;
 
@@ -528,6 +652,11 @@
           icon: "checkmark.circle",
           label: "习惯达成",
           attrs: `data-complete-habit="${escapeAttr(habit.id)}"`
+        }) + actionButtonHtml({
+          tone: "blue",
+          icon: "play.circle",
+          label: `安排「${habit.name}」接下来一小时`,
+          attrs: `data-schedule-habit="${escapeAttr(habit.id)}"`
         }),
         content: `
             ${rowTileHtml(escapeHtml(String(habit.name || "习").slice(0, 1)), visualToneForId(habit.id), "habit-row-tile")}
@@ -924,21 +1053,25 @@
       }).join("");
     }
 
+    document.addEventListener("pointerdown", beginHabitDrag);
     document.addEventListener("pointerdown", beginSwipe);
     document.addEventListener("pointerdown", beginReviewPress);
     document.addEventListener("pointerdown", beginHeatmapPress);
     document.addEventListener("pointerdown", beginCalendarMonthSwipe);
     document.addEventListener("pointerdown", beginCalendarEventPress);
+    document.addEventListener("pointermove", moveHabitDrag, { passive: false });
     document.addEventListener("pointermove", moveSwipe, { passive: false });
     document.addEventListener("pointermove", moveReviewPress, { passive: false });
     document.addEventListener("pointermove", moveHeatmapPress, { passive: false });
     document.addEventListener("pointermove", moveCalendarMonthSwipe, { passive: true });
     document.addEventListener("pointermove", moveCalendarEventPress, { passive: true });
+    document.addEventListener("pointerup", endHabitDrag);
     document.addEventListener("pointerup", endSwipe);
     document.addEventListener("pointerup", endReviewPress);
     document.addEventListener("pointerup", endHeatmapPress);
     document.addEventListener("pointerup", endCalendarMonthSwipe);
     document.addEventListener("pointerup", endCalendarEventPress);
+    document.addEventListener("pointercancel", cancelHabitDrag);
     document.addEventListener("pointercancel", endSwipe);
     document.addEventListener("pointercancel", endReviewPress);
     document.addEventListener("pointercancel", endHeatmapPress);
@@ -972,6 +1105,7 @@
       const startTaskButton = event.target.closest("[data-start-task]");
       const stopTaskButton = event.target.closest("[data-stop-task]");
       const completeHabitButton = event.target.closest("[data-complete-habit]");
+      const scheduleHabitButton = event.target.closest("[data-schedule-habit]");
       const failTaskButton = event.target.closest("[data-fail-task]");
       const depositFundButton = event.target.closest("[data-deposit-fund]");
       const statsRangeButton = event.target.closest("[data-stats-range]");
@@ -1140,6 +1274,10 @@
       }
       if (stopTaskButton) {
         finishTask(stopTaskButton.dataset.stopTask, stopTaskButton.closest("[data-task-card]"));
+      }
+      if (scheduleHabitButton) {
+        scheduleHabitAsTask(scheduleHabitButton.dataset.scheduleHabit, new Date());
+        return;
       }
       if (completeHabitButton) {
         completeHabit(completeHabitButton.dataset.completeHabit, completeHabitButton.closest("[data-habit-card]"));

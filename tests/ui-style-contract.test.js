@@ -56,6 +56,18 @@ test("日历日期格直接复用新建计划 Sheet，计划条保持独立编�
   assert.doesNotMatch(calendarDayEventsRule, /z-index\s*:/);
 });
 
+test("习惯拖拽复用统一安排入口并使用首页局部 Drop Zone", () => {
+  const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
+  const taskSource = fs.readFileSync(path.join(ROOT, "js/tasks.js"), "utf8");
+  assert.match(indexHtml, /class="today-section today-task-section"[^>]*data-habit-task-drop-zone/);
+  assert.match(uiSource, /function beginHabitDrag\(/);
+  assert.match(uiSource, /scheduleHabitAsTask\(drag\.habitId/);
+  assert.match(uiSource, /data-schedule-habit/);
+  assert.match(taskSource, /function scheduleHabitAsTask\(habitId, startTime/);
+  assert.match(productionCss, /\.today-task-section\.habit-drop-active/);
+  assert.match(productionCss, /\.habit-drag-preview/);
+});
+
 test("撤回提示使用单一紧凑 Snackbar 组件", () => {
   assert.match(indexHtml, /<div class="snackbar" id="toast"/);
   assert.match(feedbackSource, /function renderSnackbar\(/);

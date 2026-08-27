@@ -157,7 +157,8 @@
         if (!taskDay || taskDay > today) return;
         if (!taskHasTime(task)) return;
         if (state.taskResults?.[taskDay]?.[task.id]) return;
-        if (task.status === "completed" || task.status === "failed") return;
+        if (["completed", "done", "failed"].includes(task.status)) return;
+        if (taskIsInProgress(task)) return;
         if (taskAutoFailedOnDate(task.id, taskDay, settledEventKeys)) return;
         if (!taskPastEndTime(task, now)) return;
 

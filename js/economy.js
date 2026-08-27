@@ -227,7 +227,7 @@
       const previousTask = taskPreviousState(task);
       const previousProgress = progressSnapshot(today, task.id);
       const { durationSeconds, durationMinutes, earnedCoins } = taskDurationPayload(
-        task.startTime,
+        taskRunningStartTime(task),
         endTime,
         taskRewardAmount(task)
       );
@@ -263,7 +263,7 @@
           earnedCoins,
           durationMinutes,
           durationSeconds,
-          startTime: task.startTime,
+          startTime: taskRunningStartTime(task),
           endTime
         }
       });
@@ -1504,6 +1504,20 @@
       const undo = pendingUndo;
       clearPendingUndo(true);
       clearTimeout(scheduleRender.timer);
+
+      if (undo.type === "habit_task_scheduled") {
+        const taskExists = state.tasks.some(task => task.id === undo.taskId);
+        if (!taskExists) {
+          showToast("无法撤回");
+          return;
+        }
+        clearNextStepForTask(undo.taskId);
+        state.tasks = state.tasks.filter(task => task.id !== undo.taskId);
+        saveState();
+        render();
+        showToast("已撤回", 1500);
+        return;
+      }
 
       const historyIds = new Set(undo.historyIds || (undo.historyId ? [undo.historyId] : []));
       const hasHistory = Array.from(historyIds).some(id => state.history.some(item => item.id === id));

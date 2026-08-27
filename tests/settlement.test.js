@@ -245,6 +245,56 @@ test("已完成任务即使超过结束时间也不会自动失败", () => {
   assert.equal(value(context, "state.coins"), 2000);
 });
 
+test("已经开始的任务超过计划结束时间仍保持进行中", () => {
+  const running = timedTask({
+    id: "running-task",
+    status: "running",
+    startTime: `${TODAY}T08:30:00.000Z`
+  });
+  const { context } = createRuntime(createState({ tasks: [running] }));
+
+  assert.equal(value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}")).count`), 0);
+  assert.equal(value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}")).count`), 0);
+  assert.equal(value(context, `runPendingSettlements({ now: new Date("${FIXED_NOW}") }).taskFailures.count`), 0);
+  assert.equal(value(context, "state.tasks[0].status"), "running");
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "state.coins"), 2000);
+
+  const reloadedState = value(context, "JSON.parse(JSON.stringify(state))");
+  const reloaded = createRuntime(reloadedState);
+  assert.equal(value(reloaded.context, `runPendingSettlements({ now: new Date("${FIXED_NOW}") }).taskFailures.count`), 0);
+  assert.equal(value(reloaded.context, "state.history.length"), 0);
+  assert.equal(value(reloaded.context, "state.coins"), 2000);
+});
+
+test("跨日进行中的任务不会自动失败", () => {
+  const running = timedTask({
+    id: "cross-day-running",
+    date: YESTERDAY,
+    status: "running",
+    startTime: `${YESTERDAY}T21:30:00.000Z`,
+    timeStart: "21:30",
+    timeEnd: "22:30"
+  });
+  const { context } = createRuntime(createState({ tasks: [running] }));
+
+  const result = value(context, `runPendingSettlements({ now: new Date("${FIXED_NOW}") })`);
+  assert.equal(result.taskFailures.count, 0);
+  assert.equal(value(context, "state.tasks[0].status"), "running");
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "todayTasks().some(task => task.id === 'cross-day-running')"), true);
+});
+
+test("旧任务只有 startedAt 也会被识别为进行中", () => {
+  const legacyRunning = timedTask({ id: "legacy-running" });
+  legacyRunning.startedAt = `${TODAY}T08:30:00.000Z`;
+  const { context } = createRuntime(createState({ tasks: [legacyRunning] }));
+
+  assert.equal(value(context, "taskIsInProgress(state.tasks[0])"), true);
+  assert.equal(value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}")).count`), 0);
+  assert.equal(value(context, "state.history.length"), 0);
+});
+
 test("已完成习惯不会产生未完成处罚", () => {
   const state = createState({
     settledThroughDate: "2026-07-14",
