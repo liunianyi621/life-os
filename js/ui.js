@@ -517,7 +517,7 @@
         renderMemoSummary();
         renderPriorityTask();
         renderNextStepCard();
-        els.habitCount.textContent = `${state.habits.length} 项`;
+        els.habitCount.textContent = `${visibleHabitsToday().length} 项`;
         els.todayTaskCount.textContent = `${activeCount} 项`;
         renderHabits();
         renderTasks();
