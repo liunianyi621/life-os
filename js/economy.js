@@ -1506,13 +1506,14 @@
       clearTimeout(scheduleRender.timer);
 
       if (undo.type === "habit_task_scheduled") {
-        const taskExists = state.tasks.some(task => task.id === undo.taskId);
-        if (!taskExists) {
+        const task = state.tasks.find(item => item.id === undo.taskId);
+        if (!task) {
           showToast("无法撤回");
           return;
         }
         clearNextStepForTask(undo.taskId);
         state.tasks = state.tasks.filter(task => task.id !== undo.taskId);
+        unmarkHabitScheduledAsTask(task.sourceHabitId || undo.habitId, taskDate(task) || undo.date);
         saveState();
         render();
         showToast("已撤回", 1500);

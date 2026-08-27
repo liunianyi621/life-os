@@ -467,10 +467,9 @@ button.summary-card {
   display: inline-flex;
   width: auto;
   max-width: 100%;
-  min-height: 48px;
+  min-height: 44px;
   align-items: center;
-  gap: 9px;
-  padding: 8px 13px 8px 8px;
+  padding: 8px 17px;
   border: 1px solid #e8e8e8;
   border-radius: 16px;
   background: #ffffff;
@@ -494,14 +493,6 @@ button.summary-card {
 .habit-template-chip:focus-visible {
   outline: 2px solid rgba(17, 17, 17, 0.24);
   outline-offset: 2px;
-}
-
-.habit-template-chip .habit-template-chip__tile {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  border-radius: 10px;
-  font-size: 13px;
 }
 
 .habit-template-chip__name {

@@ -632,7 +632,17 @@
         return;
       }
 
-      els.habitList.innerHTML = state.habits.map(habit => `
+      const habits = visibleHabitsToday();
+      if (!habits.length) {
+        els.habitList.innerHTML = `
+          <div class="empty-state">
+            <strong>今天的习惯已安排</strong>
+          </div>
+        `;
+        return;
+      }
+
+      els.habitList.innerHTML = habits.map(habit => `
         <button
           class="habit-template-chip"
           type="button"
@@ -640,7 +650,6 @@
           data-edit-habit="${escapeAttr(habit.id)}"
           aria-label="编辑习惯模板「${escapeAttr(habit.name)}」，长按可安排到今日任务"
         >
-          ${rowTileHtml(escapeHtml(String(habit.name || "习").slice(0, 1)), visualToneForId(habit.id), "habit-template-chip__tile")}
           <span class="habit-template-chip__name">${escapeHtml(habit.name)}</span>
         </button>
       `).join("");

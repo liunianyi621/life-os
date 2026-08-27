@@ -70,8 +70,48 @@
       return !createdDate || createdDate <= day;
     }
 
+    function scheduledHabitDateKey(day = dateKey()) {
+      const candidate = String(day || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return dateKey();
+      return dateKey(dateFromKey(candidate)) === candidate ? candidate : dateKey();
+    }
+
+    function scheduledHabitIdsForDate(day = dateKey()) {
+      const ids = state.scheduledHabitIdsByDate?.[scheduledHabitDateKey(day)];
+      return new Set(Array.isArray(ids) ? ids.map(id => String(id)).filter(Boolean) : []);
+    }
+
+    function habitScheduledAsTaskOnDate(habitId, day = dateKey()) {
+      return scheduledHabitIdsForDate(day).has(String(habitId));
+    }
+
+    function markHabitScheduledAsTask(habitId, day = dateKey()) {
+      const scheduledDay = scheduledHabitDateKey(day);
+      const habitKey = String(habitId || "");
+      if (!habitKey || habitScheduledAsTaskOnDate(habitKey, scheduledDay)) return false;
+      state.scheduledHabitIdsByDate = state.scheduledHabitIdsByDate && typeof state.scheduledHabitIdsByDate === "object"
+        ? state.scheduledHabitIdsByDate
+        : {};
+      state.scheduledHabitIdsByDate[scheduledDay] = [...scheduledHabitIdsForDate(scheduledDay), habitKey];
+      return true;
+    }
+
+    function unmarkHabitScheduledAsTask(habitId, day = dateKey()) {
+      const scheduledDay = scheduledHabitDateKey(day);
+      const habitKey = String(habitId || "");
+      const current = scheduledHabitIdsForDate(scheduledDay);
+      if (!habitKey || !current.delete(habitKey)) return false;
+      if (current.size) state.scheduledHabitIdsByDate[scheduledDay] = [...current];
+      else delete state.scheduledHabitIdsByDate[scheduledDay];
+      return true;
+    }
+
     function visibleHabitsToday() {
-      return state.habits.filter(habit => !habitCompletedToday(habit.id));
+      const today = dateKey();
+      return state.habits.filter(habit => (
+        habitActiveOnDate(habit, today)
+        && !habitScheduledAsTaskOnDate(habit.id, today)
+      ));
     }
     function deleteHabit(habitId) {
       state.habits = state.habits.filter(habit => habit.id !== habitId);

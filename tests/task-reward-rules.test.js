@@ -29,6 +29,7 @@ function emptyState(tasks = [], coins = 1000) {
     completions: {},
     taskResults: {},
     habits: [],
+    scheduledHabitIdsByDate: {},
     habitCompletions: {},
     habitFailures: {},
     taskAutoFailures: {},
@@ -478,7 +479,7 @@ test("迁移标记存在时，新任务的 20 和 200 不会再次乘以 10", ()
   assert.equal(value(reloaded.context, "state.history[0].coins"), 200);
 });
 
-test("习惯可以直接安排为立即开始的一小时任务且不改变习惯和金币", () => {
+test("习惯可以直接安排为立即开始的一小时任务，当天隐藏且不改变习惯和金币", () => {
   const state = emptyState([], 2000);
   state.habits = [{ id: "habit-book", name: "看书", coins: 10, createdDate: DAY }];
   const { context } = createRuntime(state);
@@ -493,6 +494,9 @@ test("习惯可以直接安排为立即开始的一小时任务且不改变习�
   assert.equal(created.coins, 10);
   assert.equal(created.hourlyReward, 10);
   assert.equal(created.reward, 10);
+  assert.equal(created.sourceHabitId, "habit-book");
+  assert.equal(value(context, `habitScheduledAsTaskOnDate("habit-book", "${DAY}")`), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(value(context, "visibleHabitsToday().map(habit => habit.id)"))), []);
   assert.equal(value(context, "state.habitCompletions['2026-07-16']?.['habit-book'] || false"), false);
   assert.equal(value(context, "state.history.length"), 0);
   assert.equal(value(context, "state.coins"), 2000);
@@ -500,8 +504,46 @@ test("习惯可以直接安排为立即开始的一小时任务且不改变习�
 
   value(context, "undoLastAction()");
   assert.equal(value(context, "state.tasks.length"), 0);
+  assert.equal(value(context, `habitScheduledAsTaskOnDate("habit-book", "${DAY}")`), false);
+  assert.deepEqual(JSON.parse(JSON.stringify(value(context, "visibleHabitsToday().map(habit => habit.id)"))), ["habit-book"]);
   assert.equal(value(context, "state.habits.length"), 1);
   assert.equal(value(context, "state.coins"), 2000);
+});
+
+test("当天安排状态按本地日期持久化，同一习惯第二天自然恢复", () => {
+  const state = emptyState([], 2000);
+  state.habits = [{ id: "habit-book", name: "看书", coins: 10, createdDate: DAY }];
+  const { context, storage } = createRuntime(state);
+
+  value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 15, 24))`);
+  const persisted = JSON.parse(storage.get("minimal-discipline-v1"));
+  assert.deepEqual(persisted.scheduledHabitIdsByDate[DAY], ["habit-book"]);
+  assert.equal(value(context, `habitScheduledAsTaskOnDate("habit-book", "2026-07-17")`), false);
+  assert.deepEqual(JSON.parse(JSON.stringify(value(context, `state.habits.filter(habit => !habitScheduledAsTaskOnDate(habit.id, "2026-07-17")).map(habit => habit.id)`))), ["habit-book"]);
+  assert.equal(value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 16, 24))`), null);
+  assert.equal(value(context, "state.tasks.length"), 1);
+});
+
+test("删除未完成的来源任务会恢复当天习惯，终态来源任务不会恢复", () => {
+  const activeState = emptyState([], 2000);
+  activeState.habits = [{ id: "habit-active", name: "看书", coins: 10, createdDate: DAY }];
+  const activeRuntime = createRuntime(activeState);
+  value(activeRuntime.context, "closeSheet = () => {}; scheduleHabitAsTask('habit-active', new Date(2026, 6, 16, 15, 24)); deleteTask(state.tasks[0].id)");
+  assert.equal(value(activeRuntime.context, `habitScheduledAsTaskOnDate("habit-active", "${DAY}")`), false);
+
+  const completedState = emptyState([{
+    id: "source-completed",
+    name: "看书",
+    date: DAY,
+    createdDate: DAY,
+    status: "completed",
+    sourceHabitId: "habit-completed"
+  }], 2000);
+  completedState.habits = [{ id: "habit-completed", name: "看书", coins: 10, createdDate: DAY }];
+  completedState.scheduledHabitIdsByDate = { [DAY]: ["habit-completed"] };
+  const completedRuntime = createRuntime(completedState);
+  value(completedRuntime.context, "closeSheet = () => {}; deleteTask('source-completed')");
+  assert.equal(value(completedRuntime.context, `habitScheduledAsTaskOnDate("habit-completed", "${DAY}")`), true);
 });
 
 test("没有有效奖励的习惯模板回落到今日任务默认奖励", () => {

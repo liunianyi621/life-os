@@ -18,6 +18,7 @@
       completions: {},
       taskResults: {},
       habits: [],
+      scheduledHabitIdsByDate: {},
       habitCompletions: {},
       habitFailures: {},
       taskAutoFailures: {},
@@ -710,6 +711,7 @@
           history: normalizeCoinHistory(saved.history),
           completions: saved.completions && typeof saved.completions === "object" ? saved.completions : {},
           taskResults: saved.taskResults && typeof saved.taskResults === "object" ? saved.taskResults : {},
+          scheduledHabitIdsByDate: saved.scheduledHabitIdsByDate && typeof saved.scheduledHabitIdsByDate === "object" ? saved.scheduledHabitIdsByDate : {},
           habitCompletions: saved.habitCompletions && typeof saved.habitCompletions === "object" ? saved.habitCompletions : {},
           habitFailures: saved.habitFailures && typeof saved.habitFailures === "object" ? saved.habitFailures : {},
           taskAutoFailures: saved.taskAutoFailures && typeof saved.taskAutoFailures === "object" ? saved.taskAutoFailures : {}
@@ -948,6 +950,7 @@
           () => cloneDebugValue({
             completions: state.completions || {},
             taskResults: state.taskResults || {},
+            scheduledHabitIdsByDate: state.scheduledHabitIdsByDate || {},
             habitCompletions: state.habitCompletions || {},
             habitFailures: state.habitFailures || {},
             taskAutoFailures: state.taskAutoFailures || {},

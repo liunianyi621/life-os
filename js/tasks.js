@@ -233,6 +233,11 @@
       const habit = state.habits.find(item => item.id === habitId);
       const start = new Date(startTime);
       if (!habit || Number.isNaN(start.getTime())) return null;
+      const scheduledDay = dateKey(start);
+      if (habitScheduledAsTaskOnDate(habit.id, scheduledDay)) {
+        showToast("今天已安排过该习惯");
+        return null;
+      }
 
       const end = new Date(start);
       end.setMinutes(end.getMinutes() + 60);
@@ -251,11 +256,20 @@
         endTime: null,
         durationMinutes: null,
         durationSeconds: null,
-        earnedCoins: null
+        earnedCoins: null,
+        sourceHabitId: habit.id
       }, start);
 
       state.tasks.push(task);
-      saveState();
+      const markedScheduled = markHabitScheduledAsTask(habit.id, task.date);
+      try {
+        saveState();
+      } catch (error) {
+        state.tasks = state.tasks.filter(item => item.id !== task.id);
+        if (markedScheduled) unmarkHabitScheduledAsTask(habit.id, task.date);
+        showToast("无法安排任务");
+        return null;
+      }
       render();
       try {
         if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10);
@@ -420,8 +434,14 @@
       return groups;
     }
     function deleteTask(taskId) {
+      const task = state.tasks.find(item => item.id === taskId);
       clearNextStepForTask(taskId);
       state.tasks = state.tasks.filter(task => task.id !== taskId);
+      const taskResult = task ? taskResultOnDate(task.id, taskDate(task)) : null;
+      const isTerminal = task && (["completed", "done", "failed"].includes(task.status) || ["completed", "failed"].includes(taskResult));
+      if (task?.sourceHabitId && !isTerminal) {
+        unmarkHabitScheduledAsTask(task.sourceHabitId, taskDate(task));
+      }
       saveState();
       closeSheet();
       render();

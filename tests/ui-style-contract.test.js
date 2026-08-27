@@ -67,9 +67,13 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   assert.match(sheetSource, /data-schedule-habit/);
   assert.match(taskSource, /function scheduleHabitAsTask\(habitId, startTime/);
   assert.match(habitRenderSource, /habit-template-chip/);
+  assert.match(habitRenderSource, /visibleHabitsToday\(\)/);
   assert.doesNotMatch(habitRenderSource, /data-complete-habit/);
   assert.doesNotMatch(habitRenderSource, /data-schedule-habit/);
+  assert.doesNotMatch(habitRenderSource, /habit-template-chip__tile/);
   assert.doesNotMatch(habitRenderSource, /金币/);
+  assert.match(taskSource, /sourceHabitId:\s*habit\.id/);
+  assert.match(taskSource, /markHabitScheduledAsTask\(habit\.id, task\.date\)/);
   assert.match(productionCss, /\.today-task-section\.habit-drop-active/);
   assert.match(productionCss, /\.habit-drag-preview/);
   assert.match(productionCss, /\.habit-template-chip[\s\S]*?-webkit-user-select:\s*none;/);
