@@ -13,34 +13,33 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20260827-habit-drag">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20260827-home-memo">
 </head>
 <body>
   <div class="app q-app">
     <main class="screen q-screen">
       <section class="view active today-page" data-view="today">
-        <header class="header today-header q-page-header">
-          <div>
+        <header class="header today-header q-page-header home-header">
+          <div class="home-header__title">
             <span class="eyebrow" id="todayDate">今天</span>
             <h1>自律系统</h1>
           </div>
-          <button class="icon-button q-icon-button" type="button" data-open-task aria-label="新建任务" data-icon-button="plus"></button>
-        </header>
-
-        <section class="summary-grid today-summary q-summary-grid" aria-label="今日概览">
-          <div class="summary-card q-summary-card">
-            <span class="summary-label">当前金币</span>
-            <div class="summary-value">
+          <div class="home-coin-balance" aria-label="当前金币">
+            <span class="home-coin-balance__label">当前金币</span>
+            <span class="home-coin-balance__amount">
               <strong id="homeCoins">0</strong>
               <span>金币</span>
-            </div>
+            </span>
           </div>
-          <button class="summary-card memo-summary-card q-summary-card" type="button" id="memoSummaryCard" aria-label="打开备忘录">
-            <span class="summary-label">备忘录</span>
-            <div class="summary-value">
-              <strong id="homeMemoCount">0</strong>
-              <span>项</span>
-            </div>
+        </header>
+
+        <section class="home-memo-overview" aria-label="备忘录概览">
+          <button class="home-memo-card" type="button" id="memoSummaryCard" aria-label="打开备忘录">
+            <span class="home-memo-card__header">
+              <span class="home-memo-card__title">备忘录</span>
+              <span class="home-memo-card__count"><strong id="homeMemoCount">0</strong> 项 <span aria-hidden="true">›</span></span>
+            </span>
+            <span class="home-memo-preview" id="homeMemoPreview"></span>
           </button>
         </section>
 
@@ -372,11 +371,11 @@
   <script src="js/settlement.js?v=20260827-habit-template"></script>
   <script src="js/stats-data.js"></script>
   <script src="js/stats.js"></script>
-  <script src="js/ui/elements.js"></script>
+  <script src="js/ui/elements.js?v=20260827-home-memo"></script>
   <script src="js/ui/feedback.js"></script>
   <script src="js/ui/time-picker.js"></script>
   <script src="js/ui/sheets.js"></script>
-  <script src="js/memos.js"></script>
+  <script src="js/memos.js?v=20260827-home-memo"></script>
   <script src="js/ui.js?v=20260827-ios-habit-touch"></script>
 </body>
 </html>

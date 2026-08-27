@@ -19,13 +19,35 @@
       });
     }
 
-    function unfinishedMemoCount() {
-      return memoItems().filter(memo => !memo.completed).length;
-    }
-
     function renderMemoSummary() {
       if (!els.homeMemoCount) return;
-      els.homeMemoCount.textContent = formatNumber(unfinishedMemoCount());
+      const allMemos = sortedMemos();
+      const unfinishedMemos = allMemos.filter(memo => !memo.completed);
+      const previewMemos = unfinishedMemos.slice(0, 3);
+      const remainingCount = unfinishedMemos.length - previewMemos.length;
+
+      els.homeMemoCount.textContent = formatNumber(unfinishedMemos.length);
+      els.memoSummaryCard?.setAttribute(
+        "aria-label",
+        `打开备忘录，${formatNumber(unfinishedMemos.length)} 项待处理`
+      );
+
+      if (!els.homeMemoPreview) return;
+      if (!previewMemos.length) {
+        const hasCompletedMemos = allMemos.some(memo => memo.completed);
+        els.homeMemoPreview.innerHTML = `
+          <span class="home-memo-preview__empty">${hasCompletedMemos ? "没有待处理的备忘录" : "还没有备忘录"}</span>
+          <span class="home-memo-preview__hint">${hasCompletedMemos ? "已完成内容可在完整列表中查看" : "记下稍后需要处理的事情"}</span>
+        `;
+        return;
+      }
+
+      els.homeMemoPreview.innerHTML = `
+        <span class="home-memo-preview__list">
+          ${previewMemos.map(memo => `<span class="home-memo-preview__item">${escapeHtml(memo.text)}</span>`).join("")}
+        </span>
+        ${remainingCount > 0 ? `<span class="home-memo-preview__more">还有 ${formatNumber(remainingCount)} 项</span>` : ""}
+      `;
     }
 
     function setMemoSubmitIcon(icon, label) {
