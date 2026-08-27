@@ -67,78 +67,15 @@
     }
 
     function settleMissedHabits(day = yesterdayKey(), settledEventKeys = buildSettledEventKeys()) {
-      let totalPenalty = 0;
-      const entries = [];
-      state.habits.forEach(habit => {
-        if (!habitActiveOnDate(habit, day)) return;
-        if (habitCompletedOnDate(habit.id, day)) return;
-        if (habitFailedOnDate(habit.id, day)) return;
-
-        const identity = habitFailureSettlementIdentity(habit.id, day);
-        if (settledEventKeys.has(identity)) return;
-
-        const rewardAmount = habitRewardAmount(habit);
-        const amount = getIncompletePenalty(rewardAmount);
-        state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
-        const coinEvent = recordCoinEvent({
-          type: "habit_failed",
-          amount: -amount,
-          date: day,
-          history: {
-            habitId: habit.id,
-            name: habit.name,
-            coins: amount,
-            rewardAmount,
-            penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
-            penaltyAmount: amount,
-            reason: "habit_missed"
-          }
-        });
-        const historyId = coinEvent.historyId;
-        ensureSettlementDayRecord("habitFailures", day)[habit.id] = historyId;
-        settledEventKeys.add(identity);
-        entries.push({
-          historyId,
-          habitId: habit.id,
-          date: day,
-          amount,
-          rewardAmount,
-          penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER
-        });
-        totalPenalty = parseCoinAmount(totalPenalty + amount);
-      });
-      return { count: entries.length, totalPenalty, entries };
+      return { count: 0, totalPenalty: 0, entries: [] };
     }
 
     function settleMissedHabitsThroughDate(lastDay = yesterdayKey(), settledEventKeys = buildSettledEventKeys()) {
-      let checkedThrough = state.settledThroughDate || shiftDateKey(lastDay, -1);
-      const previousCheckedThrough = checkedThrough;
-      const entries = [];
-      let totalPenalty = 0;
-
-      if (checkedThrough >= lastDay) {
-        return {
-          count: 0,
-          totalPenalty: 0,
-          entries,
-          checkedThroughChanged: false
-        };
-      }
-
-      while (checkedThrough < lastDay) {
-        const day = shiftDateKey(checkedThrough, 1);
-        const result = settleMissedHabits(day, settledEventKeys);
-        entries.push(...result.entries);
-        totalPenalty = parseCoinAmount(totalPenalty + result.totalPenalty);
-        checkedThrough = day;
-      }
-
-      state.settledThroughDate = lastDay;
       return {
-        count: entries.length,
-        totalPenalty,
-        entries,
-        checkedThroughChanged: previousCheckedThrough !== lastDay
+        count: 0,
+        totalPenalty: 0,
+        entries: [],
+        checkedThroughChanged: false
       };
     }
 

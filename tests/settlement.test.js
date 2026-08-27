@@ -186,19 +186,20 @@ test("启动、切换页面、刷新后的重复检查不会重复结算", () =>
   assert.equal(value(refreshed.context, "state.coins"), 1800);
 });
 
-test("习惯未完成按自身奖励乘以 10 自动扣除", () => {
+test("习惯模板未使用不会自动扣除", () => {
   const state = createState({
     habits: [{ id: "habit-1", name: "收拾屋子", coins: 10, createdDate: "2026-07-14" }]
   });
   const { context } = createRuntime(state);
   const result = value(context, `settleMissedHabits("${YESTERDAY}")`);
 
-  assert.equal(result.count, 1);
-  assert.equal(result.totalPenalty, 100);
-  assert.equal(value(context, "state.history[0].coinDelta"), -100);
+  assert.equal(result.count, 0);
+  assert.equal(result.totalPenalty, 0);
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "state.coins"), 2000);
 });
 
-test("同一个习惯同一天重复检查只扣一次", () => {
+test("习惯模板重复自动检查也不会生成失败事件", () => {
   const state = createState({
     habits: [{ id: "habit-1", name: "看书", coins: 10, createdDate: "2026-07-14" }]
   });
@@ -208,8 +209,8 @@ test("同一个习惯同一天重复检查只扣一次", () => {
   value(context, `settleMissedHabits("${YESTERDAY}")`);
   value(context, `settleMissedHabits("${YESTERDAY}")`);
 
-  assert.equal(countHistory(context, "habit_failed"), 1);
-  assert.equal(value(context, "state.coins"), 1900);
+  assert.equal(countHistory(context, "habit_failed"), 0);
+  assert.equal(value(context, "state.coins"), 2000);
 });
 
 test("重点事项跨日未完成固定扣除 500 且重复扫描只结算一次", () => {
@@ -303,7 +304,7 @@ test("已完成习惯不会产生未完成处罚", () => {
   });
   const { context } = createRuntime(state);
 
-  assert.equal(value(context, "runAutomaticChecks({ showToast: false })"), true);
+  assert.equal(value(context, "runAutomaticChecks({ showToast: false })"), false);
   assert.equal(countHistory(context, "habit_failed"), 0);
   assert.equal(value(context, "state.coins"), 2000);
 });
@@ -365,7 +366,7 @@ test("旧任务、习惯和重点事项历史共同进入统一结算索引", ()
   assert.equal(result.taskFailures.count, 0);
   assert.equal(result.habitFailures.count, 0);
   assert.equal(result.priorityFailures.count, 0);
-  assert.equal(result.changed, true);
+  assert.equal(result.changed, false);
   assert.equal(value(context, "state.history.length"), 3);
   assert.equal(value(context, "state.coins"), 2000);
 });

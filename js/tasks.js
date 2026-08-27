@@ -198,6 +198,13 @@
       };
     }
 
+    function habitTaskRewardAmount(habit) {
+      const configuredReward = [habit?.coins, habit?.reward, habit?.hourlyReward]
+        .map(value => Number(value))
+        .find(value => Number.isFinite(value) && value > 0);
+      return configuredReward == null ? DEFAULT_TASK_REWARD : parseCoinAmount(configuredReward);
+    }
+
     function saveTask(taskData) {
       if (!taskData.name) {
         showToast("请输入任务名称");
@@ -230,15 +237,16 @@
       const end = new Date(start);
       end.setMinutes(end.getMinutes() + 60);
       const startedAt = start.toISOString();
+      const rewardAmount = habitTaskRewardAmount(habit);
       const task = createTaskRecord({
         name: habit.name,
-        coins: DEFAULT_TASK_REWARD,
-        hourlyReward: DEFAULT_TASK_REWARD,
-        reward: DEFAULT_TASK_REWARD,
+        coins: rewardAmount,
+        hourlyReward: rewardAmount,
+        reward: rewardAmount,
         timeStart: minutesToClockLabel(start.getHours() * 60 + start.getMinutes()),
         timeEnd: minutesToClockLabel(end.getHours() * 60 + end.getMinutes()),
         time: minutesToClockLabel(start.getHours() * 60 + start.getMinutes()),
-        status: "running",
+        status: "in_progress",
         startTime: startedAt,
         endTime: null,
         durationMinutes: null,
@@ -261,7 +269,7 @@
         name: task.name,
         date: task.date
       }, {
-        message: `已安排「${task.name}」 · ${task.timeStart}–${task.timeEnd}`,
+        message: `已开始「${task.name}」`,
         undoLabel: "撤回",
         duration: 5000,
         iconTone: "neutral"

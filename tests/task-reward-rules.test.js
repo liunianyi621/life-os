@@ -325,53 +325,17 @@ test("跨日计时任务仍按原任务奖励乘以 10，并且只结算一次",
   assert.equal(value(context, "state.coins"), 700);
 });
 
-test("习惯完成使用自身奖励，未完成统一按奖励乘以 10", () => {
-  const completedState = emptyState([], 1000);
-  completedState.habits = [{ id: "habit-complete", name: "收拾屋子", coins: 10, createdDate: "2026-07-15" }];
-  const completedRuntime = createRuntime(completedState);
-  value(completedRuntime.context, `completeHabit("habit-complete")`);
-  assert.equal(value(completedRuntime.context, "state.coins"), 1010);
-  assert.equal(value(completedRuntime.context, "state.history[0].coinDelta"), 10);
-
-  const missedState = emptyState([], 1000);
-  missedState.habits = [{ id: "habit-missed", name: "收拾屋子", coins: 10, createdDate: "2026-07-14" }];
-  const missedRuntime = createRuntime(missedState);
-  const missed = value(missedRuntime.context, `settleMissedHabits("2026-07-15")`);
-  assert.equal(missed.count, 1);
-  assert.equal(missed.totalPenalty, 100);
-  assert.equal(value(missedRuntime.context, "state.coins"), 900);
-  assert.equal(value(missedRuntime.context, "state.history[0].coinDelta"), -100);
-  assert.equal(value(missedRuntime.context, "state.history[0].rewardAmount"), 10);
-  assert.equal(value(missedRuntime.context, "state.history[0].penaltyMultiplier"), 10);
-  assert.equal(value(missedRuntime.context, "state.history[0].penaltyAmount"), 100);
-  assert.equal(value(missedRuntime.context, "state.history[0].habitId"), "habit-missed");
-  assert.equal(value(missedRuntime.context, "state.history[0].source"), "behavior");
-  assert.equal(value(missedRuntime.context, `settleMissedHabits("2026-07-15").count`), 0);
-  assert.equal(value(missedRuntime.context, "state.coins"), 900);
-
-  const twentyState = emptyState([], 1000);
-  twentyState.habits = [{ id: "habit-twenty", name: "看书", coins: 20, createdDate: "2026-07-14" }];
-  const twentyRuntime = createRuntime(twentyState);
-  value(twentyRuntime.context, `settleMissedHabits("2026-07-15")`);
-  assert.equal(value(twentyRuntime.context, "state.coins"), 800);
-  assert.equal(value(twentyRuntime.context, "state.history[0].coinDelta"), -200);
-});
-
-test("习惯跨日结算补齐未检查日期，撤回读取历史实际扣除", () => {
+test("习惯模板不再产生完成奖励或每日未完成处罚", () => {
   const state = emptyState([], 1000);
   state.settledThroughDate = "2026-07-14";
-  state.habits = [{ id: "habit-undo", name: "看书", coins: 10, createdDate: "2026-07-15" }];
+  state.habits = [{ id: "habit-template", name: "看书", coins: 10, createdDate: "2026-07-15" }];
   const { context } = createRuntime(state);
 
-  value(context, "runAutomaticChecks()");
-  assert.equal(value(context, "state.settledThroughDate"), "2026-07-15");
-  assert.equal(value(context, "state.coins"), 900);
-  assert.equal(value(context, "state.history[0].coinDelta"), -100);
-  value(context, "pendingUndo.habitEntries[0].amount = 1; undoLastAction()");
-  assert.equal(value(context, "state.coins"), 1000);
-  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, `settleMissedHabits("2026-07-15").count`), 0);
   assert.equal(value(context, "runAutomaticChecks()"), false);
   assert.equal(value(context, "state.coins"), 1000);
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "state.habitCompletions['2026-07-16']?.['habit-template'] || false"), false);
 });
 
 test("自动检查不再生成无坏习惯奖励", () => {
@@ -456,11 +420,21 @@ test("当天时间线按真实时间倒序并兼容任务、习惯和奖励流�
   ]);
 });
 
-test("当天纠正自动习惯失败后保留既有结算标记", async () => {
-  const state = emptyState([], 1000);
+test("当天纠正旧习惯失败历史后保留既有结算标记", async () => {
+  const state = emptyState([], 900);
   state.habits = [{ id: "habit-corrected", name: "看书", coins: 10, createdDate: DAY }];
+  state.history = [{
+    id: "legacy-habit-failure",
+    type: "habit_failed",
+    habitId: "habit-corrected",
+    name: "看书",
+    date: DAY,
+    timestamp: `${DAY}T08:00:00.000Z`,
+    coins: 100,
+    coinDelta: -100
+  }];
+  state.habitFailures[DAY] = { "habit-corrected": "legacy-habit-failure" };
   const { context } = createRuntime(state);
-  value(context, `settleMissedHabits("${DAY}")`);
   const historyId = value(context, "state.history[0].id");
   value(context, `askForConfirmation = async () => true; refreshAfterDayRecordCorrection = () => {};`);
 
@@ -468,6 +442,7 @@ test("当天纠正自动习惯失败后保留既有结算标记", async () => {
 
   assert.equal(value(context, `Boolean(state.habitFailures["${DAY}"]["habit-corrected"])`), true);
   assert.equal(value(context, `settleMissedHabits("${DAY}").count`), 0);
+  assert.equal(value(context, "state.coins"), 1000);
 });
 
 test("当天纠正自动重点事项失败后不会再次跨日扣除", async () => {
@@ -513,9 +488,11 @@ test("习惯可以直接安排为立即开始的一小时任务且不改变习�
   assert.equal(created.name, "看书");
   assert.equal(created.timeStart, "15:24");
   assert.equal(created.timeEnd, "16:24");
-  assert.equal(created.status, "running");
+  assert.equal(created.status, "in_progress");
   assert.equal(Boolean(created.startTime), true);
-  assert.equal(created.hourlyReward, 20);
+  assert.equal(created.coins, 10);
+  assert.equal(created.hourlyReward, 10);
+  assert.equal(created.reward, 10);
   assert.equal(value(context, "state.habitCompletions['2026-07-16']?.['habit-book'] || false"), false);
   assert.equal(value(context, "state.history.length"), 0);
   assert.equal(value(context, "state.coins"), 2000);
@@ -525,6 +502,35 @@ test("习惯可以直接安排为立即开始的一小时任务且不改变习�
   assert.equal(value(context, "state.tasks.length"), 0);
   assert.equal(value(context, "state.habits.length"), 1);
   assert.equal(value(context, "state.coins"), 2000);
+});
+
+test("没有有效奖励的习惯模板回落到今日任务默认奖励", () => {
+  const state = emptyState([], 2000);
+  state.habits = [{ id: "habit-no-reward", name: "整理桌面", coins: null, createdDate: DAY }];
+  const { context } = createRuntime(state);
+
+  const created = value(context, `scheduleHabitAsTask("habit-no-reward", new Date(2026, 6, 16, 15, 24))`);
+  assert.equal(created.coins, 20);
+  assert.equal(created.hourlyReward, 20);
+  assert.equal(created.reward, 20);
+});
+
+test("习惯当前金币配置优先于旧奖励兼容字段", () => {
+  const state = emptyState([], 2000);
+  state.habits = [{
+    id: "habit-current-reward",
+    name: "看书",
+    coins: 10,
+    reward: 15,
+    hourlyReward: 20,
+    createdDate: DAY
+  }];
+  const { context } = createRuntime(state);
+
+  const created = value(context, `scheduleHabitAsTask("habit-current-reward", new Date(2026, 6, 16, 15, 24))`);
+  assert.equal(created.coins, 10);
+  assert.equal(created.hourlyReward, 10);
+  assert.equal(created.reward, 10);
 });
 
 test("重点事项完成和主动失败固定使用 100 / 500，并按历史实际金额撤回", () => {

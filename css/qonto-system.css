@@ -417,40 +417,106 @@ button.summary-card {
 .today-task-section {
   position: relative;
   border-radius: var(--radius-lg);
-  transition: background-color 160ms ease, outline-color 160ms ease;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
 }
 
 .today-task-section.habit-drop-available {
-  outline: 1px solid #cfdbea;
-  outline-offset: 6px;
+  box-shadow: inset 0 0 0 1px #d6e0eb;
 }
 
 .today-task-section.habit-drop-active {
-  background: #eef4fb;
-  outline-color: #9eb8d6;
+  background: #f3f7fb;
+  box-shadow: inset 0 0 0 1px #8eaccd;
 }
 
 .today-task-section.habit-drop-active::after {
   position: absolute;
-  z-index: 8;
-  inset: -6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #9eb8d6;
-  border-radius: var(--radius-lg);
-  background: rgba(238, 244, 251, 0.92);
+  z-index: 4;
+  top: 48px;
+  left: 50%;
+  padding: 6px 10px;
+  border: 1px solid #c8d7e7;
+  border-radius: 999px;
+  background: #ffffff;
   color: var(--color-text-primary);
-  content: "放到这里，安排接下来一小时";
-  font-size: 14px;
+  content: "松手安排接下来 1 小时";
+  font-size: 12px;
   font-weight: 650;
+  line-height: 1.2;
   pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
-#habitList .habit-drag-source .swipe-card {
+.today-page #habitList.habit-template-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.today-page #habitList.habit-template-grid .empty-state {
+  width: 100%;
+}
+
+.habit-template-chip {
+  display: inline-flex;
+  width: auto;
+  max-width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 13px 8px 8px;
+  border: 1px solid #e8e8e8;
+  border-radius: 16px;
+  background: #ffffff;
+  color: var(--color-text-primary);
+  box-shadow: none;
+  font: inherit;
+  text-align: left;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+
+.habit-template-chip * {
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+
+.habit-template-chip:focus-visible {
+  outline: 2px solid rgba(17, 17, 17, 0.24);
+  outline-offset: 2px;
+}
+
+.habit-template-chip .habit-template-chip__tile {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.habit-template-chip__name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.habit-template-chip.habit-drag-source {
   opacity: 0.65;
   box-shadow: var(--shadow-card);
-  transform: translateX(var(--swipe-offset, 0)) scale(0.98);
+  transform: scale(0.98);
 }
 
 .habit-drag-preview {
@@ -469,7 +535,11 @@ button.summary-card {
   box-shadow: var(--shadow-floating);
   color: var(--color-text-primary);
   pointer-events: none;
+  touch-action: none;
+  user-select: none;
   will-change: transform;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
 }
 
 .habit-drag-preview strong {
@@ -487,6 +557,16 @@ button.summary-card {
 
 body.habit-dragging {
   user-select: none;
+  -webkit-user-select: none;
+}
+
+body.habit-dragging .habit-template-chip {
+  touch-action: none;
+}
+
+.habit-template-sheet-action {
+  width: 100%;
+  min-height: 52px;
 }
 
 .q-list-section,

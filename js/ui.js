@@ -130,6 +130,7 @@
       suppressNextCardTap = true;
       drag.row.classList.add("habit-drag-source");
       document.body.classList.add("habit-dragging");
+      document.getSelection?.()?.removeAllRanges();
       habitTaskDropZone()?.classList.add("habit-drop-available");
       const preview = document.createElement("div");
       preview.className = "habit-drag-preview";
@@ -163,10 +164,10 @@
 
     function beginHabitDrag(event) {
       if (event.pointerType === "mouse" && event.button !== 0) return;
-      if (event.target.closest("button, input, textarea, select, a")) return;
       const row = event.target.closest("[data-habit-card]");
       if (!row) return;
-      const card = row.querySelector("[data-swipe-content]") || row;
+      if (event.target.closest("input, textarea, select, a")) return;
+      const card = row;
       const habit = state.habits.find(item => item.id === row.dataset.habitCard);
       if (!habit) return;
 
@@ -186,7 +187,7 @@
         preview: null,
         timer: null
       };
-      activeHabitDrag.timer = window.setTimeout(() => activateHabitDrag(activeHabitDrag), 430);
+      activeHabitDrag.timer = window.setTimeout(() => activateHabitDrag(activeHabitDrag), 400);
       card.setPointerCapture?.(event.pointerId);
     }
 
@@ -512,12 +513,11 @@
     function renderActiveView(view = activeViewName()) {
       if (view === "today") {
         const activeCount = activeTasksToday().length;
-        const visibleHabitCount = visibleHabitsToday().length;
         els.todayDate.textContent = formatDate();
         renderMemoSummary();
         renderPriorityTask();
         renderNextStepCard();
-        els.habitCount.textContent = `${visibleHabitCount} 项`;
+        els.habitCount.textContent = `${state.habits.length} 项`;
         els.todayTaskCount.textContent = `${activeCount} 项`;
         renderHabits();
         renderTasks();
@@ -632,44 +632,18 @@
         return;
       }
 
-      const activeHabits = visibleHabitsToday();
-      if (!activeHabits.length) {
-        els.habitList.innerHTML = `
-          <div class="empty-state">
-            <strong>今日习惯已清空</strong>
-            <p>完成的习惯已经收起，明天会自动重新出现。</p>
-          </div>
-        `;
-        return;
-      }
-
-      els.habitList.innerHTML = activeHabits.map(habit => swipeRowHtml({
-        attrs: `data-habit-card="${escapeAttr(habit.id)}"`,
-        editType: "habit",
-        editId: habit.id,
-        actions: actionButtonHtml({
-          tone: "green",
-          icon: "checkmark.circle",
-          label: "习惯达成",
-          attrs: `data-complete-habit="${escapeAttr(habit.id)}"`
-        }) + actionButtonHtml({
-          tone: "blue",
-          icon: "play.circle",
-          label: `安排「${habit.name}」接下来一小时`,
-          attrs: `data-schedule-habit="${escapeAttr(habit.id)}"`
-        }),
-        content: `
-            ${rowTileHtml(escapeHtml(String(habit.name || "习").slice(0, 1)), visualToneForId(habit.id), "habit-row-tile")}
-            <div class="card-main">
-              <div class="title-wrap">
-                <h3>${escapeHtml(habit.name)}</h3>
-                <div class="meta-row">
-                  <span class="pill coin-pill">${formatNumber(habitRewardAmount(habit))} 金币</span>
-                </div>
-              </div>
-            </div>
-        `
-      })).join("");
+      els.habitList.innerHTML = state.habits.map(habit => `
+        <button
+          class="habit-template-chip"
+          type="button"
+          data-habit-card="${escapeAttr(habit.id)}"
+          data-edit-habit="${escapeAttr(habit.id)}"
+          aria-label="编辑习惯模板「${escapeAttr(habit.name)}」，长按可安排到今日任务"
+        >
+          ${rowTileHtml(escapeHtml(String(habit.name || "习").slice(0, 1)), visualToneForId(habit.id), "habit-template-chip__tile")}
+          <span class="habit-template-chip__name">${escapeHtml(habit.name)}</span>
+        </button>
+      `).join("");
     }
 
     function taskMetaHtml(task, status) {
@@ -1083,6 +1057,7 @@
       const swipeActionButton = event.target.closest(".swipe-action");
       const swipeContent = event.target.closest("[data-swipe-content]");
       const editCard = event.target.closest("[data-edit-card]");
+      const habitCard = event.target.closest("[data-habit-card]");
       const reviewCard = event.target.closest("[data-review-card]");
       const navButton = event.target.closest("[data-nav]");
       const exportDebugTarget = event.target.closest("[data-export-debug]");
@@ -1104,7 +1079,6 @@
       const failPriorityButton = event.target.closest("[data-fail-priority]");
       const startTaskButton = event.target.closest("[data-start-task]");
       const stopTaskButton = event.target.closest("[data-stop-task]");
-      const completeHabitButton = event.target.closest("[data-complete-habit]");
       const scheduleHabitButton = event.target.closest("[data-schedule-habit]");
       const failTaskButton = event.target.closest("[data-fail-task]");
       const depositFundButton = event.target.closest("[data-deposit-fund]");
@@ -1218,7 +1192,7 @@
       if (!event.target.closest("[data-swipe-row]")) {
         closeOpenSwipeRows();
       }
-      if (suppressNextCardTap && (swipeContent || editCard || reviewCard)) {
+      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard)) {
         suppressNextCardTap = false;
         return;
       }
@@ -1276,11 +1250,9 @@
         finishTask(stopTaskButton.dataset.stopTask, stopTaskButton.closest("[data-task-card]"));
       }
       if (scheduleHabitButton) {
+        if (scheduleHabitButton.closest("#sheetBackdrop")) closeSheet();
         scheduleHabitAsTask(scheduleHabitButton.dataset.scheduleHabit, new Date());
         return;
-      }
-      if (completeHabitButton) {
-        completeHabit(completeHabitButton.dataset.completeHabit, completeHabitButton.closest("[data-habit-card]"));
       }
       if (failTaskButton) {
         failTask(failTaskButton.dataset.failTask, failTaskButton.closest("[data-task-card]"));
@@ -1433,13 +1405,27 @@
     });
 
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible") {
+        clearHabitDrag();
+        return;
+      }
       const dateChanged = syncLocalDateContext();
       if (runAutomaticChecks() || dateChanged) render();
     });
     window.addEventListener("focus", () => {
       const dateChanged = syncLocalDateContext();
       if (runAutomaticChecks() || dateChanged) render();
+    });
+    window.addEventListener("blur", clearHabitDrag);
+
+    document.addEventListener("selectstart", event => {
+      if (event.target.closest?.("[data-habit-card]")) event.preventDefault();
+    });
+    document.addEventListener("contextmenu", event => {
+      if (event.target.closest?.("[data-habit-card]")) event.preventDefault();
+    });
+    document.addEventListener("dragstart", event => {
+      if (event.target.closest?.("[data-habit-card]")) event.preventDefault();
     });
 
     installSheetViewportSync();

@@ -270,9 +270,15 @@
             <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入习惯名称" required>
           </label>
           <label class="field">
-            <span class="field-label">金币数量</span>
+            <span class="field-label">任务奖励金额</span>
             <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${habit?.coins ?? ""}" placeholder="0">
+            <span class="field-help">生成的一小时任务使用此奖励；未设置时使用今日任务默认奖励。</span>
           </label>
+          ${habit ? `
+            <button class="q-secondary-button habit-template-sheet-action" type="button" data-schedule-habit="${escapeAttr(habit.id)}">
+              开始做这件事
+            </button>
+          ` : ""}
         `,
         submitLabel: habit ? "保存习惯" : "创建习惯",
         dangerHtml: habit
