@@ -546,11 +546,15 @@ button.summary-card {
   font-size: 12px;
 }
 
+html.habit-dragging,
 body.habit-dragging {
+  overflow: hidden;
+  overscroll-behavior: none;
   user-select: none;
   -webkit-user-select: none;
 }
 
+body.habit-dragging .habit-template-chip.habit-drag-source,
 body.habit-dragging .habit-template-chip {
   touch-action: none;
 }

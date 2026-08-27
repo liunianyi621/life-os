@@ -81,6 +81,20 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   assert.match(productionCss, /\.habit-template-grid\s*\{[\s\S]*?flex-wrap:\s*wrap;/);
 });
 
+test("习惯拖拽只在长按确认后锁定滚动，并为 iOS 保留非 passive 兜底", () => {
+  const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
+  assert.match(uiSource, /phase:\s*"pressing"/);
+  assert.match(uiSource, /drag\.phase\s*=\s*"dragging"/);
+  assert.match(uiSource, /drag\.card\.setPointerCapture\?\.\(drag\.pointerId\)/);
+  assert.doesNotMatch(uiSource, /activeHabitDrag\.timer[\s\S]{0,120}card\.setPointerCapture/);
+  assert.match(uiSource, /document\.addEventListener\("pointermove", moveHabitDrag, \{ passive: false \}\)/);
+  assert.match(uiSource, /document\.addEventListener\("touchmove", preventHabitDragTouchScroll, \{ passive: false \}\)/);
+  assert.match(uiSource, /if \(event\.cancelable\) event\.preventDefault\(\);/);
+  assert.match(uiSource, /window\.addEventListener\("pagehide", clearHabitDrag\)/);
+  assert.match(productionCss, /html\.habit-dragging,[\s\S]*?overflow:\s*hidden;/);
+  assert.match(productionCss, /body\.habit-dragging \.habit-template-chip\.habit-drag-source[\s\S]*?touch-action:\s*none;/);
+});
+
 test("撤回提示使用单一紧凑 Snackbar 组件", () => {
   assert.match(indexHtml, /<div class="snackbar" id="toast"/);
   assert.match(feedbackSource, /function renderSnackbar\(/);
