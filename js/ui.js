@@ -2,8 +2,12 @@
     let activeCalendarMonthSwipe = null;
     let activeCalendarEventPress = null;
     let activeHabitDrag = null;
+    let habitTouchListenersInstalled = false;
     let suppressCalendarEventTap = false;
     let suppressCalendarDateTap = false;
+    const HABIT_DRAG_LONG_PRESS_MS = 400;
+    const HABIT_DRAG_SCROLL_THRESHOLD = 8;
+    const HABIT_TOUCH_LISTENER_OPTIONS = { passive: false, capture: true };
 
     function swipeRowHtml({ attrs = "", actionWidth = 84, actions = "", content = "", editType = "", editId = "", extraClass = "" }) {
       const editAttrs = editType && editId
@@ -124,6 +128,61 @@
       dropZone?.classList.toggle("habit-drop-active", drag.overDropZone);
     }
 
+    function touchWithIdentifier(touchList, identifier) {
+      return Array.from(touchList || []).find(touch => touch.identifier === identifier) || null;
+    }
+
+    function habitDragTargetFromEvent(event) {
+      const row = event.target.closest?.("[data-habit-card]");
+      if (!row || event.target.closest?.("input, textarea, select, a")) return null;
+      const habit = state.habits.find(item => item.id === row.dataset.habitCard);
+      return habit ? { row, card: row, habit } : null;
+    }
+
+    function createHabitDragState({ target, inputMode, inputId, clientX, clientY }) {
+      return {
+        row: target.row,
+        card: target.card,
+        habitId: target.habit.id,
+        habitName: target.habit.name,
+        inputMode,
+        pointerId: inputMode === "pointer" ? inputId : null,
+        touchIdentifier: inputMode === "touch" ? inputId : null,
+        startX: clientX,
+        startY: clientY,
+        lastX: clientX,
+        lastY: clientY,
+        moved: false,
+        dragging: false,
+        phase: "pressing",
+        overDropZone: false,
+        preview: null,
+        previewStartX: null,
+        previewStartY: null,
+        coordinateUpdates: 0,
+        touchMoveEvents: 0,
+        timer: null,
+        developmentTimer: null,
+        scrollLock: null
+      };
+    }
+
+    function installHabitTouchListeners() {
+      if (habitTouchListenersInstalled) return;
+      habitTouchListenersInstalled = true;
+      document.addEventListener("touchmove", moveHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS);
+      document.addEventListener("touchend", endHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS);
+      document.addEventListener("touchcancel", cancelHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS);
+    }
+
+    function removeHabitTouchListeners() {
+      if (!habitTouchListenersInstalled) return;
+      habitTouchListenersInstalled = false;
+      document.removeEventListener("touchmove", moveHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS);
+      document.removeEventListener("touchend", endHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS);
+      document.removeEventListener("touchcancel", cancelHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS);
+    }
+
     function lockHabitDragScroll(drag) {
       const scrollTarget = document.scrollingElement || document.documentElement;
       const isDocumentScroll = scrollTarget === document.documentElement || scrollTarget === document.body;
@@ -132,37 +191,27 @@
         isDocumentScroll,
         scrollTop: isDocumentScroll ? window.scrollY : scrollTarget.scrollTop,
         targetOverflow: scrollTarget.style.overflow,
-        bodyPosition: document.body.style.position,
-        bodyTop: document.body.style.top,
-        bodyLeft: document.body.style.left,
-        bodyRight: document.body.style.right,
-        bodyWidth: document.body.style.width
+        targetOverscrollBehavior: scrollTarget.style.overscrollBehavior
       };
       scrollTarget.style.overflow = "hidden";
+      scrollTarget.style.overscrollBehavior = "none";
       document.documentElement.classList.add("habit-dragging");
       document.body.classList.add("habit-dragging");
+      holdHabitDragScroll(drag);
+    }
 
-      // iOS Safari can keep panning the document after Pointer Events begin.
-      // Pin the document at its current position until this drag finishes.
-      if (isDocumentScroll) {
-        document.body.style.position = "fixed";
-        document.body.style.top = `-${drag.scrollLock.scrollTop}px`;
-        document.body.style.left = "0";
-        document.body.style.right = "0";
-        document.body.style.width = "100%";
-      }
+    function holdHabitDragScroll(drag) {
+      const lock = drag?.scrollLock;
+      if (!lock) return;
+      lock.scrollTarget.scrollTop = lock.scrollTop;
     }
 
     function restoreHabitDragScroll(drag) {
       const lock = drag?.scrollLock;
       if (!lock) return;
       lock.scrollTarget.style.overflow = lock.targetOverflow;
+      lock.scrollTarget.style.overscrollBehavior = lock.targetOverscrollBehavior;
       if (lock.isDocumentScroll) {
-        document.body.style.position = lock.bodyPosition;
-        document.body.style.top = lock.bodyTop;
-        document.body.style.left = lock.bodyLeft;
-        document.body.style.right = lock.bodyRight;
-        document.body.style.width = lock.bodyWidth;
         window.scrollTo(0, lock.scrollTop);
       } else {
         lock.scrollTarget.scrollTop = lock.scrollTop;
@@ -174,7 +223,7 @@
       drag.phase = "dragging";
       drag.dragging = true;
       suppressNextCardTap = true;
-      drag.card.setPointerCapture?.(drag.pointerId);
+      if (drag.inputMode === "pointer") drag.card.setPointerCapture?.(drag.pointerId);
       lockHabitDragScroll(drag);
       drag.row.classList.add("habit-drag-source");
       document.getSelection?.()?.removeAllRanges();
@@ -186,8 +235,18 @@
       preview.querySelector("strong").textContent = drag.habitName;
       document.body.appendChild(preview);
       drag.preview = preview;
+      drag.previewStartX = drag.lastX;
+      drag.previewStartY = drag.lastY;
       positionHabitDragPreview(drag, drag.lastX, drag.lastY);
       updateHabitDropState(drag, drag.lastX, drag.lastY);
+      if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+        drag.developmentTimer = window.setTimeout(() => {
+          if (activeHabitDrag !== drag || !drag.dragging) return;
+          if (drag.touchMoveEvents > 0 && drag.coordinateUpdates === 0) {
+            console.warn("Habit drag entered dragging state but touch coordinates are not updating.");
+          }
+        }, 160);
+      }
       try {
         if (navigator.vibrate) navigator.vibrate(10);
       } catch (error) {
@@ -200,7 +259,9 @@
       const drag = activeHabitDrag;
       activeHabitDrag = null;
       clearTimeout(drag.timer);
-      drag.card?.releasePointerCapture?.(drag.pointerId);
+      clearTimeout(drag.developmentTimer);
+      removeHabitTouchListeners();
+      if (drag.inputMode === "pointer") drag.card?.releasePointerCapture?.(drag.pointerId);
       restoreHabitDragScroll(drag);
       drag.row?.classList.remove("habit-drag-source");
       drag.preview?.remove();
@@ -211,43 +272,31 @@
       return drag;
     }
 
-    function beginHabitDrag(event) {
+    function beginHabitPointerDrag(event) {
+      if (event.pointerType === "touch") return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
-      const row = event.target.closest("[data-habit-card]");
-      if (!row) return;
-      if (event.target.closest("input, textarea, select, a")) return;
-      const card = row;
-      const habit = state.habits.find(item => item.id === row.dataset.habitCard);
-      if (!habit) return;
+      const target = habitDragTargetFromEvent(event);
+      if (!target || activeHabitDrag) return;
 
-      activeHabitDrag = {
-        row,
-        card,
-        habitId: habit.id,
-        habitName: habit.name,
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        lastX: event.clientX,
-        lastY: event.clientY,
-        moved: false,
-        dragging: false,
-        phase: "pressing",
-        overDropZone: false,
-        preview: null,
-        timer: null,
-        scrollLock: null
-      };
-      activeHabitDrag.timer = window.setTimeout(() => activateHabitDrag(activeHabitDrag), 400);
+      activeHabitDrag = createHabitDragState({
+        target,
+        inputMode: "pointer",
+        inputId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY
+      });
+      const drag = activeHabitDrag;
+      drag.timer = window.setTimeout(() => activateHabitDrag(drag), HABIT_DRAG_LONG_PRESS_MS);
     }
 
-    function moveHabitDrag(event) {
-      if (!activeHabitDrag || event.pointerId !== activeHabitDrag.pointerId) return;
+    function moveHabitPointerDrag(event) {
+      if (!activeHabitDrag || activeHabitDrag.inputMode !== "pointer") return;
+      if (event.pointerId !== activeHabitDrag.pointerId) return;
       const drag = activeHabitDrag;
       drag.lastX = event.clientX;
       drag.lastY = event.clientY;
       const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
-      if (!drag.dragging && distance > 12) {
+      if (drag.phase === "pressing" && distance > HABIT_DRAG_SCROLL_THRESHOLD) {
         drag.moved = true;
         clearHabitDrag();
         return;
@@ -258,13 +307,55 @@
       updateHabitDropState(drag, event.clientX, event.clientY);
     }
 
-    function preventHabitDragTouchScroll(event) {
-      if (!activeHabitDrag?.dragging || !event.cancelable) return;
-      event.preventDefault();
+    function beginHabitTouchDrag(event) {
+      if (activeHabitDrag) return;
+      const target = habitDragTargetFromEvent(event);
+      if (!target || event.touches.length !== 1) return;
+      const touch = event.changedTouches[0] || event.touches[0];
+      if (!touch) return;
+
+      activeHabitDrag = createHabitDragState({
+        target,
+        inputMode: "touch",
+        inputId: touch.identifier,
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      installHabitTouchListeners();
+      const drag = activeHabitDrag;
+      drag.timer = window.setTimeout(() => activateHabitDrag(drag), HABIT_DRAG_LONG_PRESS_MS);
     }
 
-    function endHabitDrag(event, cancelled = false) {
-      if (!activeHabitDrag || event.pointerId !== activeHabitDrag.pointerId) return;
+    function moveHabitTouchDrag(event) {
+      if (!activeHabitDrag || activeHabitDrag.inputMode !== "touch") return;
+      const drag = activeHabitDrag;
+      const touch = touchWithIdentifier(event.touches, drag.touchIdentifier);
+      if (!touch) return;
+      drag.touchMoveEvents += 1;
+      drag.lastX = touch.clientX;
+      drag.lastY = touch.clientY;
+      const distance = Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY);
+
+      if (drag.phase === "pressing" && distance > HABIT_DRAG_SCROLL_THRESHOLD) {
+        clearTimeout(drag.timer);
+        drag.moved = true;
+        drag.phase = "scrolling";
+        return;
+      }
+      if (drag.phase !== "dragging") return;
+
+      if (event.cancelable) event.preventDefault();
+      event.stopPropagation();
+      holdHabitDragScroll(drag);
+      positionHabitDragPreview(drag, touch.clientX, touch.clientY);
+      updateHabitDropState(drag, touch.clientX, touch.clientY);
+      drag.coordinateUpdates += 1;
+      document.getSelection?.()?.removeAllRanges();
+    }
+
+    function endHabitPointerDrag(event, cancelled = false) {
+      if (!activeHabitDrag || activeHabitDrag.inputMode !== "pointer") return;
+      if (event.pointerId !== activeHabitDrag.pointerId) return;
       const drag = activeHabitDrag;
       const shouldSchedule = drag.dragging
         && !cancelled
@@ -277,12 +368,52 @@
       if (shouldSchedule) scheduleHabitAsTask(drag.habitId, new Date());
     }
 
-    function cancelHabitDrag(event) {
-      endHabitDrag(event, true);
+    function endHabitTouchDrag(event, cancelled = false) {
+      if (!activeHabitDrag || activeHabitDrag.inputMode !== "touch") return;
+      const drag = activeHabitDrag;
+      const touch = touchWithIdentifier(event.changedTouches, drag.touchIdentifier);
+      if (!touch) return;
+      drag.lastX = touch.clientX;
+      drag.lastY = touch.clientY;
+      const wasDragging = drag.phase === "dragging";
+      const shouldSchedule = wasDragging
+        && !cancelled
+        && pointInsideElement(habitTaskDropZone(), touch.clientX, touch.clientY);
+      if (wasDragging) {
+        if (event.cancelable) event.preventDefault();
+        event.stopPropagation();
+      }
+      clearHabitDrag();
+      if (!wasDragging) return;
+      window.setTimeout(() => {
+        suppressNextCardTap = false;
+      }, 220);
+      if (shouldSchedule) scheduleHabitAsTask(drag.habitId, new Date());
+    }
+
+    function cancelHabitPointerDrag(event) {
+      if (activeHabitDrag?.inputMode === "touch") return;
+      endHabitPointerDrag(event, true);
+    }
+
+    function cancelHabitTouchDrag(event) {
+      if (!activeHabitDrag || activeHabitDrag.inputMode !== "touch") return;
+      const wasDragging = activeHabitDrag.phase === "dragging";
+      if (wasDragging) {
+        if (event.cancelable) event.preventDefault();
+        event.stopPropagation();
+      }
+      clearHabitDrag();
+      if (wasDragging) {
+        window.setTimeout(() => {
+          suppressNextCardTap = false;
+        }, 220);
+      }
     }
 
     function handleHabitDragLostPointerCapture(event) {
-      if (!activeHabitDrag || event.pointerId !== activeHabitDrag.pointerId) return;
+      if (!activeHabitDrag || activeHabitDrag.inputMode !== "pointer") return;
+      if (event.pointerId !== activeHabitDrag.pointerId) return;
       clearHabitDrag();
     }
 
@@ -1096,27 +1227,26 @@
       }).join("");
     }
 
-    document.addEventListener("pointerdown", beginHabitDrag);
+    document.addEventListener("touchstart", beginHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS);
+    document.addEventListener("pointerdown", beginHabitPointerDrag);
     document.addEventListener("pointerdown", beginSwipe);
     document.addEventListener("pointerdown", beginReviewPress);
     document.addEventListener("pointerdown", beginHeatmapPress);
     document.addEventListener("pointerdown", beginCalendarMonthSwipe);
     document.addEventListener("pointerdown", beginCalendarEventPress);
-    document.addEventListener("pointermove", moveHabitDrag, { passive: false });
-    // This only prevents iOS native panning after the long press has activated.
-    document.addEventListener("touchmove", preventHabitDragTouchScroll, { passive: false });
+    document.addEventListener("pointermove", moveHabitPointerDrag, { passive: false });
     document.addEventListener("pointermove", moveSwipe, { passive: false });
     document.addEventListener("pointermove", moveReviewPress, { passive: false });
     document.addEventListener("pointermove", moveHeatmapPress, { passive: false });
     document.addEventListener("pointermove", moveCalendarMonthSwipe, { passive: true });
     document.addEventListener("pointermove", moveCalendarEventPress, { passive: true });
-    document.addEventListener("pointerup", endHabitDrag);
+    document.addEventListener("pointerup", endHabitPointerDrag);
     document.addEventListener("pointerup", endSwipe);
     document.addEventListener("pointerup", endReviewPress);
     document.addEventListener("pointerup", endHeatmapPress);
     document.addEventListener("pointerup", endCalendarMonthSwipe);
     document.addEventListener("pointerup", endCalendarEventPress);
-    document.addEventListener("pointercancel", cancelHabitDrag);
+    document.addEventListener("pointercancel", cancelHabitPointerDrag);
     document.addEventListener("lostpointercapture", handleHabitDragLostPointerCapture, true);
     document.addEventListener("pointercancel", endSwipe);
     document.addEventListener("pointercancel", endReviewPress);
@@ -1497,6 +1627,9 @@
 
     document.addEventListener("selectstart", event => {
       if (event.target.closest?.("[data-habit-card]")) event.preventDefault();
+    });
+    document.addEventListener("selectionchange", () => {
+      if (activeHabitDrag?.phase === "dragging") document.getSelection?.()?.removeAllRanges();
     });
     document.addEventListener("contextmenu", event => {
       if (event.target.closest?.("[data-habit-card]")) event.preventDefault();

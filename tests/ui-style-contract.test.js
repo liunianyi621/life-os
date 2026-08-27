@@ -62,7 +62,8 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   const habitRenderSource = uiSource.match(/function renderHabits\(\)\s*\{[\s\S]*?\n    \}\n\n    function taskMetaHtml/)?.[0] || "";
   assert.match(indexHtml, /class="today-section today-task-section"[^>]*data-habit-task-drop-zone/);
   assert.match(indexHtml, /class="habit-template-grid"[^>]*id="habitList"/);
-  assert.match(uiSource, /function beginHabitDrag\(/);
+  assert.match(uiSource, /function beginHabitTouchDrag\(/);
+  assert.match(uiSource, /function beginHabitPointerDrag\(/);
   assert.match(uiSource, /scheduleHabitAsTask\(drag\.habitId/);
   assert.match(sheetSource, /data-schedule-habit/);
   assert.match(taskSource, /function scheduleHabitAsTask\(habitId, startTime/);
@@ -81,15 +82,32 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   assert.match(productionCss, /\.habit-template-grid\s*\{[\s\S]*?flex-wrap:\s*wrap;/);
 });
 
-test("习惯拖拽只在长按确认后锁定滚动，并为 iOS 保留非 passive 兜底", () => {
+test("iOS 习惯拖拽使用独立 Touch Events 状态机并与 Pointer 通道隔离", () => {
   const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
+  assert.match(uiSource, /HABIT_TOUCH_LISTENER_OPTIONS\s*=\s*\{ passive: false, capture: true \}/);
+  assert.match(uiSource, /document\.addEventListener\("touchstart", beginHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS\)/);
+  assert.match(uiSource, /document\.addEventListener\("touchmove", moveHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS\)/);
+  assert.match(uiSource, /document\.addEventListener\("touchend", endHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS\)/);
+  assert.match(uiSource, /document\.addEventListener\("touchcancel", cancelHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS\)/);
+  assert.match(uiSource, /document\.removeEventListener\("touchmove", moveHabitTouchDrag, HABIT_TOUCH_LISTENER_OPTIONS\)/);
+  assert.match(uiSource, /if \(habitTouchListenersInstalled\) return;/);
+  assert.match(uiSource, /habitTouchListenersInstalled = false;[\s\S]*?document\.removeEventListener\("touchmove"/);
   assert.match(uiSource, /phase:\s*"pressing"/);
   assert.match(uiSource, /drag\.phase\s*=\s*"dragging"/);
+  assert.match(uiSource, /drag\.phase\s*=\s*"scrolling"/);
+  assert.match(uiSource, /touchWithIdentifier\(event\.touches, drag\.touchIdentifier\)/);
+  assert.match(uiSource, /touchWithIdentifier\(event\.changedTouches, drag\.touchIdentifier\)/);
+  assert.match(uiSource, /if \(event\.pointerType === "touch"\) return;/);
+  assert.match(uiSource, /if \(activeHabitDrag\?\.inputMode === "touch"\) return;/);
   assert.match(uiSource, /drag\.card\.setPointerCapture\?\.\(drag\.pointerId\)/);
-  assert.doesNotMatch(uiSource, /activeHabitDrag\.timer[\s\S]{0,120}card\.setPointerCapture/);
-  assert.match(uiSource, /document\.addEventListener\("pointermove", moveHabitDrag, \{ passive: false \}\)/);
-  assert.match(uiSource, /document\.addEventListener\("touchmove", preventHabitDragTouchScroll, \{ passive: false \}\)/);
-  assert.match(uiSource, /if \(event\.cancelable\) event\.preventDefault\(\);/);
+  assert.match(uiSource, /document\.addEventListener\("pointermove", moveHabitPointerDrag, \{ passive: false \}\)/);
+  assert.match(uiSource, /if \(event\.cancelable\) event\.preventDefault\(\);[\s\S]*?event\.stopPropagation\(\);[\s\S]*?holdHabitDragScroll\(drag\)/);
+  assert.match(uiSource, /positionHabitDragPreview\(drag, touch\.clientX, touch\.clientY\)/);
+  assert.match(uiSource, /lock\.scrollTarget\.scrollTop = lock\.scrollTop/);
+  assert.match(uiSource, /restoreHabitDragScroll\(drag\)/);
+  assert.match(uiSource, /pointInsideElement\(habitTaskDropZone\(\), touch\.clientX, touch\.clientY\)/);
+  assert.match(uiSource, /if \(shouldSchedule\) scheduleHabitAsTask\(drag\.habitId, new Date\(\)\)/);
+  assert.match(uiSource, /Habit drag entered dragging state but touch coordinates are not updating\./);
   assert.match(uiSource, /window\.addEventListener\("pagehide", clearHabitDrag\)/);
   assert.match(productionCss, /html\.habit-dragging,[\s\S]*?overflow:\s*hidden;/);
   assert.match(productionCss, /body\.habit-dragging \.habit-template-chip\.habit-drag-source[\s\S]*?touch-action:\s*none;/);
