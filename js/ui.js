@@ -5,6 +5,7 @@
     let habitTouchListenersInstalled = false;
     let suppressCalendarEventTap = false;
     let suppressCalendarDateTap = false;
+    let taskElapsedTicker = null;
     const HABIT_DRAG_LONG_PRESS_MS = 400;
     const HABIT_DRAG_SCROLL_THRESHOLD = 8;
     const HABIT_TOUCH_LISTENER_OPTIONS = { passive: false, capture: true };
@@ -702,6 +703,7 @@
     }
 
     function renderActiveView(view = activeViewName()) {
+      if (view !== "today") stopTaskElapsedTicker();
       if (view === "today") {
         const activeCount = activeTasksToday().length;
         els.todayDate.textContent = formatDate();
@@ -847,11 +849,25 @@
     }
 
     function taskMetaHtml(task, status) {
-      if (status === "running") {
+      if (status === TASK_STATUS.WAITING) {
+        return `
+          <span class="pill">等待开始</span>
+          <span class="pill">${escapeHtml(taskEstimateDurationLabel(task) || "预计 1 小时")}</span>
+        `;
+      }
+      if (status === TASK_STATUS.PAUSED) {
+        const startedAt = taskStartedAtLabel(task);
+        return `
+          <span class="pill">已暂停</span>
+          ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
+        `;
+      }
+      if (status === TASK_STATUS.RUNNING) {
         const startedAt = taskStartedAtLabel(task);
         return `
           <span class="pill green">进行中</span>
           ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
+          <span class="pill" data-task-elapsed="${escapeAttr(task.id)}">已进行 ${formatTaskElapsedClock(taskElapsedSeconds(task))}</span>
         `;
       }
       if (taskHasTime(task)) {
@@ -868,7 +884,7 @@
         label: "任务未完成",
         attrs: `data-fail-task="${taskId}"`
       });
-      if (!taskHasTime(task)) {
+      if (!taskUsesTimer(task)) {
         return `
           ${actionButtonHtml({
             tone: "green",
@@ -879,7 +895,8 @@
           ${failAction}
         `;
       }
-      const primaryAction = status === "running"
+      if (status === TASK_STATUS.WAITING) return failAction;
+      const primaryAction = status === TASK_STATUS.RUNNING
         ? actionButtonHtml({
             tone: "green",
             icon: "stop.circle",
@@ -889,7 +906,7 @@
         : actionButtonHtml({
             tone: "blue",
             icon: "play.circle",
-            label: "开始任务",
+            label: status === TASK_STATUS.PAUSED ? "继续任务" : "开始任务",
             attrs: `data-start-task="${taskId}"`
           });
       return `
@@ -898,9 +915,50 @@
       `;
     }
 
+    function taskTileHtml(task, status) {
+      if (status === TASK_STATUS.WAITING) {
+        return `
+          <button
+            class="q-row-tile q-row-tile-${visualToneForId(task.id)} task-row-tile task-start-tile"
+            type="button"
+            data-start-task="${escapeAttr(task.id)}"
+            aria-label="开始任务「${escapeAttr(task.name)}」"
+          >${actionIconHtml("play.circle")}</button>
+        `;
+      }
+      const icon = status === TASK_STATUS.RUNNING ? "stop.circle" : status === TASK_STATUS.PAUSED ? "play.circle" : "checklist";
+      return rowTileHtml(actionIconHtml(icon), visualToneForId(task.id), "task-row-tile");
+    }
+
+    function stopTaskElapsedTicker() {
+      if (taskElapsedTicker == null) return;
+      window.clearInterval(taskElapsedTicker);
+      taskElapsedTicker = null;
+    }
+
+    function refreshTaskElapsedLabels() {
+      const labels = document.querySelectorAll("[data-task-elapsed]");
+      if (!labels.length || activeViewName() !== "today") {
+        stopTaskElapsedTicker();
+        return;
+      }
+      labels.forEach(label => {
+        const task = state.tasks.find(item => item.id === label.dataset.taskElapsed);
+        if (!task || taskStatusToday(task) !== TASK_STATUS.RUNNING) return;
+        label.textContent = `已进行 ${formatTaskElapsedClock(taskElapsedSeconds(task))}`;
+      });
+    }
+
+    function syncTaskElapsedTicker() {
+      refreshTaskElapsedLabels();
+      if (taskElapsedTicker != null || !document.querySelector("[data-task-elapsed]")) return;
+      taskElapsedTicker = window.setInterval(refreshTaskElapsedLabels, 1000);
+    }
+
     function renderTasks() {
       const tasksForToday = todayTasks();
       if (!tasksForToday.length) {
+        stopTaskElapsedTicker();
         els.todayTaskList.innerHTML = `
           <div class="empty-state">
             <strong>今天没有任务</strong>
@@ -911,6 +969,7 @@
 
       const activeTasks = tasksForToday.filter(task => !taskResultToday(task.id));
       if (!activeTasks.length) {
+        stopTaskElapsedTicker();
         els.todayTaskList.innerHTML = `
           <div class="empty-state">
             <strong>今天的任务已经完成</strong>
@@ -927,12 +986,12 @@
               const status = taskStatusToday(task);
               return swipeRowHtml({
                 attrs: `data-task-card="${escapeAttr(task.id)}"`,
-                actionWidth: 168,
+                actionWidth: status === TASK_STATUS.WAITING ? 84 : 168,
                 editType: "task",
                 editId: task.id,
                 actions: taskActionsHtml(task, status),
                 content: `
-            ${rowTileHtml(actionIconHtml(status === "running" ? "play.circle" : "checklist"), visualToneForId(task.id), "task-row-tile")}
+            ${taskTileHtml(task, status)}
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(task.name)}</h3>
@@ -947,6 +1006,7 @@
           </div>
         </section>
       `).join("");
+      syncTaskElapsedTicker();
     }
 
     function calendarGridDays(month) {

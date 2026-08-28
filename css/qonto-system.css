@@ -797,6 +797,16 @@ body.habit-dragging .habit-template-chip {
   height: 22px;
 }
 
+.task-start-tile {
+  padding: 0;
+  border: 0;
+  font: inherit;
+}
+
+.task-start-tile:active {
+  opacity: 0.72;
+}
+
 .q-row-tile-blue { background: var(--color-blue-soft); }
 .q-row-tile-yellow { background: var(--color-yellow-soft); }
 .q-row-tile-purple { background: var(--color-purple-soft); }

@@ -1,6 +1,17 @@
     const DEFAULT_TASK_REWARD = 20;
     const INCOMPLETE_PENALTY_MULTIPLIER = 10;
     const TASK_FAILURE_MULTIPLIER = INCOMPLETE_PENALTY_MULTIPLIER;
+    const TASK_STATUS = Object.freeze({
+      WAITING: "waiting",
+      RUNNING: "running",
+      PAUSED: "paused",
+      COMPLETED: "completed"
+    });
+    const TASK_LIFECYCLE_EVENT = Object.freeze({
+      SCHEDULED: "TASK_SCHEDULED",
+      STARTED: "TASK_STARTED",
+      RESUMED: "TASK_RESUMED"
+    });
 
     function getIncompletePenalty(rewardAmount) {
       const reward = Number(rewardAmount);
@@ -23,9 +34,10 @@
     function taskRunningStartTime(task) {
       const timerStarted = typeof task?.timerStarted === "string" ? task.timerStarted : null;
       return firstPresentValue([
-        task?.startTime,
-        task?.startedAt,
         task?.actualStartTime,
+        task?.startedAt,
+        task?.timerStartedAt,
+        task?.startTime,
         timerStarted,
         (task?.isRunning || task?.timerStarted === true) ? task?.updatedAt || task?.createdAt : null
       ]) || null;
@@ -33,16 +45,32 @@
 
     function taskIsInProgress(task) {
       if (!task || ["completed", "done", "failed"].includes(task.status)) return false;
-      if (task.status === "running" || task.status === "in_progress") {
+      if (task.status === TASK_STATUS.WAITING) return false;
+      if ([TASK_STATUS.RUNNING, "in_progress", TASK_STATUS.PAUSED].includes(task.status)) {
         return !task.endTime && !task.failedAt;
       }
       return Boolean(taskRunningStartTime(task) && !task.endTime && !task.failedAt);
     }
 
+    function appendTaskLifecycleEvent(task, type, timestamp, details = {}) {
+      const events = Array.isArray(task?.lifecycleEvents) ? task.lifecycleEvents : [];
+      return [
+        ...events,
+        {
+          id: createId("task-lifecycle"),
+          type,
+          timestamp,
+          ...details
+        }
+      ];
+    }
+
     function taskStatusToday(task) {
       const result = taskResultToday(task.id);
       if (result === "completed" || result === "failed") return result;
-      if (taskHasTime(task) && taskIsInProgress(task)) return "running";
+      if (task.status === TASK_STATUS.PAUSED) return TASK_STATUS.PAUSED;
+      if (task.status === TASK_STATUS.WAITING) return TASK_STATUS.WAITING;
+      if (taskUsesTimer(task) && taskIsInProgress(task)) return TASK_STATUS.RUNNING;
       return "pending";
     }
 
@@ -74,6 +102,39 @@
 
     function taskHasTime(task) {
       return Boolean(taskTimeRange(task));
+    }
+
+    function taskEstimateDurationMinutes(task) {
+      const value = Number(task?.estimateDurationMinutes);
+      return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+    }
+
+    function taskUsesTimer(task) {
+      return taskHasTime(task) || taskEstimateDurationMinutes(task) > 0 || taskIsInProgress(task);
+    }
+
+    function taskEstimateDurationLabel(task) {
+      const minutes = taskEstimateDurationMinutes(task);
+      if (!minutes) return "";
+      if (minutes % 60 === 0) return `预计 ${formatNumber(minutes / 60)} 小时`;
+      return `预计 ${formatNumber(minutes)} 分钟`;
+    }
+
+    function taskElapsedSeconds(task, now = new Date()) {
+      const runningStartTime = taskRunningStartTime(task);
+      if (!runningStartTime) return 0;
+      const startedAt = new Date(runningStartTime);
+      const current = new Date(now);
+      if (Number.isNaN(startedAt.getTime()) || Number.isNaN(current.getTime())) return 0;
+      return Math.max(0, Math.floor((current.getTime() - startedAt.getTime()) / 1000));
+    }
+
+    function formatTaskElapsedClock(seconds) {
+      const value = Math.max(0, Math.floor(Number(seconds) || 0));
+      const hours = Math.floor(value / 3600);
+      const minutes = Math.floor((value % 3600) / 60);
+      const restSeconds = value % 60;
+      return [hours, minutes, restSeconds].map(part => String(part).padStart(2, "0")).join(":");
     }
 
     function taskDurationPayload(startTime, endTime = new Date(), hourlyCoins = DEFAULT_TASK_REWARD) {
@@ -239,25 +300,35 @@
         return null;
       }
 
-      const end = new Date(start);
-      end.setMinutes(end.getMinutes() + 60);
-      const startedAt = start.toISOString();
       const rewardAmount = habitTaskRewardAmount(habit);
+      const scheduledAt = start.toISOString();
       const task = createTaskRecord({
         name: habit.name,
         coins: rewardAmount,
         hourlyReward: rewardAmount,
         reward: rewardAmount,
-        timeStart: minutesToClockLabel(start.getHours() * 60 + start.getMinutes()),
-        timeEnd: minutesToClockLabel(end.getHours() * 60 + end.getMinutes()),
-        time: minutesToClockLabel(start.getHours() * 60 + start.getMinutes()),
-        status: "in_progress",
-        startTime: startedAt,
+        source: "HABIT",
+        originId: habit.id,
+        status: TASK_STATUS.WAITING,
+        scheduledAt,
+        startedAt: null,
+        actualStartTime: null,
+        timerStartedAt: null,
+        startTime: null,
+        isRunning: false,
+        elapsedSeconds: 0,
         endTime: null,
+        estimateDurationMinutes: 60,
         durationMinutes: null,
         durationSeconds: null,
         earnedCoins: null,
-        sourceHabitId: habit.id
+        sourceHabitId: habit.id,
+        lifecycleEvents: [{
+          id: createId("task-lifecycle"),
+          type: TASK_LIFECYCLE_EVENT.SCHEDULED,
+          timestamp: scheduledAt,
+          source: "HABIT"
+        }]
       }, start);
 
       state.tasks.push(task);
@@ -283,7 +354,7 @@
         name: task.name,
         date: task.date
       }, {
-        message: `已开始「${task.name}」`,
+        message: `已安排「${task.name}」`,
         undoLabel: "撤回",
         duration: 5000,
         iconTone: "neutral"

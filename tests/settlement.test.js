@@ -268,6 +268,26 @@ test("已经开始的任务超过计划结束时间仍保持进行中", () => {
   assert.equal(value(reloaded.context, "state.coins"), 2000);
 });
 
+test("习惯生成的等待任务只有预计时长，不会按一小时截止自动失败", () => {
+  const waiting = timedTask({
+    id: "habit-waiting",
+    status: "waiting"
+  });
+  waiting.timeStart = "";
+  waiting.timeEnd = "";
+  waiting.time = "";
+  waiting.estimateDurationMinutes = 60;
+  waiting.sourceHabitId = "habit-book";
+  const { context } = createRuntime(createState({ tasks: [waiting] }));
+
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "waiting");
+  assert.equal(value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}")).count`), 0);
+  assert.equal(value(context, `runPendingSettlements({ now: new Date("${FIXED_NOW}") }).taskFailures.count`), 0);
+  assert.equal(value(context, "state.tasks[0].status"), "waiting");
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "state.coins"), 2000);
+});
+
 test("跨日进行中的任务不会自动失败", () => {
   const running = timedTask({
     id: "cross-day-running",

@@ -195,21 +195,37 @@
     function startTask(taskId, sourceEl = null) {
       const task = todayTasks().find(item => item.id === taskId);
       if (!task || taskResultToday(taskId)) return;
-      if (!taskHasTime(task)) return;
-      if (taskStatusToday(task) === "running") return;
+      if (!taskUsesTimer(task)) return;
+      const currentStatus = taskStatusToday(task);
+      if (currentStatus === TASK_STATUS.RUNNING) return;
+      if (![TASK_STATUS.WAITING, TASK_STATUS.PAUSED, "pending"].includes(currentStatus)) return;
 
-      const startTime = new Date().toISOString();
+      const actionAt = new Date().toISOString();
+      const resumed = currentStatus === TASK_STATUS.PAUSED && taskRunningStartTime(task);
+      const startedAt = resumed
+        ? taskRunningStartTime(task)
+        : actionAt;
       state.tasks = state.tasks.map(item => (
         item.id === taskId
           ? {
               ...item,
-              status: "running",
-              startTime,
+              status: TASK_STATUS.RUNNING,
+              startedAt,
+              actualStartTime: startedAt,
+              timerStartedAt: actionAt,
+              startTime: startedAt,
+              isRunning: true,
+              elapsedSeconds: resumed ? Math.max(0, Number(item.elapsedSeconds) || 0) : 0,
               endTime: null,
               durationMinutes: null,
               durationSeconds: null,
               earnedCoins: null,
-              updatedAt: startTime
+              lifecycleEvents: appendTaskLifecycleEvent(
+                item,
+                resumed ? TASK_LIFECYCLE_EVENT.RESUMED : TASK_LIFECYCLE_EVENT.STARTED,
+                actionAt
+              ),
+              updatedAt: actionAt
             }
           : item
       ));
@@ -219,8 +235,8 @@
 
     function finishTask(taskId, sourceEl = null) {
       const task = todayTasks().find(item => item.id === taskId);
-      if (!task || taskResultToday(taskId) || taskStatusToday(task) !== "running") return;
-      if (!taskHasTime(task)) return;
+      if (!task || taskResultToday(taskId) || taskStatusToday(task) !== TASK_STATUS.RUNNING) return;
+      if (!taskUsesTimer(task)) return;
 
       const today = dateKey();
       const endTime = new Date().toISOString();
@@ -235,7 +251,10 @@
         item.id === taskId
           ? {
               ...item,
-              status: "completed",
+              status: TASK_STATUS.COMPLETED,
+              isRunning: false,
+              timerStartedAt: null,
+              elapsedSeconds: durationSeconds,
               endTime,
               durationSeconds,
               durationMinutes,
@@ -295,7 +314,7 @@
     function completeTask(taskId, sourceEl = null) {
       const task = todayTasks().find(item => item.id === taskId);
       if (!task || taskResultToday(taskId)) return;
-      if (taskHasTime(task)) {
+      if (taskUsesTimer(task)) {
         finishTask(taskId, sourceEl);
         return;
       }
@@ -309,7 +328,8 @@
         item.id === taskId
           ? {
               ...item,
-              status: "completed",
+              status: TASK_STATUS.COMPLETED,
+              isRunning: false,
               endTime: completedAt,
               durationMinutes: 0,
               durationSeconds: 0,
@@ -542,7 +562,12 @@
       const amount = getIncompletePenalty(rewardAmount);
       const previousTask = {
         status: task.status || "pending",
+        startedAt: task.startedAt || null,
+        actualStartTime: task.actualStartTime || null,
+        timerStartedAt: task.timerStartedAt || null,
         startTime: task.startTime || null,
+        isRunning: Boolean(task.isRunning),
+        elapsedSeconds: Number(task.elapsedSeconds) || 0,
         endTime: task.endTime || null,
         durationMinutes: task.durationMinutes ?? null,
         durationSeconds: task.durationSeconds ?? null,
@@ -554,6 +579,8 @@
           ? {
               ...item,
               status: "failed",
+              isRunning: false,
+              timerStartedAt: null,
               failedAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             }
@@ -614,7 +641,13 @@
     function taskPreviousState(task) {
       return {
         status: task.status || "pending",
+        startedAt: task.startedAt || null,
+        actualStartTime: task.actualStartTime || null,
+        timerStartedAt: task.timerStartedAt || null,
         startTime: task.startTime || null,
+        isRunning: Boolean(task.isRunning),
+        elapsedSeconds: Number(task.elapsedSeconds) || 0,
+        lifecycleEvents: Array.isArray(task.lifecycleEvents) ? task.lifecycleEvents : [],
         endTime: task.endTime || null,
         durationMinutes: task.durationMinutes ?? null,
         durationSeconds: task.durationSeconds ?? null,
@@ -678,7 +711,13 @@
           ? {
               ...task,
               status: previousTask?.status || "pending",
+              startedAt: previousTask?.startedAt || null,
+              actualStartTime: previousTask?.actualStartTime || null,
+              timerStartedAt: previousTask?.timerStartedAt || null,
               startTime: previousTask?.startTime || null,
+              isRunning: Boolean(previousTask?.isRunning),
+              elapsedSeconds: Number(previousTask?.elapsedSeconds) || 0,
+              lifecycleEvents: Array.isArray(previousTask?.lifecycleEvents) ? previousTask.lifecycleEvents : [],
               endTime: previousTask?.endTime || null,
               durationMinutes: previousTask?.durationMinutes ?? null,
               durationSeconds: previousTask?.durationSeconds ?? null,
@@ -918,7 +957,12 @@
           ? {
               ...task,
               status: "pending",
+              startedAt: null,
+              actualStartTime: null,
+              timerStartedAt: null,
               startTime: null,
+              isRunning: false,
+              elapsedSeconds: 0,
               endTime: null,
               durationMinutes: null,
               durationSeconds: null,

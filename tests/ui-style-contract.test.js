@@ -82,6 +82,35 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   assert.match(productionCss, /\.habit-template-grid\s*\{[\s\S]*?flex-wrap:\s*wrap;/);
 });
 
+test("习惯生成任务使用 WAITING 到 RUNNING 的显式状态机", () => {
+  const taskSource = fs.readFileSync(path.join(ROOT, "js/tasks.js"), "utf8");
+  const economySource = fs.readFileSync(path.join(ROOT, "js/economy.js"), "utf8");
+  const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
+
+  assert.match(taskSource, /const TASK_STATUS = Object\.freeze\([\s\S]*?WAITING: "waiting"[\s\S]*?PAUSED: "paused"/);
+  assert.match(taskSource, /function scheduleHabitAsTask[\s\S]*?status: TASK_STATUS\.WAITING/);
+  assert.match(taskSource, /estimateDurationMinutes: 60/);
+  assert.match(taskSource, /source: "HABIT"/);
+  assert.match(taskSource, /originId: habit\.id/);
+  assert.match(taskSource, /startedAt: null/);
+  assert.match(taskSource, /actualStartTime: null/);
+  assert.match(taskSource, /timerStartedAt: null/);
+  assert.match(taskSource, /isRunning: false/);
+  assert.match(taskSource, /elapsedSeconds: 0/);
+  const scheduleSource = taskSource.slice(
+    taskSource.indexOf("function scheduleHabitAsTask"),
+    taskSource.indexOf("function todayTasks")
+  );
+  assert.doesNotMatch(scheduleSource, /status: "in_progress"/);
+  assert.doesNotMatch(scheduleSource, /startTask\s*\(/);
+  assert.match(economySource, /function startTask[\s\S]*?status: TASK_STATUS\.RUNNING/);
+  assert.match(economySource, /function startTask[\s\S]*?startedAt,[\s\S]*?actualStartTime: startedAt[\s\S]*?timerStartedAt: actionAt/);
+  assert.match(economySource, /TASK_LIFECYCLE_EVENT\.STARTED/);
+  assert.match(uiSource, /等待开始/);
+  assert.match(uiSource, /data-task-elapsed/);
+  assert.match(uiSource, /class="q-row-tile[^"]*task-start-tile"[\s\S]*?data-start-task/);
+});
+
 test("iOS 习惯拖拽使用独立 Touch Events 状态机并与 Pointer 通道隔离", () => {
   const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
   assert.match(uiSource, /HABIT_TOUCH_LISTENER_OPTIONS\s*=\s*\{ passive: false, capture: true \}/);

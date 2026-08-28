@@ -479,7 +479,7 @@ test("迁移标记存在时，新任务的 20 和 200 不会再次乘以 10", ()
   assert.equal(value(reloaded.context, "state.history[0].coins"), 200);
 });
 
-test("习惯可以直接安排为立即开始的一小时任务，当天隐藏且不改变习惯和金币", () => {
+test("习惯拖入后创建等待开始的一小时任务，当天隐藏且不改变习惯和金币", () => {
   const state = emptyState([], 2000);
   state.habits = [{ id: "habit-book", name: "看书", coins: 10, createdDate: DAY }];
   const { context } = createRuntime(state);
@@ -487,10 +487,22 @@ test("习惯可以直接安排为立即开始的一小时任务，当天隐藏�
   const created = value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 15, 24))`);
 
   assert.equal(created.name, "看书");
-  assert.equal(created.timeStart, "15:24");
-  assert.equal(created.timeEnd, "16:24");
-  assert.equal(created.status, "in_progress");
-  assert.equal(Boolean(created.startTime), true);
+  assert.equal(created.status, "waiting");
+  assert.equal(created.source, "HABIT");
+  assert.equal(created.originId, "habit-book");
+  assert.equal(created.estimateDurationMinutes, 60);
+  assert.equal(created.startedAt, null);
+  assert.equal(created.actualStartTime, null);
+  assert.equal(created.timerStartedAt, null);
+  assert.equal(created.startTime, null);
+  assert.equal(created.isRunning, false);
+  assert.equal(created.elapsedSeconds, 0);
+  assert.equal(created.timeStart, undefined);
+  assert.equal(created.timeEnd, undefined);
+  assert.equal(created.lifecycleEvents.length, 1);
+  assert.equal(created.lifecycleEvents[0].type, "TASK_SCHEDULED");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "waiting");
+  assert.equal(value(context, "taskUsesTimer(state.tasks[0])"), true);
   assert.equal(created.coins, 10);
   assert.equal(created.hourlyReward, 10);
   assert.equal(created.reward, 10);
@@ -501,6 +513,7 @@ test("习惯可以直接安排为立即开始的一小时任务，当天隐藏�
   assert.equal(value(context, "state.history.length"), 0);
   assert.equal(value(context, "state.coins"), 2000);
   assert.equal(value(context, "lastUndoData.type"), "habit_task_scheduled");
+  assert.match(value(context, "lastUndoOptions.message"), /已安排/);
 
   value(context, "undoLastAction()");
   assert.equal(value(context, "state.tasks.length"), 0);
@@ -508,6 +521,82 @@ test("习惯可以直接安排为立即开始的一小时任务，当天隐藏�
   assert.deepEqual(JSON.parse(JSON.stringify(value(context, "visibleHabitsToday().map(habit => habit.id)"))), ["habit-book"]);
   assert.equal(value(context, "state.habits.length"), 1);
   assert.equal(value(context, "state.coins"), 2000);
+});
+
+test("等待任务只有点击开始后才记录真实开始时间并进入运行中", () => {
+  const state = emptyState([], 2000);
+  state.habits = [{ id: "habit-book", name: "看书", coins: 10, createdDate: DAY }];
+  const { context } = createRuntime(state);
+
+  const taskId = value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 10, 0)).id`);
+  const waiting = value(context, `state.tasks.find(task => task.id === "${taskId}")`);
+  assert.equal(waiting.startedAt, null);
+  assert.equal(waiting.actualStartTime, null);
+  assert.equal(waiting.timerStartedAt, null);
+  assert.equal(waiting.isRunning, false);
+  assert.equal(waiting.elapsedSeconds, 0);
+  assert.equal(waiting.createdAt, waiting.scheduledAt);
+  assert.equal(value(context, "state.history.length"), 0);
+
+  value(context, `startTask("${taskId}")`);
+  const started = value(context, `state.tasks.find(task => task.id === "${taskId}")`);
+  assert.equal(started.status, "running");
+  assert.equal(started.startedAt, FIXED_NOW);
+  assert.equal(started.actualStartTime, FIXED_NOW);
+  assert.equal(started.timerStartedAt, FIXED_NOW);
+  assert.equal(started.startTime, FIXED_NOW);
+  assert.equal(started.isRunning, true);
+  assert.equal(started.elapsedSeconds, 0);
+  assert.notEqual(started.createdAt, started.startedAt);
+  assert.equal(started.lifecycleEvents.length, 2);
+  assert.equal(started.lifecycleEvents[1].type, "TASK_STARTED");
+  assert.equal(started.lifecycleEvents[1].timestamp, FIXED_NOW);
+  assert.equal(value(context, `taskStatusToday(state.tasks.find(task => task.id === "${taskId}"))`), "running");
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "state.coins"), 2000);
+});
+
+test("习惯任务超过预计一小时仍保持等待，不会自动开始或累计时长", () => {
+  const state = emptyState([], 2000);
+  state.habits = [{ id: "habit-book", name: "看书", coins: 10, createdDate: DAY }];
+  const { context } = createRuntime(state);
+
+  value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 10, 0))`);
+  value(context, `runPendingSettlements({ now: new Date("2026-07-16T13:30:00.000Z") })`);
+
+  const waiting = value(context, "state.tasks[0]");
+  assert.equal(waiting.status, "waiting");
+  assert.equal(waiting.startedAt, null);
+  assert.equal(waiting.actualStartTime, null);
+  assert.equal(waiting.timerStartedAt, null);
+  assert.equal(waiting.isRunning, false);
+  assert.equal(value(context, `taskElapsedSeconds(state.tasks[0], new Date("2026-07-16T13:30:00.000Z"))`), 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(waiting.lifecycleEvents.map(event => event.type))), ["TASK_SCHEDULED"]);
+  assert.equal(value(context, "state.history.length"), 0);
+});
+
+test("旧 in_progress 和 startTime 任务继续识别为运行中", () => {
+  const legacy = task({
+    id: "legacy-running",
+    status: "in_progress",
+    startTime: `${DAY}T09:30:00.000Z`
+  });
+  legacy.timeStart = "09:00";
+  legacy.timeEnd = "10:00";
+  const { context } = createRuntime(emptyState([legacy], 2000));
+
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "running");
+  assert.equal(value(context, "taskRunningStartTime(state.tasks[0])"), `${DAY}T09:30:00.000Z`);
+});
+
+test("旧任务的 timerStartedAt 和 isRunning 仍可识别为运行中", () => {
+  const legacy = task({ id: "legacy-timer-running" });
+  legacy.timerStartedAt = `${DAY}T09:45:00.000Z`;
+  legacy.isRunning = true;
+  const { context } = createRuntime(emptyState([legacy], 2000));
+
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "running");
+  assert.equal(value(context, "taskRunningStartTime(state.tasks[0])"), `${DAY}T09:45:00.000Z`);
 });
 
 test("当天安排状态按本地日期持久化，同一习惯第二天自然恢复", () => {
@@ -518,6 +607,15 @@ test("当天安排状态按本地日期持久化，同一习惯第二天自然�
   value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 15, 24))`);
   const persisted = JSON.parse(storage.get("minimal-discipline-v1"));
   assert.deepEqual(persisted.scheduledHabitIdsByDate[DAY], ["habit-book"]);
+  assert.equal(persisted.tasks[0].status, "waiting");
+  assert.equal(persisted.tasks[0].startedAt, null);
+  assert.equal(persisted.tasks[0].actualStartTime, null);
+  assert.equal(persisted.tasks[0].timerStartedAt, null);
+  assert.equal(persisted.tasks[0].isRunning, false);
+  assert.equal(persisted.tasks[0].elapsedSeconds, 0);
+  const reloaded = createRuntime(persisted);
+  assert.equal(value(reloaded.context, "taskStatusToday(state.tasks[0])"), "waiting");
+  assert.equal(value(reloaded.context, "taskElapsedSeconds(state.tasks[0])"), 0);
   assert.equal(value(context, `habitScheduledAsTaskOnDate("habit-book", "2026-07-17")`), false);
   assert.deepEqual(JSON.parse(JSON.stringify(value(context, `state.habits.filter(habit => !habitScheduledAsTaskOnDate(habit.id, "2026-07-17")).map(habit => habit.id)`))), ["habit-book"]);
   assert.equal(value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 16, 24))`), null);
