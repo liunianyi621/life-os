@@ -922,7 +922,7 @@
             class="q-row-tile q-row-tile-${visualToneForId(task.id)} task-row-tile task-start-tile"
             type="button"
             data-start-task="${escapeAttr(task.id)}"
-            aria-label="开始任务「${escapeAttr(task.name)}」"
+            aria-label="开始任务"
           >${actionIconHtml("play.circle")}</button>
         `;
       }

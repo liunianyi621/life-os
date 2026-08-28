@@ -1557,7 +1557,10 @@
         }
         clearNextStepForTask(undo.taskId);
         state.tasks = state.tasks.filter(task => task.id !== undo.taskId);
-        unmarkHabitScheduledAsTask(task.sourceHabitId || undo.habitId, taskDate(task) || undo.date);
+        unmarkHabitScheduledAsTask(
+          task.sourceHabitId || undo.habitId,
+          undo.habitScheduleDate || task.sourceHabitScheduledDate || taskDate(task) || undo.date
+        );
         saveState();
         render();
         showToast("已撤回", 1500);

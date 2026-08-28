@@ -68,9 +68,12 @@
     function taskStatusToday(task) {
       const result = taskResultToday(task.id);
       if (result === "completed" || result === "failed") return result;
+      if ([TASK_STATUS.COMPLETED, "done"].includes(task.status)) return "completed";
+      if (task.status === "failed") return "failed";
       if (task.status === TASK_STATUS.PAUSED) return TASK_STATUS.PAUSED;
       if (task.status === TASK_STATUS.WAITING) return TASK_STATUS.WAITING;
       if (taskUsesTimer(task) && taskIsInProgress(task)) return TASK_STATUS.RUNNING;
+      if ((!task.status || task.status === "pending") && taskUsesTimer(task)) return TASK_STATUS.WAITING;
       return "pending";
     }
 
@@ -217,6 +220,17 @@
       return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
     }
 
+    function getNextFullHourRange(now = new Date()) {
+      const current = new Date(now);
+      if (Number.isNaN(current.getTime())) return null;
+      const start = new Date(current);
+      start.setMinutes(0, 0, 0);
+      start.setHours(start.getHours() + 1);
+      const end = new Date(start);
+      end.setHours(end.getHours() + 1);
+      return { start, end };
+    }
+
     function taskTimeRange(task) {
       const startMinutes = timeToMinutes(taskStartTimeValue(task));
       const endMinutes = timeToMinutes(taskEndTimeValue(task));
@@ -242,6 +256,7 @@
     }
 
     function taskPastEndTime(task, now = new Date()) {
+      if (task?.source === "HABIT" && task?.status === TASK_STATUS.WAITING) return false;
       const end = taskEndDateTime(task);
       return Boolean(end && now >= end);
     }
@@ -271,6 +286,19 @@
         showToast("请输入任务名称");
         return null;
       }
+      const createData = !editingId && taskHasTime(taskData)
+        ? {
+            ...taskData,
+            source: taskData.source || "MANUAL",
+            status: TASK_STATUS.WAITING,
+            startedAt: null,
+            actualStartTime: null,
+            timerStartedAt: null,
+            startTime: null,
+            isRunning: false,
+            elapsedSeconds: 0
+          }
+        : taskData;
       let createdTask = null;
       if (editingId) {
         state.tasks = state.tasks.map(task => (
@@ -280,7 +308,7 @@
         ));
         showToast("任务已更新");
       } else {
-        createdTask = createTaskRecord(taskData);
+        createdTask = createTaskRecord(createData);
         state.tasks.push(createdTask);
         showToast("任务已创建");
       }
@@ -292,52 +320,71 @@
 
     function scheduleHabitAsTask(habitId, startTime = new Date()) {
       const habit = state.habits.find(item => item.id === habitId);
-      const start = new Date(startTime);
-      if (!habit || Number.isNaN(start.getTime())) return null;
-      const scheduledDay = dateKey(start);
-      if (habitScheduledAsTaskOnDate(habit.id, scheduledDay)) {
+      const arrangedAt = new Date(startTime);
+      const range = getNextFullHourRange(arrangedAt);
+      if (!habit || !range) return null;
+      const habitScheduleDate = dateKey(arrangedAt);
+      if (habitScheduledAsTaskOnDate(habit.id, habitScheduleDate)) {
         showToast("今天已安排过该习惯");
         return null;
       }
 
       const rewardAmount = habitTaskRewardAmount(habit);
-      const scheduledAt = start.toISOString();
-      const task = createTaskRecord({
-        name: habit.name,
-        coins: rewardAmount,
-        hourlyReward: rewardAmount,
-        reward: rewardAmount,
-        source: "HABIT",
-        originId: habit.id,
-        status: TASK_STATUS.WAITING,
-        scheduledAt,
-        startedAt: null,
-        actualStartTime: null,
-        timerStartedAt: null,
-        startTime: null,
-        isRunning: false,
-        elapsedSeconds: 0,
-        endTime: null,
-        estimateDurationMinutes: 60,
-        durationMinutes: null,
-        durationSeconds: null,
-        earnedCoins: null,
-        sourceHabitId: habit.id,
-        lifecycleEvents: [{
-          id: createId("task-lifecycle"),
-          type: TASK_LIFECYCLE_EVENT.SCHEDULED,
-          timestamp: scheduledAt,
-          source: "HABIT"
-        }]
-      }, start);
+      const scheduledAt = arrangedAt.toISOString();
+      const scheduledStart = range.start.toISOString();
+      const scheduledEnd = range.end.toISOString();
+      const taskDateKey = dateKey(range.start);
+      const timeStart = minutesToClockLabel(range.start.getHours() * 60 + range.start.getMinutes());
+      const timeEnd = minutesToClockLabel(range.end.getHours() * 60 + range.end.getMinutes());
+      const task = {
+        ...createTaskRecord({
+          name: habit.name,
+          coins: rewardAmount,
+          hourlyReward: rewardAmount,
+          reward: rewardAmount,
+          source: "HABIT",
+          originId: habit.id,
+          sourceHabitScheduledDate: habitScheduleDate,
+          status: TASK_STATUS.WAITING,
+          scheduledAt,
+          scheduledStart,
+          scheduledEnd,
+          timeStart,
+          timeEnd,
+          time: timeStart,
+          startedAt: null,
+          actualStartTime: null,
+          timerStartedAt: null,
+          startTime: null,
+          isRunning: false,
+          elapsedSeconds: 0,
+          endTime: null,
+          estimateDurationMinutes: 60,
+          durationMinutes: null,
+          durationSeconds: null,
+          earnedCoins: null,
+          sourceHabitId: habit.id,
+          lifecycleEvents: [{
+            id: createId("task-lifecycle"),
+            type: TASK_LIFECYCLE_EVENT.SCHEDULED,
+            timestamp: scheduledAt,
+            source: "HABIT",
+            originId: habit.id,
+            scheduledStart,
+            scheduledEnd
+          }]
+        }, arrangedAt),
+        date: taskDateKey,
+        createdDate: taskDateKey
+      };
 
       state.tasks.push(task);
-      const markedScheduled = markHabitScheduledAsTask(habit.id, task.date);
+      const markedScheduled = markHabitScheduledAsTask(habit.id, habitScheduleDate);
       try {
         saveState();
       } catch (error) {
         state.tasks = state.tasks.filter(item => item.id !== task.id);
-        if (markedScheduled) unmarkHabitScheduledAsTask(habit.id, task.date);
+        if (markedScheduled) unmarkHabitScheduledAsTask(habit.id, habitScheduleDate);
         showToast("无法安排任务");
         return null;
       }
@@ -352,7 +399,8 @@
         taskId: task.id,
         habitId: habit.id,
         name: task.name,
-        date: task.date
+        date: task.date,
+        habitScheduleDate
       }, {
         message: `已安排「${task.name}」`,
         undoLabel: "撤回",
@@ -511,7 +559,7 @@
       const taskResult = task ? taskResultOnDate(task.id, taskDate(task)) : null;
       const isTerminal = task && (["completed", "done", "failed"].includes(task.status) || ["completed", "failed"].includes(taskResult));
       if (task?.sourceHabitId && !isTerminal) {
-        unmarkHabitScheduledAsTask(task.sourceHabitId, taskDate(task));
+        unmarkHabitScheduledAsTask(task.sourceHabitId, task.sourceHabitScheduledDate || taskDate(task));
       }
       saveState();
       closeSheet();

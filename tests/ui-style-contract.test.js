@@ -74,7 +74,7 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   assert.doesNotMatch(habitRenderSource, /habit-template-chip__tile/);
   assert.doesNotMatch(habitRenderSource, /金币/);
   assert.match(taskSource, /sourceHabitId:\s*habit\.id/);
-  assert.match(taskSource, /markHabitScheduledAsTask\(habit\.id, task\.date\)/);
+  assert.match(taskSource, /markHabitScheduledAsTask\(habit\.id, habitScheduleDate\)/);
   assert.match(productionCss, /\.today-task-section\.habit-drop-active/);
   assert.match(productionCss, /\.habit-drag-preview/);
   assert.match(productionCss, /\.habit-template-chip[\s\S]*?-webkit-user-select:\s*none;/);
@@ -89,6 +89,8 @@ test("习惯生成任务使用 WAITING 到 RUNNING 的显式状态机", () => {
 
   assert.match(taskSource, /const TASK_STATUS = Object\.freeze\([\s\S]*?WAITING: "waiting"[\s\S]*?PAUSED: "paused"/);
   assert.match(taskSource, /function scheduleHabitAsTask[\s\S]*?status: TASK_STATUS\.WAITING/);
+  assert.match(taskSource, /function getNextFullHourRange[\s\S]*?setMinutes\(0, 0, 0\)[\s\S]*?setHours\(start\.getHours\(\) \+ 1\)/);
+  assert.match(taskSource, /scheduledStart,[\s\S]*?scheduledEnd,[\s\S]*?timeStart,[\s\S]*?timeEnd/);
   assert.match(taskSource, /estimateDurationMinutes: 60/);
   assert.match(taskSource, /source: "HABIT"/);
   assert.match(taskSource, /originId: habit\.id/);
@@ -109,6 +111,19 @@ test("习惯生成任务使用 WAITING 到 RUNNING 的显式状态机", () => {
   assert.match(uiSource, /等待开始/);
   assert.match(uiSource, /data-task-elapsed/);
   assert.match(uiSource, /class="q-row-tile[^"]*task-start-tile"[\s\S]*?data-start-task/);
+  const actionSource = uiSource.slice(
+    uiSource.indexOf("function taskActionsHtml"),
+    uiSource.indexOf("function taskTileHtml")
+  );
+  const tileSource = uiSource.slice(
+    uiSource.indexOf("function taskTileHtml"),
+    uiSource.indexOf("function stopTaskElapsedTicker")
+  );
+  assert.match(actionSource, /if \(status === TASK_STATUS\.WAITING\) return failAction/);
+  assert.equal((tileSource.match(/data-start-task/g) || []).length, 1);
+  assert.match(tileSource, /aria-label="开始任务"/);
+  assert.doesNotMatch(tileSource, />开始</);
+  assert.match(taskSource, /source: taskData\.source \|\| "MANUAL"[\s\S]*?status: TASK_STATUS\.WAITING/);
 });
 
 test("iOS 习惯拖拽使用独立 Touch Events 状态机并与 Pointer 通道隔离", () => {
