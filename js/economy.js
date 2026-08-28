@@ -287,6 +287,9 @@
         }
       });
       const historyId = coinEvent.historyId;
+      const memoSnapshot = typeof consumeMemoForCompletedTask === "function"
+        ? consumeMemoForCompletedTask(task)
+        : null;
       clearNextStepForTask(taskId);
       saveState();
       updatePrimaryReadouts();
@@ -305,7 +308,8 @@
           amount: earnedCoins,
           durationSeconds,
           previousTask,
-          previousProgress
+          previousProgress,
+          memoSnapshot
         }
       });
       promptNextStepAfterCompletion();
@@ -362,6 +366,9 @@
         }
       });
       const historyId = coinEvent.historyId;
+      const memoSnapshot = typeof consumeMemoForCompletedTask === "function"
+        ? consumeMemoForCompletedTask(task)
+        : null;
       clearNextStepForTask(taskId);
       saveState();
       updatePrimaryReadouts();
@@ -380,7 +387,8 @@
           amount: earnedCoins,
           durationSeconds: 0,
           previousTask,
-          previousProgress
+          previousProgress,
+          memoSnapshot
         }
       });
       promptNextStepAfterCompletion();
@@ -603,6 +611,9 @@
         }
       });
       const historyId = coinEvent.historyId;
+      const memoSnapshot = typeof releaseMemoForTask === "function"
+        ? releaseMemoForTask(task)
+        : null;
       saveState();
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -616,7 +627,8 @@
         taskId: task.id,
         date: today,
         amount,
-        previousTask
+        previousTask,
+        memoSnapshot
       }, {
         icon: "xmark.circle",
         lines: [
@@ -1567,6 +1579,21 @@
         return;
       }
 
+      if (undo.type === "memo_task_scheduled") {
+        const task = state.tasks.find(item => item.id === undo.taskId);
+        if (!task) {
+          showToast("无法撤回");
+          return;
+        }
+        clearNextStepForTask(undo.taskId);
+        state.tasks = state.tasks.filter(item => item.id !== undo.taskId);
+        if (typeof releaseMemoForTask === "function") releaseMemoForTask(task);
+        saveState();
+        render();
+        showToast("已撤回", 1500);
+        return;
+      }
+
       const historyIds = new Set(undo.historyIds || (undo.historyId ? [undo.historyId] : []));
       const hasHistory = Array.from(historyIds).some(id => state.history.some(item => item.id === id));
       if (!hasHistory) {
@@ -1586,6 +1613,9 @@
         entries.forEach(entry => {
           removeDayValue("taskResults", entry.date, entry.taskId);
           restoreTaskState(entry.taskId, entry.previousTask);
+          if (entry.memoSnapshot && typeof restoreMemoSnapshot === "function") {
+            restoreMemoSnapshot(entry.memoSnapshot);
+          }
           const historyEntry = undoHistoryById.get(entry.historyId);
           const actualAmount = historyEntry
             ? Math.abs(historyCoinDelta(historyEntry))
@@ -1626,6 +1656,9 @@
       if (undo.type === "task_completed") {
         restoreTaskState(undo.taskId, undo.previousTask);
         restoreTaskProgress(undo.date, undo.taskId, undo.previousProgress);
+        if (undo.memoSnapshot && typeof restoreMemoSnapshot === "function") {
+          restoreMemoSnapshot(undo.memoSnapshot);
+        }
         undoCoinEvent({ coinDelta: undo.amount, removeHistory: false });
         state.totals.completedTasks = Math.max(0, (Number(state.totals.completedTasks) || 0) - 1);
         state.totals.taskDurationSeconds = Math.max(0, (Number(state.totals.taskDurationSeconds) || 0) - (Number(undo.durationSeconds) || 0));

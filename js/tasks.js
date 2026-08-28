@@ -256,7 +256,7 @@
     }
 
     function taskPastEndTime(task, now = new Date()) {
-      if (task?.source === "HABIT" && task?.status === TASK_STATUS.WAITING) return false;
+      if (["HABIT", "MEMO"].includes(task?.source) && task?.status === TASK_STATUS.WAITING) return false;
       const end = taskEndDateTime(task);
       return Boolean(end && now >= end);
     }
@@ -560,6 +560,9 @@
       const isTerminal = task && (["completed", "done", "failed"].includes(task.status) || ["completed", "failed"].includes(taskResult));
       if (task?.sourceHabitId && !isTerminal) {
         unmarkHabitScheduledAsTask(task.sourceHabitId, task.sourceHabitScheduledDate || taskDate(task));
+      }
+      if (task?.source === "MEMO" && !isTerminal && typeof releaseMemoForTask === "function") {
+        releaseMemoForTask(task);
       }
       saveState();
       closeSheet();

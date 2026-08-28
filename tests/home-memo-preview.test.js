@@ -18,68 +18,68 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+const escapeAttr = escapeHtml;
+
 function createMemoContext(memos) {
-  const attributes = new Map();
   const context = {
     state: { memos },
     els: {
       homeMemoCount: { textContent: "" },
-      homeMemoPreview: { innerHTML: "" },
-      memoSummaryCard: {
-        setAttribute(name, value) {
-          attributes.set(name, value);
-        }
-      }
+      homeMemoList: { innerHTML: "" }
     },
     formatNumber: value => String(value),
-    escapeHtml
+    escapeHtml,
+    escapeAttr
   };
   vm.createContext(context);
   vm.runInContext(memoSource, context);
   vm.runInContext("renderMemoSummary()", context);
-  return { context, attributes };
+  return { context };
 }
 
-test("首页移除全局加号并使用紧凑余额与全宽备忘录", () => {
+test("首页使用紧凑余额与独立备忘录 Chip 区域", () => {
   const header = indexHtml.match(/<header class="header today-header[\s\S]*?<\/header>/)?.[0] || "";
   assert.doesNotMatch(header, /data-open-task/);
   assert.match(header, /class="home-coin-balance"/);
   assert.match(header, /id="homeCoins"/);
   assert.equal((indexHtml.match(/data-open-task/g) || []).length, 1);
-  assert.match(indexHtml, /class="home-memo-overview"/);
-  assert.match(indexHtml, /class="home-memo-card"[^>]*id="memoSummaryCard"/);
-  assert.match(indexHtml, /id="homeMemoPreview"/);
+  assert.match(indexHtml, /class="today-section home-memo-section"/);
+  assert.match(indexHtml, /id="homeMemoList"/);
+  assert.match(indexHtml, /data-open-memo/);
+  assert.doesNotMatch(indexHtml, /home-memo-card|homeMemoPreview|memoSummaryCard/);
   assert.doesNotMatch(indexHtml, /class="summary-grid today-summary/);
   assert.match(productionCss, /\.home-coin-balance__amount\s*\{[\s\S]*?white-space:\s*nowrap;/);
-  assert.match(productionCss, /\.home-memo-card\s*\{[\s\S]*?width:\s*100%;/);
+  assert.match(productionCss, /#homeMemoList\.memo-template-grid[\s\S]*?flex-wrap:\s*wrap;/);
+  assert.doesNotMatch(productionCss, /\.home-memo-card\s*\{/);
 });
 
-test("首页最多预览三个未完成备忘录并复用更新时间排序", () => {
-  const { context, attributes } = createMemoContext([
+test("首页把所有 ACTIVE 备忘录渲染为纯文字 Chip，并隐藏已安排与已完成项", () => {
+  const { context } = createMemoContext([
     { id: "completed", text: "已完成内容", completed: true, updatedAt: "2026-08-27T12:00:00Z" },
     { id: "memo-1", text: "第一条", completed: false, updatedAt: "2026-08-27T11:00:00Z" },
     { id: "memo-2", text: "第二条", completed: false, updatedAt: "2026-08-27T10:00:00Z" },
     { id: "memo-3", text: "第三条", completed: false, updatedAt: "2026-08-27T09:00:00Z" },
-    { id: "memo-4", text: "第四条", completed: false, updatedAt: "2026-08-27T08:00:00Z" }
+    { id: "memo-4", text: "第四条", completed: false, updatedAt: "2026-08-27T08:00:00Z" },
+    { id: "scheduled", text: "已安排内容", status: "SCHEDULED", linkedTaskId: "task-1" }
   ]);
-  const preview = context.els.homeMemoPreview.innerHTML;
+  const chips = context.els.homeMemoList.innerHTML;
 
-  assert.equal(context.els.homeMemoCount.textContent, "4");
-  assert.match(attributes.get("aria-label"), /4 项待处理/);
-  assert.match(preview, /第一条[\s\S]*第二条[\s\S]*第三条/);
-  assert.doesNotMatch(preview, /第四条|已完成内容/);
-  assert.match(preview, /还有 1 项/);
-  assert.equal((preview.match(/home-memo-preview__item/g) || []).length, 3);
+  assert.equal(context.els.homeMemoCount.textContent, "4 项");
+  assert.match(chips, /第一条[\s\S]*第二条[\s\S]*第三条[\s\S]*第四条/);
+  assert.doesNotMatch(chips, /已完成内容|已安排内容/);
+  assert.equal((chips.match(/memo-template-chip/g) || []).length, 4);
+  assert.equal((chips.match(/data-memo-card/g) || []).length, 4);
+  assert.doesNotMatch(chips, /<svg|金币|data-toggle-memo|data-delete-memo/);
 });
 
-test("首页备忘录空状态区分从未创建和全部完成", () => {
-  const empty = createMemoContext([]).context.els.homeMemoPreview.innerHTML;
-  assert.match(empty, /还没有备忘录/);
+test("首页备忘录空状态区分没有记录和全部已安排", () => {
+  const empty = createMemoContext([]).context.els.homeMemoList.innerHTML;
+  assert.match(empty, /暂无备忘录/);
 
-  const completed = createMemoContext([
-    { id: "done", text: "完成项", completed: true, updatedAt: "2026-08-27T12:00:00Z" }
+  const scheduled = createMemoContext([
+    { id: "scheduled", text: "已安排项", status: "SCHEDULED", linkedTaskId: "task-1" }
   ]).context;
-  assert.equal(completed.els.homeMemoCount.textContent, "0");
-  assert.match(completed.els.homeMemoPreview.innerHTML, /没有待处理的备忘录/);
-  assert.doesNotMatch(completed.els.homeMemoPreview.innerHTML, /完成项/);
+  assert.equal(scheduled.els.homeMemoCount.textContent, "0 项");
+  assert.match(scheduled.els.homeMemoList.innerHTML, /今天没有待安排的备忘录/);
+  assert.doesNotMatch(scheduled.els.homeMemoList.innerHTML, /已安排项/);
 });

@@ -134,18 +134,29 @@
     }
 
     function habitDragTargetFromEvent(event) {
-      const row = event.target.closest?.("[data-habit-card]");
+      const row = event.target.closest?.("[data-habit-card], [data-memo-card]");
       if (!row || event.target.closest?.("input, textarea, select, a")) return null;
+      if (row.dataset.memoCard) {
+        const memo = memoItems().find(item => item.id === row.dataset.memoCard);
+        return memo && memoIsActive(memo)
+          ? { row, card: row, sourceType: "MEMO", sourceId: memo.id, sourceName: memo.text, memo }
+          : null;
+      }
       const habit = state.habits.find(item => item.id === row.dataset.habitCard);
-      return habit ? { row, card: row, habit } : null;
+      return habit
+        ? { row, card: row, sourceType: "HABIT", sourceId: habit.id, sourceName: habit.name, habit }
+        : null;
     }
 
     function createHabitDragState({ target, inputMode, inputId, clientX, clientY }) {
       return {
         row: target.row,
         card: target.card,
-        habitId: target.habit.id,
-        habitName: target.habit.name,
+        sourceType: target.sourceType,
+        sourceId: target.sourceId,
+        sourceName: target.sourceName,
+        habitId: target.habit?.id || null,
+        memoId: target.memo?.id || null,
         inputMode,
         pointerId: inputMode === "pointer" ? inputId : null,
         touchIdentifier: inputMode === "touch" ? inputId : null,
@@ -233,7 +244,7 @@
       preview.className = "habit-drag-preview";
       preview.setAttribute("aria-hidden", "true");
       preview.innerHTML = "<strong></strong><span>安排 1 小时</span>";
-      preview.querySelector("strong").textContent = drag.habitName;
+      preview.querySelector("strong").textContent = drag.sourceName;
       document.body.appendChild(preview);
       drag.preview = preview;
       drag.previewStartX = drag.lastX;
@@ -366,7 +377,10 @@
       window.setTimeout(() => {
         suppressNextCardTap = false;
       }, 220);
-      if (shouldSchedule) scheduleHabitAsTask(drag.habitId, new Date());
+      if (shouldSchedule) {
+        if (drag.sourceType === "MEMO") scheduleMemoAsTask(drag.memoId, new Date());
+        else scheduleHabitAsTask(drag.habitId, new Date());
+      }
     }
 
     function endHabitTouchDrag(event, cancelled = false) {
@@ -389,7 +403,10 @@
       window.setTimeout(() => {
         suppressNextCardTap = false;
       }, 220);
-      if (shouldSchedule) scheduleHabitAsTask(drag.habitId, new Date());
+      if (shouldSchedule) {
+        if (drag.sourceType === "MEMO") scheduleMemoAsTask(drag.memoId, new Date());
+        else scheduleHabitAsTask(drag.habitId, new Date());
+      }
     }
 
     function cancelHabitPointerDrag(event) {
@@ -1320,6 +1337,7 @@
       const swipeContent = event.target.closest("[data-swipe-content]");
       const editCard = event.target.closest("[data-edit-card]");
       const habitCard = event.target.closest("[data-habit-card]");
+      const memoCard = event.target.closest("[data-memo-card]");
       const reviewCard = event.target.closest("[data-review-card]");
       const navButton = event.target.closest("[data-nav]");
       const exportDebugTarget = event.target.closest("[data-export-debug]");
@@ -1328,7 +1346,8 @@
       const openHabitButton = event.target.closest("[data-open-habit]");
       const openNoteButton = event.target.closest("[data-open-note]");
       const openRewardButton = event.target.closest("[data-open-reward]");
-      const memoSummaryCard = event.target.closest("#memoSummaryCard");
+      const openMemoButton = event.target.closest("[data-open-memo]");
+      const homeMemoCard = event.target.closest("[data-home-memo-card]");
       const toggleMemoButton = event.target.closest("[data-toggle-memo]");
       const editMemoTarget = event.target.closest("[data-edit-memo]");
       const deleteMemoButton = event.target.closest("[data-delete-memo]");
@@ -1454,7 +1473,7 @@
       if (!event.target.closest("[data-swipe-row]")) {
         closeOpenSwipeRows();
       }
-      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard)) {
+      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard || memoCard)) {
         suppressNextCardTap = false;
         return;
       }
@@ -1478,7 +1497,14 @@
       if (openHabitButton) openHabitSheet();
       if (openNoteButton) openNoteSheet();
       if (openRewardButton) openRewardSheet();
-      if (memoSummaryCard) openMemoSheet();
+      if (openMemoButton) {
+        openMemoSheet();
+        return;
+      }
+      if (homeMemoCard) {
+        openMemoSheet(homeMemoCard.dataset.homeMemoCard);
+        return;
+      }
       if (toggleMemoButton) {
         toggleMemo(toggleMemoButton.dataset.toggleMemo);
         return;

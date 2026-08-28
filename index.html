@@ -13,7 +13,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20260827-task-state">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20260828-memo-task-chips">
 </head>
 <body>
   <div class="app q-app">
@@ -33,14 +33,15 @@
           </div>
         </header>
 
-        <section class="home-memo-overview" aria-label="备忘录概览">
-          <button class="home-memo-card" type="button" id="memoSummaryCard" aria-label="打开备忘录">
-            <span class="home-memo-card__header">
-              <span class="home-memo-card__title">备忘录</span>
-              <span class="home-memo-card__count"><strong id="homeMemoCount">0</strong> 项 <span aria-hidden="true">›</span></span>
-            </span>
-            <span class="home-memo-preview" id="homeMemoPreview"></span>
-          </button>
+        <section class="today-section home-memo-section" aria-label="备忘录">
+          <div class="section-heading q-section-header">
+            <h2>备忘录</h2>
+            <div class="section-heading-actions">
+              <span id="homeMemoCount">0 项</span>
+              <button class="icon-button q-icon-button section-add-button" type="button" data-open-memo aria-label="新增备忘录" data-icon-button="plus"></button>
+            </div>
+          </div>
+          <div class="memo-template-grid" id="homeMemoList"></div>
         </section>
 
         <section class="priority-task-slot today-priority-slot" id="priorityTaskCard" aria-live="polite"></section>
@@ -365,17 +366,17 @@
   <div class="snackbar" id="toast" role="status" aria-live="polite"></div>
 
   <script src="js/storage.js?v=20260827-habit-visibility"></script>
-  <script src="js/tasks.js?v=20260828-next-hour-start-control"></script>
+  <script src="js/tasks.js?v=20260828-memo-task-chips"></script>
   <script src="js/habits.js?v=20260827-habit-visibility"></script>
-  <script src="js/economy.js?v=20260828-next-hour-start-control"></script>
+  <script src="js/economy.js?v=20260828-memo-task-chips"></script>
   <script src="js/settlement.js?v=20260827-habit-template"></script>
   <script src="js/stats-data.js"></script>
   <script src="js/stats.js"></script>
-  <script src="js/ui/elements.js?v=20260827-home-memo"></script>
+  <script src="js/ui/elements.js?v=20260828-memo-task-chips"></script>
   <script src="js/ui/feedback.js"></script>
   <script src="js/ui/time-picker.js"></script>
   <script src="js/ui/sheets.js"></script>
-  <script src="js/memos.js?v=20260827-home-memo"></script>
-  <script src="js/ui.js?v=20260828-next-hour-start-control"></script>
+  <script src="js/memos.js?v=20260828-memo-task-chips"></script>
+  <script src="js/ui.js?v=20260828-memo-task-chips"></script>
 </body>
 </html>

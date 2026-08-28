@@ -179,7 +179,7 @@ function createRuntime(state) {
     clearTimeout
   };
   vm.createContext(context);
-  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/settlement.js", "js/stats-data.js", "js/stats.js", "js/ui/time-picker.js"].forEach(file => {
+  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/settlement.js", "js/stats-data.js", "js/stats.js", "js/ui/time-picker.js", "js/memos.js"].forEach(file => {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), "utf8"), context, { filename: file });
   });
   vm.runInContext(`
@@ -655,6 +655,112 @@ test("旧 pending 有时间任务读取为 WAITING，旧运行和完成状态保
   assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "waiting");
   assert.equal(value(context, "taskStatusToday(state.tasks[1])"), "running");
   assert.equal(value(context, "taskStatusToday(state.tasks[2])"), "completed");
+});
+
+test("旧备忘录拖入后创建 MEMO 来源的下一个整点 WAITING 任务", () => {
+  const state = emptyState([], 2000);
+  state.memos = [{ id: "memo-1", text: "牙刷充电", completed: false, createdAt: FIXED_NOW }];
+  const { context, storage } = createRuntime(state);
+
+  const created = value(context, `scheduleMemoAsTask("memo-1", new Date(2026, 6, 16, 13, 18))`);
+  assert.equal(created.source, "MEMO");
+  assert.equal(created.originId, "memo-1");
+  assert.equal(created.sourceMemoId, "memo-1");
+  assert.equal(created.status, "waiting");
+  assert.equal(created.timeStart, "14:00");
+  assert.equal(created.timeEnd, "15:00");
+  assert.equal(created.startedAt, null);
+  assert.equal(created.actualStartTime, null);
+  assert.equal(created.timerStartedAt, null);
+  assert.equal(created.isRunning, false);
+  assert.equal(created.elapsedSeconds, 0);
+  assert.equal(created.reward, 20);
+  assert.equal(created.lifecycleEvents[0].type, "TASK_SCHEDULED");
+  assert.equal(created.lifecycleEvents[0].source, "MEMO");
+  assert.equal(value(context, `state.memos[0].status`), "SCHEDULED");
+  assert.equal(value(context, `state.memos[0].linkedTaskId`), created.id);
+  const persisted = JSON.parse(storage.get("minimal-discipline-v1"));
+  assert.equal(persisted.memos[0].status, "SCHEDULED");
+  assert.equal(persisted.memos[0].linkedTaskId, created.id);
+  assert.equal(value(context, `scheduleMemoAsTask("memo-1", new Date(2026, 6, 16, 13, 20))`), null);
+  assert.equal(value(context, "state.coins"), 2000);
+  assert.equal(value(context, "state.history.length"), 0);
+});
+
+test("MEMO 任务保存失败时不会隐藏或删除原备忘录", () => {
+  const state = emptyState([], 2000);
+  state.memos = [{ id: "memo-save-fail", text: "action5 内存", completed: false, createdAt: FIXED_NOW }];
+  const { context } = createRuntime(state);
+
+  const result = value(context, `(() => {
+    const originalSaveState = saveState;
+    saveState = () => { throw new Error("save failed"); };
+    const created = scheduleMemoAsTask("memo-save-fail", new Date(2026, 6, 16, 13, 18));
+    saveState = originalSaveState;
+    return created;
+  })()`);
+
+  assert.equal(result, null);
+  assert.equal(value(context, "state.tasks.length"), 0);
+  assert.equal(value(context, "state.memos.length"), 1);
+  assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
+  assert.equal(value(context, "state.memos[0].linkedTaskId"), undefined);
+});
+
+test("撤回或删除未完成 MEMO 任务会恢复原备忘录", () => {
+  const state = emptyState([], 2000);
+  state.memos = [{ id: "memo-undo", text: "买转换插头", completed: false, createdAt: FIXED_NOW }];
+  const { context } = createRuntime(state);
+
+  value(context, `scheduleMemoAsTask("memo-undo", new Date(2026, 6, 16, 13, 18))`);
+  value(context, "undoLastAction()");
+  assert.equal(value(context, "state.tasks.length"), 0);
+  assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
+  assert.equal(value(context, "state.memos[0].linkedTaskId"), null);
+
+  value(context, `scheduleMemoAsTask("memo-undo", new Date(2026, 6, 16, 13, 18))`);
+  value(context, "closeSheet = () => {}; deleteTask(state.tasks[0].id)");
+  assert.equal(value(context, "state.tasks.length"), 0);
+  assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
+});
+
+test("MEMO 任务失败后恢复备忘录，撤回失败后重新关联", () => {
+  const state = emptyState([], 2000);
+  state.memos = [{ id: "memo-fail", text: "整理签证材料", completed: false, createdAt: FIXED_NOW }];
+  const { context } = createRuntime(state);
+
+  const taskId = value(context, `scheduleMemoAsTask("memo-fail", new Date(2026, 6, 16, 10, 0)).id`);
+  value(context, `failTask("${taskId}")`);
+  assert.equal(value(context, "state.coins"), 1800);
+  assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
+  assert.equal(value(context, "state.memos[0].linkedTaskId"), null);
+
+  value(context, "undoLastAction()");
+  assert.equal(value(context, "state.coins"), 2000);
+  assert.equal(value(context, `memoStatus(state.memos[0])`), "SCHEDULED");
+  assert.equal(value(context, "state.memos[0].linkedTaskId"), taskId);
+  assert.equal(value(context, "state.tasks[0].status"), "waiting");
+});
+
+test("MEMO 任务完成后永久删除备忘录，删除已完成任务不会恢复", () => {
+  const state = emptyState([], 2000);
+  state.memos = [{ id: "memo-done", text: "给 Raphael 回消息", completed: false, createdAt: FIXED_NOW }];
+  const { context } = createRuntime(state);
+
+  const taskId = value(context, `scheduleMemoAsTask("memo-done", new Date(2026, 6, 16, 10, 0)).id`);
+  value(context, `startTask("${taskId}")`);
+  value(context, `state.tasks[0].startedAt = "2026-07-16T11:00:00.000Z";
+    state.tasks[0].actualStartTime = "2026-07-16T11:00:00.000Z";
+    state.tasks[0].timerStartedAt = "2026-07-16T11:00:00.000Z";
+    state.tasks[0].startTime = "2026-07-16T11:00:00.000Z";
+    finishTask("${taskId}")`);
+  assert.equal(value(context, "state.memos.length"), 0);
+  assert.equal(value(context, "state.tasks[0].status"), "completed");
+  assert.equal(value(context, "state.coins"), 2020);
+
+  value(context, "pendingUndo = null; closeSheet = () => {}; deleteTask(state.tasks[0].id)");
+  assert.equal(value(context, "state.tasks.length"), 0);
+  assert.equal(value(context, "state.memos.length"), 0);
 });
 
 test("旧 in_progress 和 startTime 任务继续识别为运行中", () => {

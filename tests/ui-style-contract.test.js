@@ -79,7 +79,21 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   assert.match(productionCss, /\.habit-drag-preview/);
   assert.match(productionCss, /\.habit-template-chip[\s\S]*?-webkit-user-select:\s*none;/);
   assert.match(productionCss, /\.habit-template-chip[\s\S]*?-webkit-touch-callout:\s*none;/);
-  assert.match(productionCss, /\.habit-template-grid\s*\{[\s\S]*?flex-wrap:\s*wrap;/);
+  assert.match(productionCss, /#habitList\.habit-template-grid,[\s\S]*?flex-wrap:\s*wrap;/);
+});
+
+test("备忘录 Chip 复用拖拽通道并分流到 MEMO 任务入口", () => {
+  const memoSource = fs.readFileSync(path.join(ROOT, "js/memos.js"), "utf8");
+  const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
+  assert.match(indexHtml, /class="memo-template-grid" id="homeMemoList"/);
+  assert.match(memoSource, /class="habit-template-chip memo-template-chip"/);
+  assert.match(memoSource, /data-memo-card=/);
+  assert.match(memoSource, /source: "MEMO"/);
+  assert.match(memoSource, /originId: memo\.id/);
+  assert.match(memoSource, /status: TASK_STATUS\.WAITING/);
+  assert.match(uiSource, /\[data-habit-card\], \[data-memo-card\]/);
+  assert.match(uiSource, /drag\.sourceType === "MEMO"[\s\S]*?scheduleMemoAsTask/);
+  assert.match(productionCss, /#homeMemoList\.memo-template-grid/);
 });
 
 test("习惯生成任务使用 WAITING 到 RUNNING 的显式状态机", () => {
@@ -150,7 +164,7 @@ test("iOS 习惯拖拽使用独立 Touch Events 状态机并与 Pointer 通道�
   assert.match(uiSource, /lock\.scrollTarget\.scrollTop = lock\.scrollTop/);
   assert.match(uiSource, /restoreHabitDragScroll\(drag\)/);
   assert.match(uiSource, /pointInsideElement\(habitTaskDropZone\(\), touch\.clientX, touch\.clientY\)/);
-  assert.match(uiSource, /if \(shouldSchedule\) scheduleHabitAsTask\(drag\.habitId, new Date\(\)\)/);
+  assert.match(uiSource, /else scheduleHabitAsTask\(drag\.habitId, new Date\(\)\)/);
   assert.match(uiSource, /Habit drag entered dragging state but touch coordinates are not updating\./);
   assert.match(uiSource, /window\.addEventListener\("pagehide", clearHabitDrag\)/);
   assert.match(productionCss, /html\.habit-dragging,[\s\S]*?overflow:\s*hidden;/);
