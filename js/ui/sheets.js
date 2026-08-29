@@ -69,6 +69,7 @@
       editingId = taskId;
       const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
       const defaultRange = defaultTaskTimeRange();
+      const quickSlots = task ? [] : futureHourlySlots(new Date(), 4);
       const startTimeValue = task ? taskStartTimeValue(task) : defaultRange.start;
       const parsedStartTime = parseTimeValue(startTimeValue);
       const initialStartTimeValue = parsedStartTime ? formatTimeParts(parsedStartTime) : "";
@@ -86,6 +87,22 @@
             <span class="field-help">有时间任务默认 20 金币/小时；无时间任务按设置的固定奖励金额结算。</span>
           </label>
           <div class="field task-time-field">
+            ${task ? "" : `
+              <div class="task-quick-schedule" data-task-quick-schedule>
+                <div class="task-quick-schedule__heading">安排到</div>
+                <div class="task-quick-schedule__options" role="group" aria-label="快速选择计划开始时间">
+                  ${quickSlots.map((slot, index) => `
+                    <button
+                      class="task-quick-schedule__option${index === 0 ? " is-selected" : ""}"
+                      type="button"
+                      data-task-quick-slot="${escapeAttr(slot.start.toISOString())}"
+                      data-task-quick-slot-end="${escapeAttr(slot.end.toISOString())}"
+                    >${escapeHtml(slot.label)}</button>
+                  `).join("")}
+                  <button class="task-quick-schedule__option" type="button" data-task-custom-time>自定义</button>
+                </div>
+              </div>
+            `}
             <div class="time-picker" data-time-picker data-time-role="start">
               <input name="timeStart" type="hidden" value="${escapeAttr(initialStartTimeValue)}">
               <div class="time-picker-header">
@@ -121,8 +138,56 @@
       });
       openSheet({ position: "top", kind: "task", keyboardForm: true });
       initTimePicker();
+      initTaskQuickSchedule();
       initTaskSheetValidation();
       focusSheetField("input[name='name']");
+    }
+
+    function initTaskQuickSchedule() {
+      const control = els.sheetForm.querySelector("[data-task-quick-schedule]");
+      const picker = els.sheetForm.querySelector("[data-time-picker]");
+      if (!control || !picker) return;
+      const timeInput = picker.querySelector("input[name='timeStart']");
+      const timeLabel = picker.querySelector("[data-time-value]");
+
+      const useCustomTime = () => {
+        control.querySelectorAll("[data-task-quick-slot]").forEach(button => button.classList.remove("is-selected"));
+        control.querySelector("[data-task-custom-time]")?.classList.add("is-selected");
+        picker.classList.add("task-time-custom-active");
+      };
+
+      control.addEventListener("click", event => {
+        const slotButton = event.target.closest("[data-task-quick-slot]");
+        const customButton = event.target.closest("[data-task-custom-time]");
+        if (slotButton) {
+          const start = new Date(slotButton.dataset.taskQuickSlot);
+          if (Number.isNaN(start.getTime())) return;
+          const timeValue = minutesToClockLabel(start.getHours() * 60 + start.getMinutes());
+          timeInput.value = timeValue;
+          timeInput.setAttribute("value", timeValue);
+          timeLabel.textContent = timeValue;
+          control.querySelectorAll(".task-quick-schedule__option").forEach(button => {
+            button.classList.toggle("is-selected", button === slotButton);
+          });
+          picker.classList.remove("expanded", "task-time-custom-active");
+          picker.querySelector("[data-toggle-time-picker]")?.setAttribute("aria-expanded", "false");
+          return;
+        }
+        if (customButton) {
+          useCustomTime();
+          picker.querySelector("[data-toggle-time-picker]")?.click();
+        }
+      });
+
+      picker.addEventListener("pointerdown", event => {
+        if (event.target.closest("[data-time-wheel], [data-clear-time]")) useCustomTime();
+      }, true);
+      picker.addEventListener("touchstart", event => {
+        if (event.target.closest("[data-time-wheel], [data-clear-time]")) useCustomTime();
+      }, { capture: true, passive: true });
+      picker.addEventListener("wheel", event => {
+        if (event.target.closest("[data-time-wheel]")) useCustomTime();
+      }, { capture: true, passive: true });
     }
 
     function initTaskSheetValidation() {
@@ -431,7 +496,18 @@
         if (submitButton) submitButton.disabled = true;
         const taskCoinsInput = String(formData.get("coins") || "").trim();
         const taskCoins = taskCoinsInput === "" ? "" : parseCoinAmount(Math.max(0, Number(taskCoinsInput)));
-        const timeStart = String(formData.get("timeStart") || "").trim();
+        const selectedQuickSlot = els.sheetForm.querySelector("[data-task-quick-slot].is-selected");
+        const scheduledStart = String(selectedQuickSlot?.dataset.taskQuickSlot || "").trim();
+        const scheduledEnd = String(selectedQuickSlot?.dataset.taskQuickSlotEnd || "").trim();
+        const scheduledStartDate = scheduledStart ? new Date(scheduledStart) : null;
+        const selectedStartTime = scheduledStartDate && !Number.isNaN(scheduledStartDate.getTime())
+          ? minutesToClockLabel(scheduledStartDate.getHours() * 60 + scheduledStartDate.getMinutes())
+          : "";
+        const displayedTimeParts = parseTimeValue(
+          els.sheetForm.querySelector("[data-time-value]")?.textContent || ""
+        );
+        const displayedTime = displayedTimeParts ? formatTimeParts(displayedTimeParts) : "";
+        const timeStart = selectedStartTime || displayedTime || String(formData.get("timeStart") || "").trim();
         const timeEnd = timeStart ? shiftTimeValue(timeStart, 60) : "";
         saveTask({
           name: String(formData.get("name") || "").trim(),
@@ -440,7 +516,14 @@
           reward: taskCoins,
           timeStart,
           timeEnd,
-          time: timeStart
+          time: timeStart,
+          ...(scheduledStartDate && !Number.isNaN(scheduledStartDate.getTime()) ? {
+            date: dateKey(scheduledStartDate),
+            createdDate: dateKey(scheduledStartDate),
+            scheduledStart,
+            scheduledEnd,
+            estimateDurationMinutes: 60
+          } : {})
         });
       }
       if (sheetMode === "priority") {

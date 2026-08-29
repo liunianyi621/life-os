@@ -112,6 +112,14 @@
       return document.querySelector("[data-habit-task-drop-zone]");
     }
 
+    function taskTimelineDropSlots() {
+      return Array.from(document.querySelectorAll("[data-task-timeline-slot]"));
+    }
+
+    function taskTimelineSlotAt(x, y) {
+      return taskTimelineDropSlots().find(slot => pointInsideElement(slot, x, y)) || null;
+    }
+
     function pointInsideElement(element, x, y) {
       if (!element) return false;
       const rect = element.getBoundingClientRect();
@@ -125,8 +133,13 @@
 
     function updateHabitDropState(drag, x, y) {
       const dropZone = habitTaskDropZone();
-      drag.overDropZone = pointInsideElement(dropZone, x, y);
+      const slot = taskTimelineSlotAt(x, y);
+      drag.dropSlotStart = slot?.dataset.taskTimelineSlot || null;
+      drag.overDropZone = Boolean(slot);
       dropZone?.classList.toggle("habit-drop-active", drag.overDropZone);
+      taskTimelineDropSlots().forEach(item => {
+        item.classList.toggle("task-hour-slot-drop-active", item === slot);
+      });
     }
 
     function touchWithIdentifier(touchList, identifier) {
@@ -168,6 +181,7 @@
         dragging: false,
         phase: "pressing",
         overDropZone: false,
+        dropSlotStart: null,
         preview: null,
         previewStartX: null,
         previewStartY: null,
@@ -240,6 +254,7 @@
       drag.row.classList.add("habit-drag-source");
       document.getSelection?.()?.removeAllRanges();
       habitTaskDropZone()?.classList.add("habit-drop-available");
+      renderTasks();
       const preview = document.createElement("div");
       preview.className = "habit-drag-preview";
       preview.setAttribute("aria-hidden", "true");
@@ -281,6 +296,8 @@
       document.body.classList.remove("habit-dragging");
       const dropZone = habitTaskDropZone();
       dropZone?.classList.remove("habit-drop-available", "habit-drop-active");
+      taskTimelineDropSlots().forEach(slot => slot.classList.remove("task-hour-slot-drop-active"));
+      if (drag.dragging) renderTasks();
       return drag;
     }
 
@@ -369,17 +386,17 @@
       if (!activeHabitDrag || activeHabitDrag.inputMode !== "pointer") return;
       if (event.pointerId !== activeHabitDrag.pointerId) return;
       const drag = activeHabitDrag;
-      const shouldSchedule = drag.dragging
-        && !cancelled
-        && pointInsideElement(habitTaskDropZone(), event.clientX, event.clientY);
+      const slot = drag.dragging && !cancelled ? taskTimelineSlotAt(event.clientX, event.clientY) : null;
+      const scheduledSlotStart = slot?.dataset.taskTimelineSlot || null;
+      const shouldSchedule = Boolean(drag.dragging && !cancelled && scheduledSlotStart);
       clearHabitDrag();
       if (!drag.dragging) return;
       window.setTimeout(() => {
         suppressNextCardTap = false;
       }, 220);
       if (shouldSchedule) {
-        if (drag.sourceType === "MEMO") scheduleMemoAsTask(drag.memoId, new Date());
-        else scheduleHabitAsTask(drag.habitId, new Date());
+        if (drag.sourceType === "MEMO") scheduleMemoAsTask(drag.memoId, new Date(), scheduledSlotStart);
+        else scheduleHabitAsTask(drag.habitId, new Date(), scheduledSlotStart);
       }
     }
 
@@ -391,9 +408,9 @@
       drag.lastX = touch.clientX;
       drag.lastY = touch.clientY;
       const wasDragging = drag.phase === "dragging";
-      const shouldSchedule = wasDragging
-        && !cancelled
-        && pointInsideElement(habitTaskDropZone(), touch.clientX, touch.clientY);
+      const slot = wasDragging && !cancelled ? taskTimelineSlotAt(touch.clientX, touch.clientY) : null;
+      const scheduledSlotStart = slot?.dataset.taskTimelineSlot || null;
+      const shouldSchedule = Boolean(wasDragging && !cancelled && scheduledSlotStart);
       if (wasDragging) {
         if (event.cancelable) event.preventDefault();
         event.stopPropagation();
@@ -404,8 +421,8 @@
         suppressNextCardTap = false;
       }, 220);
       if (shouldSchedule) {
-        if (drag.sourceType === "MEMO") scheduleMemoAsTask(drag.memoId, new Date());
-        else scheduleHabitAsTask(drag.habitId, new Date());
+        if (drag.sourceType === "MEMO") scheduleMemoAsTask(drag.memoId, new Date(), scheduledSlotStart);
+        else scheduleHabitAsTask(drag.habitId, new Date(), scheduledSlotStart);
       }
     }
 
@@ -972,42 +989,16 @@
       taskElapsedTicker = window.setInterval(refreshTaskElapsedLabels, 1000);
     }
 
-    function renderTasks() {
-      const tasksForToday = todayTasks();
-      if (!tasksForToday.length) {
-        stopTaskElapsedTicker();
-        els.todayTaskList.innerHTML = `
-          <div class="empty-state">
-            <strong>今天没有任务</strong>
-          </div>
-        `;
-        return;
-      }
-
-      const activeTasks = tasksForToday.filter(task => !taskResultToday(task.id));
-      if (!activeTasks.length) {
-        stopTaskElapsedTicker();
-        els.todayTaskList.innerHTML = `
-          <div class="empty-state">
-            <strong>今天的任务已经完成</strong>
-          </div>
-        `;
-        return;
-      }
-
-      els.todayTaskList.innerHTML = groupedActiveTasks(activeTasks).map(group => `
-        <section class="task-time-group">
-          ${group.label ? `<div class="task-time-heading">${escapeHtml(group.label)}</div>` : ""}
-          <div class="task-time-list">
-            ${group.tasks.map(task => {
-              const status = taskStatusToday(task);
-              return swipeRowHtml({
-                attrs: `data-task-card="${escapeAttr(task.id)}"`,
-                actionWidth: status === TASK_STATUS.WAITING ? 84 : 168,
-                editType: "task",
-                editId: task.id,
-                actions: taskActionsHtml(task, status),
-                content: `
+    function taskTimelineRowsHtml(tasks) {
+      return tasks.map(task => {
+        const status = taskStatusToday(task);
+        return swipeRowHtml({
+          attrs: `data-task-card="${escapeAttr(task.id)}"`,
+          actionWidth: status === TASK_STATUS.WAITING ? 84 : 168,
+          editType: "task",
+          editId: task.id,
+          actions: taskActionsHtml(task, status),
+          content: `
             ${taskTileHtml(task, status)}
             <div class="card-main">
               <div class="title-wrap">
@@ -1017,12 +1008,60 @@
                 </div>
               </div>
             </div>
-              `
-              });
-            }).join("")}
+          `
+        });
+      }).join("");
+    }
+
+    function taskHourSlotHtml(group, { droppable = false } = {}) {
+      const hasStart = group.start instanceof Date && !Number.isNaN(group.start.getTime());
+      const label = group.label || "未定";
+      const slotAttr = droppable && hasStart
+        ? ` data-task-timeline-slot="${escapeAttr(group.start.toISOString())}"`
+        : "";
+      const timeAttr = hasStart ? ` datetime="${escapeAttr(group.start.toISOString())}"` : "";
+      return `
+        <div class="task-hour-slot${group.tasks.length ? " has-tasks" : " is-empty"}"${slotAttr}>
+          <time class="task-hour-slot__time"${timeAttr}>${escapeHtml(label)}</time>
+          <div class="task-hour-slot__content">
+            ${group.tasks.length
+              ? `<div class="task-hour-slot__tasks">${taskTimelineRowsHtml(group.tasks)}</div>`
+              : `<span class="task-hour-slot__empty">空闲</span>`}
+            ${droppable ? `<span class="task-hour-slot__drop-hint">安排到 ${escapeHtml(label.replace(/^明天\s+/, ""))}</span>` : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    function taskTimelineSectionHtml(title, groups, options = {}) {
+      if (!groups.length) return "";
+      return `
+        <section class="task-timeline-section task-timeline-section-${options.tone || "default"}">
+          <h3 class="task-timeline-section__title">${escapeHtml(title)}</h3>
+          <div class="task-timeline-section__slots">
+            ${groups.map(group => taskHourSlotHtml(group, options)).join("")}
           </div>
         </section>
-      `).join("");
+      `;
+    }
+
+    function renderTasks() {
+      const tasksForToday = todayTasks();
+      const activeTasks = tasksForToday.filter(task => {
+        const status = taskStatusToday(task);
+        return !["completed", "failed"].includes(status);
+      });
+      const futureSlotCount = document.body.classList.contains("habit-dragging") ? 6 : 4;
+      const timeline = hourlyTaskTimeline(activeTasks, new Date(), futureSlotCount);
+      const unscheduledGroups = timeline.unscheduled.length
+        ? [{ tasks: timeline.unscheduled }]
+        : [];
+      els.todayTaskList.classList.add("task-hourly-timeline");
+      els.todayTaskList.innerHTML = [
+        taskTimelineSectionHtml("较早安排", timeline.earlier, { tone: "earlier" }),
+        taskTimelineSectionHtml("未排期", unscheduledGroups, { tone: "unscheduled" }),
+        taskTimelineSectionHtml("接下来", timeline.upcoming, { droppable: true, tone: "upcoming" })
+      ].join("");
       syncTaskElapsedTicker();
     }
 

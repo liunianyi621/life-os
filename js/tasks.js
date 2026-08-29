@@ -231,6 +231,115 @@
       return { start, end };
     }
 
+    function getHourlyRangeFromStart(value) {
+      const start = new Date(value);
+      if (Number.isNaN(start.getTime())) return null;
+      start.setMinutes(0, 0, 0);
+      const end = new Date(start);
+      end.setHours(end.getHours() + 1);
+      return { start, end };
+    }
+
+    function futureHourlySlots(now = new Date(), count = 4) {
+      const firstRange = getNextFullHourRange(now);
+      if (!firstRange) return [];
+      const slotCount = Math.max(0, Math.floor(Number(count) || 0));
+      return Array.from({ length: slotCount }, (_, index) => {
+        const start = new Date(firstRange.start);
+        start.setHours(start.getHours() + index);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1);
+        return {
+          key: start.toISOString(),
+          start,
+          end,
+          label: hourlyTimelineLabel(start, now)
+        };
+      });
+    }
+
+    function taskScheduledStartDate(task) {
+      const scheduledStart = new Date(task?.scheduledStart || "");
+      if (!Number.isNaN(scheduledStart.getTime())) return scheduledStart;
+      const startMinutes = timeToMinutes(taskStartTimeValue(task));
+      const day = taskDate(task);
+      if (startMinutes == null || !day) return null;
+      const start = dateFromKey(day);
+      start.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+      return Number.isNaN(start.getTime()) ? null : start;
+    }
+
+    function hourlyTimelineLabel(value, reference = new Date()) {
+      const date = new Date(value);
+      const now = new Date(reference);
+      if (Number.isNaN(date.getTime()) || Number.isNaN(now.getTime())) return "";
+      const time = minutesToClockLabel(date.getHours() * 60 + date.getMinutes());
+      const day = dateKey(date);
+      const today = dateKey(now);
+      const tomorrow = new Date(now);
+      tomorrow.setHours(0, 0, 0, 0);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (day === today) return time;
+      if (day === dateKey(tomorrow)) return `明天 ${time}`;
+      return `${date.getMonth() + 1}月${date.getDate()}日 ${time}`;
+    }
+
+    function sortTasksByCreatedAt(tasks) {
+      return [...tasks].sort((left, right) => {
+        const leftTime = new Date(left?.createdAt || 0).getTime();
+        const rightTime = new Date(right?.createdAt || 0).getTime();
+        const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
+        const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
+        return safeLeft - safeRight;
+      });
+    }
+
+    function hourlyTaskTimeline(tasks, now = new Date(), futureSlotCount = 4) {
+      const current = new Date(now);
+      if (Number.isNaN(current.getTime())) {
+        return { earlier: [], upcoming: [], unscheduled: [] };
+      }
+      const earlierByTime = new Map();
+      const upcomingByTime = new Map();
+      const unscheduled = [];
+
+      futureHourlySlots(current, futureSlotCount).forEach(slot => {
+        upcomingByTime.set(slot.start.getTime(), { ...slot, tasks: [] });
+      });
+
+      tasks.forEach(task => {
+        const start = taskScheduledStartDate(task);
+        if (!start) {
+          unscheduled.push(task);
+          return;
+        }
+        const key = start.getTime();
+        const target = key < current.getTime() ? earlierByTime : upcomingByTime;
+        if (!target.has(key)) {
+          const end = new Date(start);
+          end.setHours(end.getHours() + 1);
+          target.set(key, {
+            key: start.toISOString(),
+            start,
+            end,
+            label: hourlyTimelineLabel(start, current),
+            tasks: []
+          });
+        }
+        target.get(key).tasks.push(task);
+      });
+
+      const sortGroups = groups => [...groups.values()]
+        .sort((left, right) => left.start.getTime() - right.start.getTime())
+        .map(group => ({ ...group, tasks: sortTasksByCreatedAt(group.tasks) }));
+
+      return {
+        earlier: sortGroups(earlierByTime),
+        upcoming: sortGroups(upcomingByTime),
+        unscheduled: sortTasksByCreatedAt(unscheduled)
+      };
+    }
+
     function taskTimeRange(task) {
       const startMinutes = timeToMinutes(taskStartTimeValue(task));
       const endMinutes = timeToMinutes(taskEndTimeValue(task));
@@ -256,19 +365,20 @@
     }
 
     function taskPastEndTime(task, now = new Date()) {
-      if (["HABIT", "MEMO"].includes(task?.source) && task?.status === TASK_STATUS.WAITING) return false;
+      if (task?.status === TASK_STATUS.WAITING) return false;
       const end = taskEndDateTime(task);
       return Boolean(end && now >= end);
     }
 
     function createTaskRecord(taskData, now = new Date()) {
       const today = dateKey(now);
+      const recordDate = taskData?.date || today;
       const timestamp = now.toISOString();
       return {
         id: createId("task"),
         ...taskData,
-        date: today,
-        createdDate: today,
+        date: recordDate,
+        createdDate: taskData?.createdDate || recordDate,
         createdAt: timestamp,
         updatedAt: timestamp
       };
@@ -318,10 +428,12 @@
       return createdTask;
     }
 
-    function scheduleHabitAsTask(habitId, startTime = new Date()) {
+    function scheduleHabitAsTask(habitId, startTime = new Date(), scheduledSlotStart = null) {
       const habit = state.habits.find(item => item.id === habitId);
       const arrangedAt = new Date(startTime);
-      const range = getNextFullHourRange(arrangedAt);
+      const range = scheduledSlotStart
+        ? getHourlyRangeFromStart(scheduledSlotStart)
+        : getNextFullHourRange(arrangedAt);
       if (!habit || !range) return null;
       const habitScheduleDate = dateKey(arrangedAt);
       if (habitScheduledAsTaskOnDate(habit.id, habitScheduleDate)) {
@@ -411,8 +523,21 @@
     }
 
     function todayTasks() {
-      const today = dateKey();
-      return state.tasks.filter(task => taskDate(task) === today || taskIsInProgress(task));
+      const now = new Date();
+      const today = dateKey(now);
+      const futureLimit = now.getTime() + (24 * 60 * 60 * 1000);
+      return state.tasks.filter(task => {
+        if (taskDate(task) === today || taskIsInProgress(task)) return true;
+        const scheduledStart = taskScheduledStartDate(task);
+        const createdAt = new Date(task?.createdAt || "");
+        return Boolean(
+          scheduledStart
+          && scheduledStart.getTime() > now.getTime()
+          && scheduledStart.getTime() <= futureLimit
+          && !Number.isNaN(createdAt.getTime())
+          && dateKey(createdAt) === today
+        );
+      });
     }
 
     function activeTasksToday() {

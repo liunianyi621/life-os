@@ -284,10 +284,12 @@
       return true;
     }
 
-    function scheduleMemoAsTask(memoId, startTime = new Date()) {
+    function scheduleMemoAsTask(memoId, startTime = new Date(), scheduledSlotStart = null) {
       const memo = memoItems().find(item => item.id === memoId);
       const arrangedAt = new Date(startTime);
-      const range = getNextFullHourRange(arrangedAt);
+      const range = scheduledSlotStart
+        ? getHourlyRangeFromStart(scheduledSlotStart)
+        : getNextFullHourRange(arrangedAt);
       if (!memo || !memoIsActive(memo) || !range) return null;
 
       const scheduledAt = arrangedAt.toISOString();

@@ -163,12 +163,31 @@ test("iOS 习惯拖拽使用独立 Touch Events 状态机并与 Pointer 通道�
   assert.match(uiSource, /positionHabitDragPreview\(drag, touch\.clientX, touch\.clientY\)/);
   assert.match(uiSource, /lock\.scrollTarget\.scrollTop = lock\.scrollTop/);
   assert.match(uiSource, /restoreHabitDragScroll\(drag\)/);
-  assert.match(uiSource, /pointInsideElement\(habitTaskDropZone\(\), touch\.clientX, touch\.clientY\)/);
-  assert.match(uiSource, /else scheduleHabitAsTask\(drag\.habitId, new Date\(\)\)/);
+  assert.match(uiSource, /taskTimelineSlotAt\(touch\.clientX, touch\.clientY\)/);
+  assert.match(uiSource, /else scheduleHabitAsTask\(drag\.habitId, new Date\(\), scheduledSlotStart\)/);
   assert.match(uiSource, /Habit drag entered dragging state but touch coordinates are not updating\./);
   assert.match(uiSource, /window\.addEventListener\("pagehide", clearHabitDrag\)/);
   assert.match(productionCss, /html\.habit-dragging,[\s\S]*?overflow:\s*hidden;/);
   assert.match(productionCss, /body\.habit-dragging \.habit-template-chip\.habit-drag-source[\s\S]*?touch-action:\s*none;/);
+});
+
+test("今日任务使用轻量整点时间轴并将拖放命中细化到具体槽位", () => {
+  const taskSource = fs.readFileSync(path.join(ROOT, "js/tasks.js"), "utf8");
+  const sheetSource = fs.readFileSync(path.join(ROOT, "js/ui/sheets.js"), "utf8");
+  const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
+  assert.match(taskSource, /function futureHourlySlots\([\s\S]*?getNextFullHourRange/);
+  assert.match(taskSource, /function hourlyTaskTimeline\(/);
+  assert.match(uiSource, /data-task-timeline-slot/);
+  assert.match(uiSource, /taskTimelineSectionHtml\("较早安排"/);
+  assert.match(uiSource, /taskTimelineSectionHtml\("接下来"/);
+  assert.match(uiSource, /futureSlotCount = document\.body\.classList\.contains\("habit-dragging"\) \? 6 : 4/);
+  assert.doesNotMatch(uiSource.slice(uiSource.indexOf("function renderTasks"), uiSource.indexOf("function calendarGridDays")), /taskTimeRangeLabel/);
+  assert.match(sheetSource, /data-task-quick-schedule/);
+  assert.match(sheetSource, /data-task-custom-time/);
+  assert.match(sheetSource, /scheduledStart/);
+  assert.match(sheetSource, /displayedTimeParts = parseTimeValue/);
+  assert.match(productionCss, /\.task-hour-slot\s*\{[\s\S]*?grid-template-columns:\s*68px minmax\(0, 1fr\)/);
+  assert.match(productionCss, /\.task-hour-slot__drop-hint/);
 });
 
 test("撤回提示使用单一紧凑 Snackbar 组件", () => {

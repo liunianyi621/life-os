@@ -498,6 +498,86 @@ test("习惯拖入时间始终向前安排到下一个完整整点的一小时",
   });
 });
 
+test("未来时间轴始终从下一个整点生成四个槽并正确跨午夜", () => {
+  const { context } = createRuntime(emptyState([], 2000));
+  const daytime = value(context, `futureHourlySlots(new Date(2026, 6, 16, 12, 30), 4)
+    .map(slot => ({ label: slot.label, start: slot.start.getHours(), end: slot.end.getHours() }))`);
+  assert.deepEqual(JSON.parse(JSON.stringify(daytime)), [
+    { label: "13:00", start: 13, end: 14 },
+    { label: "14:00", start: 14, end: 15 },
+    { label: "15:00", start: 15, end: 16 },
+    { label: "16:00", start: 16, end: 17 }
+  ]);
+
+  const exactHour = value(context, `futureHourlySlots(new Date(2026, 6, 16, 14, 0), 4).map(slot => slot.start.getHours())`);
+  assert.deepEqual(JSON.parse(JSON.stringify(exactHour)), [15, 16, 17, 18]);
+
+  const overnight = value(context, `futureHourlySlots(new Date(2026, 6, 16, 22, 30), 4)
+    .map(slot => ({ label: slot.label, day: dateKey(slot.start), hour: slot.start.getHours() }))`);
+  assert.deepEqual(JSON.parse(JSON.stringify(overnight)), [
+    { label: "23:00", day: DAY, hour: 23 },
+    { label: "明天 00:00", day: "2026-07-17", hour: 0 },
+    { label: "明天 01:00", day: "2026-07-17", hour: 1 },
+    { label: "明天 02:00", day: "2026-07-17", hour: 2 }
+  ]);
+});
+
+test("时间轴只显示开始时间并把过时任务与未来任务分开", () => {
+  const state = emptyState([
+    task({ id: "past", name: "较早任务", status: "waiting", timeStart: "11:00", timeEnd: "12:00" }),
+    task({ id: "slot-a", name: "看书", status: "waiting", timeStart: "15:00", timeEnd: "16:00" }),
+    task({ id: "slot-b", name: "整理照片", status: "waiting", timeStart: "15:00", timeEnd: "16:00" })
+  ], 2000);
+  const { context } = createRuntime(state);
+  const timeline = value(context, `hourlyTaskTimeline(state.tasks, new Date(2026, 6, 16, 12, 30), 4)`);
+
+  assert.equal(timeline.earlier.length, 1);
+  assert.equal(timeline.earlier[0].label, "11:00");
+  assert.equal(timeline.upcoming.some(slot => slot.label.includes("15:00 - 16:00")), false);
+  const sharedSlot = timeline.upcoming.find(slot => slot.label === "15:00");
+  assert.deepEqual(JSON.parse(JSON.stringify(sharedSlot.tasks.map(item => item.name))), ["看书", "整理照片"]);
+  assert.equal(timeline.upcoming.length, 4);
+});
+
+test("习惯和备忘录都能保存到用户指定的整点槽且保持 WAITING", () => {
+  const state = emptyState([], 2000);
+  state.habits = [{ id: "habit-slot", name: "看书", coins: 10, createdDate: DAY }];
+  state.memos = [{ id: "memo-slot", text: "买转换插头", completed: false, createdAt: FIXED_NOW }];
+  const { context } = createRuntime(state);
+
+  const habitTask = value(context, `scheduleHabitAsTask(
+    "habit-slot",
+    new Date(2026, 6, 16, 12, 30),
+    new Date(2026, 6, 16, 15, 0)
+  )`);
+  const memoTask = value(context, `scheduleMemoAsTask(
+    "memo-slot",
+    new Date(2026, 6, 16, 12, 35),
+    new Date(2026, 6, 16, 16, 0)
+  )`);
+
+  assert.equal(habitTask.timeStart, "15:00");
+  assert.equal(habitTask.timeEnd, "16:00");
+  assert.equal(habitTask.status, "waiting");
+  assert.equal(habitTask.startedAt, null);
+  assert.equal(memoTask.timeStart, "16:00");
+  assert.equal(memoTask.timeEnd, "17:00");
+  assert.equal(memoTask.status, "waiting");
+  assert.equal(memoTask.startedAt, null);
+  assert.equal(value(context, "state.history.length"), 0);
+});
+
+test("明确 WAITING 的任务超过计划结束时间也不会自动失败", () => {
+  const waiting = task({ id: "waiting-late", status: "waiting", timeStart: "10:00", timeEnd: "11:00" });
+  const { context } = createRuntime(emptyState([waiting], 2000));
+
+  assert.equal(value(context, `taskPastEndTime(state.tasks[0], new Date(2026, 6, 16, 16, 0))`), false);
+  value(context, `runPendingSettlements({ now: new Date(2026, 6, 16, 16, 0) })`);
+  assert.equal(value(context, "state.tasks[0].status"), "waiting");
+  assert.equal(value(context, "state.history.length"), 0);
+  assert.equal(value(context, "state.coins"), 2000);
+});
+
 test("习惯拖入后创建下一个整点的等待任务，当天隐藏且不改变习惯和金币", () => {
   const state = emptyState([], 2000);
   state.habits = [{ id: "habit-book", name: "看书", coins: 10, createdDate: DAY }];

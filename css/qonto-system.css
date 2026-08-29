@@ -458,35 +458,15 @@ textarea:focus-visible {
 .today-task-section {
   position: relative;
   border-radius: var(--radius-lg);
-  transition: background-color 160ms ease, box-shadow 160ms ease;
+  transition: background-color 160ms ease;
 }
 
 .today-task-section.habit-drop-available {
-  box-shadow: inset 0 0 0 1px #d6e0eb;
+  box-shadow: none;
 }
 
 .today-task-section.habit-drop-active {
-  background: #f3f7fb;
-  box-shadow: inset 0 0 0 1px #8eaccd;
-}
-
-.today-task-section.habit-drop-active::after {
-  position: absolute;
-  z-index: 4;
-  top: 48px;
-  left: 50%;
-  padding: 6px 10px;
-  border: 1px solid #c8d7e7;
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--color-text-primary);
-  content: "松手安排接下来 1 小时";
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.2;
-  pointer-events: none;
-  transform: translateX(-50%);
-  white-space: nowrap;
+  background: transparent;
 }
 
 .today-page #habitList.habit-template-grid,
@@ -860,6 +840,166 @@ body.habit-dragging .habit-template-chip {
 
 .task-time-list {
   min-width: 0;
+}
+
+.today-section > #todayTaskList.task-hourly-timeline {
+  display: grid;
+  gap: 24px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.task-timeline-section {
+  display: grid;
+  gap: 8px;
+}
+
+.task-timeline-section__title {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.task-timeline-section__slots {
+  display: grid;
+}
+
+.task-hour-slot {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  min-height: 68px;
+  border-top: 1px solid var(--color-border);
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.task-hour-slot:last-child {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.task-hour-slot__time {
+  align-self: start;
+  padding: 21px 10px 18px 0;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 680;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.task-hour-slot__content {
+  display: grid;
+  min-width: 0;
+  min-height: 67px;
+  align-content: center;
+  padding: 7px 0;
+}
+
+.task-hour-slot__empty,
+.task-hour-slot__drop-hint {
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  font-weight: 520;
+}
+
+.task-hour-slot__drop-hint {
+  display: none;
+}
+
+.task-hour-slot__tasks {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.task-hour-slot__tasks .swipe-row {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.task-hour-slot__tasks .swipe-row + .swipe-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.task-hour-slot__tasks .swipe-card {
+  min-height: 68px;
+  padding: 10px 11px;
+  border-radius: var(--radius-md);
+}
+
+.task-hourly-timeline .q-row-tile {
+  background: var(--color-neutral-soft);
+}
+
+body.habit-dragging .task-hour-slot[data-task-timeline-slot] {
+  margin: 2px 0;
+  border-color: var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+body.habit-dragging .task-hour-slot[data-task-timeline-slot] .task-hour-slot__empty {
+  display: none;
+}
+
+body.habit-dragging .task-hour-slot[data-task-timeline-slot] .task-hour-slot__drop-hint {
+  display: block;
+}
+
+body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop-active {
+  background: #f1f1f1;
+  box-shadow: inset 0 0 0 1px #5f5f5f;
+}
+
+body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop-active .task-hour-slot__drop-hint {
+  color: var(--color-text-primary);
+  font-weight: 680;
+}
+
+.task-quick-schedule {
+  display: grid;
+  gap: 9px;
+}
+
+.task-quick-schedule__heading {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.task-quick-schedule__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-quick-schedule__option {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.task-quick-schedule__option.is-selected {
+  border-color: #111111;
+  background: #111111;
+  color: #ffffff;
+}
+
+.task-quick-schedule + .time-picker:not(.task-time-custom-active) .time-picker-panel {
+  display: none;
 }
 
 .empty-state {

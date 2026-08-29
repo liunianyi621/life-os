@@ -142,6 +142,7 @@
         picker.dataset.period = nextParts.period;
         delete picker.dataset.timeCleared;
         hiddenInput.value = nextValue;
+        hiddenInput.setAttribute("value", nextValue);
         valueLabel.textContent = nextValue;
         picker.querySelectorAll(".time-option").forEach(option => {
           const type = option.closest("[data-time-wheel]")?.dataset.timeWheel;
@@ -157,6 +158,7 @@
         picker.dataset.timeCleared = "true";
         userWheelIntent = false;
         hiddenInput.value = "";
+        hiddenInput.removeAttribute("value");
         valueLabel.textContent = "未设置";
         picker.querySelectorAll(".time-option").forEach(option => option.classList.remove("selected"));
       }
