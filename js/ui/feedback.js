@@ -57,7 +57,16 @@
 
     function syncModalState() {
       syncSheetViewport();
-      document.body.classList.toggle("modal-open", hasOpenModal());
+      const modalOpen = hasOpenModal();
+      document.body.classList.toggle("modal-open", modalOpen);
+      if (typeof UndoController !== "undefined") {
+        if (modalOpen) {
+          UndoController.onContextUnavailable();
+          UndoController.pause();
+        } else {
+          UndoController.resume();
+        }
+      }
     }
 
     function installSheetViewportSync() {
@@ -71,7 +80,7 @@
         ) {
           syncSheetViewport();
         }
-        syncSnackbarPosition();
+        syncContextualUndoPosition();
         window.requestAnimationFrame(() => ensureFocusedFormFieldVisible());
       };
       const updateOrientation = () => {
@@ -94,68 +103,226 @@
         }
       });
       syncSheetViewport();
-      syncSnackbarPosition();
+      syncContextualUndoPosition();
     }
 
-    function syncSnackbarPosition() {
+    function syncContextualUndoPosition() {
       if (!els.toast) return;
-      const nav = document.querySelector(".bottom-nav");
-      const navRect = nav?.getClientRects?.().length ? nav.getBoundingClientRect() : null;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-      const bottom = navRect ? Math.max(0, viewportHeight - navRect.top) + 12 : 20;
-      els.toast.style.setProperty("--snackbar-bottom", `${Math.round(bottom)}px`);
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const balance = document.querySelector(".view.active .home-coin-balance");
+      const balanceRect = balance?.getClientRects?.().length ? balance.getBoundingClientRect() : null;
+      if (balanceRect) {
+        const centeredTop = balanceRect.top + Math.max(0, (balanceRect.height - 40) / 2);
+        els.toast.style.setProperty("--contextual-undo-top", `${Math.round(centeredTop)}px`);
+        els.toast.style.setProperty("--contextual-undo-right", `${Math.max(16, Math.round(viewportWidth - balanceRect.right))}px`);
+        return;
+      }
+      const safeTop = Math.max(16, Math.round(window.visualViewport?.offsetTop || 0) + 16);
+      els.toast.style.setProperty("--contextual-undo-top", `${safeTop}px`);
+      els.toast.style.setProperty("--contextual-undo-right", "20px");
     }
 
-    function hideSnackbar(clearContent = true) {
+    function hideTopNotice(clearContent = true) {
       if (!els.toast) return;
-      els.toast.classList.remove("show", "updating");
-      clearTimeout(hideSnackbar.timer);
+      els.toast.classList.remove("show");
+      clearTimeout(hideTopNotice.timer);
       if (!clearContent) return;
-      hideSnackbar.timer = window.setTimeout(() => {
+      hideTopNotice.timer = window.setTimeout(() => {
         if (!els.toast.classList.contains("show")) els.toast.textContent = "";
       }, 180);
     }
 
-    function renderSnackbar({ message, icon = "", tone = "neutral", actionLabel = "" }) {
+    function renderTopNotice({ message, tone = "neutral", undo = false }) {
       if (!els.toast) return;
-      const wasVisible = els.toast.classList.contains("show");
-      clearTimeout(hideSnackbar.timer);
-      syncSnackbarPosition();
+      clearTimeout(hideTopNotice.timer);
+      syncContextualUndoPosition();
       els.toast.textContent = "";
-      els.toast.className = `snackbar${actionLabel ? " interactive" : ""}`;
-
-      const content = document.createElement("span");
-      content.className = "snackbar-content";
-      if (icon && actionIcons[icon]) {
-        const iconEl = document.createElement("span");
-        iconEl.className = `snackbar-icon action-icon ${tone}`;
-        iconEl.setAttribute("aria-hidden", "true");
-        iconEl.innerHTML = actionIcons[icon];
-        content.append(iconEl);
+      els.toast.className = "contextual-undo-host";
+      const capsule = document.createElement(undo ? "button" : "div");
+      if (undo) {
+        capsule.type = "button";
+        capsule.dataset.contextualUndo = "";
+        capsule.setAttribute("aria-label", "撤回上一步操作");
+      } else {
+        capsule.setAttribute("role", tone === "error" ? "alert" : "status");
       }
-
-      const messageEl = document.createElement("span");
-      messageEl.className = "snackbar-message";
-      messageEl.textContent = message;
-      content.append(messageEl);
-      els.toast.append(content);
-
-      if (actionLabel) {
-        const action = document.createElement("button");
-        action.type = "button";
-        action.dataset.undoAction = "";
-        action.className = "snackbar-action";
-        action.textContent = actionLabel;
-        els.toast.append(action);
-      }
-
-      if (wasVisible) {
-        els.toast.classList.add("show", "updating");
-        window.setTimeout(() => els.toast.classList.remove("updating"), 160);
-        return;
-      }
+      capsule.className = `contextual-undo-capsule${undo ? " is-undo" : " is-notice"}${tone === "error" ? " is-error" : ""}`;
+      capsule.textContent = message;
+      els.toast.append(capsule);
       window.requestAnimationFrame(() => els.toast.classList.add("show"));
     }
+
+    const UNDO_WINDOW_MS = 3500;
+
+    const UndoController = (() => {
+      let current = null;
+      let expiryTimer = null;
+      let exitTimer = null;
+
+      function refreshAnchor() {
+        if (typeof renderTasks === "function" && activeViewName?.() === "today") renderTasks();
+      }
+
+      function clearTimers() {
+        window.clearTimeout(expiryTimer);
+        window.clearTimeout(exitTimer);
+        expiryTimer = null;
+        exitTimer = null;
+      }
+
+      function renderGlobal() {
+        if (!current || current.mode !== "global") return;
+        const label = current.amountLabel ? `${current.amountLabel} · 撤回` : "撤回";
+        renderTopNotice({ message: label, undo: true });
+        els.toast.classList.toggle("is-exiting", Boolean(current.exiting));
+      }
+
+      function renderCurrent() {
+        if (!current) return;
+        if (current.mode === "anchor") {
+          hideTopNotice();
+          refreshAnchor();
+        } else {
+          renderGlobal();
+        }
+      }
+
+      function expire() {
+        if (!current) return;
+        const onExpire = current.onExpire;
+        const hadAnchor = current.mode === "anchor";
+        current = null;
+        clearTimers();
+        hideTopNotice();
+        if (hadAnchor) refreshAnchor();
+        onExpire?.();
+      }
+
+      function schedule(remaining = null) {
+        if (!current) return;
+        clearTimers();
+        const duration = Math.max(0, remaining ?? (current.expiresAt - Date.now()));
+        current.remaining = duration;
+        current.exiting = false;
+        exitTimer = window.setTimeout(() => {
+          if (!current || current.paused) return;
+          current.exiting = true;
+          renderCurrent();
+        }, Math.max(0, duration - 180));
+        expiryTimer = window.setTimeout(expire, duration);
+      }
+
+      function clear({ refresh = true } = {}) {
+        const hadAnchor = current?.mode === "anchor";
+        current = null;
+        clearTimers();
+        hideTopNotice();
+        if (refresh && hadAnchor) refreshAnchor();
+      }
+
+      function show({ actionId, label, amountLabel = "", tone = "neutral", anchor = null, undo, onExpire }) {
+        clear();
+        const canAnchor = anchor?.kind === "task"
+          && anchor.task
+          && typeof activeViewName === "function"
+          && activeViewName() === "today";
+        const now = Date.now();
+        current = {
+          actionId,
+          label,
+          amountLabel,
+          tone,
+          anchor: canAnchor ? anchor : null,
+          mode: canAnchor ? "anchor" : "global",
+          undo,
+          onExpire,
+          expiresAt: now + UNDO_WINDOW_MS,
+          remaining: UNDO_WINDOW_MS,
+          paused: false,
+          exiting: false
+        };
+        schedule(UNDO_WINDOW_MS);
+        renderCurrent();
+      }
+
+      function performUndo() {
+        if (!current?.undo) return;
+        const callback = current.undo;
+        try {
+          callback();
+        } catch (error) {
+          clear();
+          renderTopNotice({ message: "撤回失败，请重试", tone: "error" });
+          clearTimeout(showToast.timer);
+          showToast.timer = window.setTimeout(() => hideTopNotice(), 2200);
+        }
+      }
+
+      function pause() {
+        if (!current || current.paused) return;
+        current.remaining = Math.max(0, current.expiresAt - Date.now());
+        current.paused = true;
+        current.exiting = false;
+        clearTimers();
+        renderCurrent();
+      }
+
+      function resume() {
+        if (!current?.paused) return;
+        current.paused = false;
+        current.expiresAt = Date.now() + current.remaining;
+        schedule(current.remaining);
+        renderCurrent();
+      }
+
+      function moveToGlobal() {
+        if (!current || current.mode !== "anchor") return;
+        current.remaining = Math.max(0, current.expiresAt - Date.now());
+        current.mode = "global";
+        current.anchor = null;
+        current.expiresAt = Date.now() + current.remaining;
+        schedule(current.remaining);
+        refreshAnchor();
+        renderGlobal();
+      }
+
+      function onViewChange(view) {
+        if (view === "today") return;
+        moveToGlobal();
+      }
+
+      function onContextUnavailable() {
+        moveToGlobal();
+      }
+
+      function taskPresentation(taskId) {
+        if (!current || current.mode !== "anchor" || current.anchor?.kind !== "task") return null;
+        if (String(current.anchor.id) !== String(taskId)) return null;
+        return {
+          label: current.label,
+          amountLabel: current.amountLabel,
+          tone: current.tone,
+          exiting: current.exiting
+        };
+      }
+
+      function taskAnchor() {
+        if (!current || current.mode !== "anchor" || current.anchor?.kind !== "task") return null;
+        return current.anchor;
+      }
+
+      return {
+        show,
+        clear,
+        performUndo,
+        pause,
+        resume,
+        onViewChange,
+        onContextUnavailable,
+        taskPresentation,
+        taskAnchor
+      };
+    })();
 
     function prepareActionCard(card) {
       if (!card) return;
@@ -176,6 +343,7 @@
         button.classList.toggle("active", button.dataset.nav === view);
       });
       document.body.classList.toggle("review-editing", view === "review");
+      UndoController.onViewChange(view);
       syncSheetViewport();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -224,9 +392,9 @@
     function showToast(message, duration = 1800) {
       if (pendingUndo) return;
       clearPendingUndo(false);
-      renderSnackbar({ message });
+      renderTopNotice({ message });
       clearTimeout(showToast.timer);
-      showToast.timer = setTimeout(() => hideSnackbar(), duration);
+      showToast.timer = setTimeout(() => hideTopNotice(), duration);
     }
 
     function showReviewSavedStatus() {

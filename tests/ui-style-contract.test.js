@@ -8,6 +8,7 @@ const productionCss = fs.readFileSync(path.join(ROOT, "css/qonto-system.css"), "
 const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const feedbackSource = fs.readFileSync(path.join(ROOT, "js/ui/feedback.js"), "utf8");
 const economySource = fs.readFileSync(path.join(ROOT, "js/economy.js"), "utf8");
+const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
 const sheetSource = fs.readFileSync(path.join(ROOT, "js/ui/sheets.js"), "utf8");
 const timePickerSource = fs.readFileSync(path.join(ROOT, "js/ui/time-picker.js"), "utf8");
 const statsSource = fs.readFileSync(path.join(ROOT, "js/stats.js"), "utf8");
@@ -190,20 +191,41 @@ test("今日任务使用轻量整点时间轴并将拖放命中细化到具体�
   assert.match(productionCss, /\.task-hour-slot__drop-hint/);
 });
 
-test("撤回提示使用单一紧凑 Snackbar 组件", () => {
-  assert.match(indexHtml, /<div class="snackbar" id="toast"/);
-  assert.match(feedbackSource, /function renderSnackbar\(/);
-  assert.match(economySource, /renderSnackbar\(\{ \.\.\.presentation, actionLabel: undoLabel \}\)/);
-  assert.doesNotMatch(economySource, /separatorEl\.textContent\s*=\s*"·"/);
-  assert.doesNotMatch(economySource, /className\s*=\s*"toast-message-stacked"/);
+test("撤回提示使用统一的原位置确认态和顶部小胶囊", () => {
+  assert.match(indexHtml, /<div class="contextual-undo-host" id="toast"/);
+  assert.match(feedbackSource, /const UNDO_WINDOW_MS = 3500;/);
+  assert.match(feedbackSource, /const UndoController = \(\(\) =>/);
+  assert.match(economySource, /UndoController\.show\(\{/);
+  assert.match(uiSource, /UndoController\.taskPresentation\(task\.id\)/);
+  assert.match(uiSource, /data-contextual-undo aria-label="撤回上一步操作"/);
+  assert.doesNotMatch(indexHtml, /class="snackbar"/);
+  assert.doesNotMatch(productionCss, /\.snackbar(?:\s|\.|\{|-)/);
+  assert.doesNotMatch(feedbackSource, /function renderSnackbar\(/);
 });
 
-test("Snackbar 保持 60px 高、白色背景并位于 sheet 下层", () => {
-  assert.match(productionCss, /\.snackbar\s*\{[\s\S]*?z-index:\s*90;/);
-  assert.match(productionCss, /\.snackbar\s*\{[\s\S]*?height:\s*60px;/);
-  assert.match(productionCss, /\.snackbar\s*\{[\s\S]*?background:\s*#ffffff;/);
-  assert.match(productionCss, /\.snackbar-action\s*\{[\s\S]*?border:\s*0;/);
-  assert.match(feedbackSource, /nav\.getBoundingClientRect\(\)/);
+test("顶部撤回胶囊不占底部空间且透明宿主不拦截页面操作", () => {
+  assert.match(productionCss, /\.contextual-undo-host\s*\{[\s\S]*?top:\s*var\(--contextual-undo-top/);
+  assert.match(productionCss, /\.contextual-undo-host\s*\{[\s\S]*?max-width:\s*45vw;/);
+  assert.match(productionCss, /\.contextual-undo-host\s*\{[\s\S]*?pointer-events:\s*none;/);
+  assert.match(productionCss, /\.contextual-undo-capsule\s*\{[\s\S]*?min-height:\s*40px;/);
+  assert.match(productionCss, /\.contextual-undo-capsule\s*\{[\s\S]*?pointer-events:\s*auto;/);
+  assert.match(feedbackSource, /balanceRect\.top \+ Math\.max\(0, \(balanceRect\.height - 40\) \/ 2\)/);
+  assert.doesNotMatch(feedbackSource, /--snackbar-bottom/);
+  assert.doesNotMatch(productionCss, /\.contextual-undo-host\s*\{[^}]*bottom:/);
+});
+
+test("原位置撤回在切页时延续剩余时间并转移到全局胶囊", () => {
+  assert.match(feedbackSource, /function moveToGlobal\(\)/);
+  assert.match(feedbackSource, /function onViewChange\(view\)/);
+  assert.match(feedbackSource, /current\.remaining = Math\.max\(0, current\.expiresAt - Date\.now\(\)\)/);
+  assert.match(feedbackSource, /current\.mode = "global"/);
+  assert.match(feedbackSource, /current\.expiresAt = Date\.now\(\) \+ current\.remaining/);
+  assert.match(feedbackSource, /schedule\(current\.remaining\);\s*refreshAnchor\(\);\s*renderGlobal\(\);/);
+  assert.match(feedbackSource, /UndoController\.onContextUnavailable\(\)/);
+  assert.match(feedbackSource, /if \(modalOpen\)[\s\S]*?UndoController\.pause\(\)[\s\S]*?UndoController\.resume\(\)/);
+  assert.match(feedbackSource, /function pause\(\)/);
+  assert.match(feedbackSource, /function resume\(\)/);
+  assert.match(uiSource, /UndoController\.performUndo\(\)/);
 });
 
 test("习惯趋势柱组拥有确定宽度且三种 series 使用独立样式", () => {

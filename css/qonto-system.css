@@ -3271,98 +3271,148 @@ body.keyboard-open .keyboard-form-sheet__footer .q-primary-button {
   color: #ffffff;
 }
 
-.snackbar {
+.contextual-undo-host {
   position: fixed;
   z-index: 90;
-  right: max(20px, calc((100vw - 720px) / 2 + 20px));
-  bottom: var(--snackbar-bottom, calc(var(--nav-height) + env(safe-area-inset-bottom) + 24px));
-  left: max(20px, calc((100vw - 720px) / 2 + 20px));
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  height: 60px;
-  max-height: 64px;
-  padding: 0 16px;
-  border: 1px solid #e8e8e8;
-  border-radius: 20px;
-  background: #ffffff;
-  color: #111111;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  top: var(--contextual-undo-top, calc(env(safe-area-inset-top) + 16px));
+  right: var(--contextual-undo-right, 20px);
+  max-width: 45vw;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(10px);
+  transform: translateY(-5px);
   transition: opacity 180ms ease, transform 200ms ease;
 }
 
-.snackbar.show {
+.contextual-undo-host.show {
   opacity: 1;
   transform: translateY(0);
 }
 
-.snackbar-content {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+.contextual-undo-capsule {
+  display: inline-flex;
+  width: max-content;
+  max-width: 45vw;
+  min-height: 40px;
   align-items: center;
-  gap: 9px;
-  min-width: 0;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #171717;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: auto;
 }
 
-.snackbar-icon {
+.contextual-undo-capsule.is-error {
+  background: #7f3732;
+}
+
+.contextual-undo-host.is-exiting {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.contextual-undo-capsule:active {
+  opacity: 0.78;
+}
+
+.task-contextual-undo-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  min-height: 68px;
+  align-items: center;
+  gap: 13px;
+  padding: 10px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+.task-contextual-undo-row.is-exiting {
+  opacity: 0;
+}
+
+.task-contextual-undo-row__icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-soft);
+  color: var(--color-text-secondary);
+}
+
+.task-contextual-undo-row__icon.positive,
+.task-contextual-undo-row__amount.positive {
+  color: #39765a;
+}
+
+.task-contextual-undo-row__icon.negative,
+.task-contextual-undo-row__amount.negative {
+  color: #a04f48;
+}
+
+.task-contextual-undo-row__icon .action-icon {
   width: 22px;
   height: 22px;
-  color: #5f6266;
 }
 
-.snackbar-icon.positive {
-  color: #32835c;
-}
-
-.snackbar-icon.negative {
-  color: #b45b52;
-}
-
-.snackbar-message {
+.task-contextual-undo-row__content {
   min-width: 0;
+}
+
+.task-contextual-undo-row__content h3 {
+  margin: 0;
   overflow: hidden;
-  color: #111111;
-  font-size: 15px;
-  font-weight: 560;
-  line-height: 1.35;
+  color: var(--color-text-primary);
+  font-size: 17px;
+  font-weight: 660;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.snackbar.updating .snackbar-message {
-  animation: q-snackbar-content 160ms ease;
+.task-contextual-undo-row__content p {
+  display: flex;
+  min-width: 0;
+  gap: 7px;
+  margin: 5px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.2;
 }
 
-.snackbar-action {
+.task-contextual-undo-row__amount {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-contextual-undo-row__action {
   min-width: 44px;
   min-height: 44px;
   padding: 0 4px;
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: #111111;
-  font-size: 16px;
-  font-weight: 650;
-  pointer-events: auto;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 680;
 }
 
-.snackbar-action:active {
-  background: #f1f1f1;
-}
-
-@keyframes q-snackbar-content {
-  from {
-    opacity: 0.45;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.task-contextual-undo-row__action:active {
+  background: var(--color-neutral-soft);
 }
 
 .floating-reward-message,
@@ -3569,9 +3619,8 @@ body.keyboard-open .keyboard-form-sheet__footer .q-primary-button {
     left: 14px;
   }
 
-  .snackbar {
-    right: 16px;
-    left: 16px;
+  .contextual-undo-host {
+    right: var(--contextual-undo-right, 16px);
   }
 }
 

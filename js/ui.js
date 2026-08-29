@@ -991,6 +991,25 @@
 
     function taskTimelineRowsHtml(tasks) {
       return tasks.map(task => {
+        const undoPresentation = typeof UndoController !== "undefined"
+          ? UndoController.taskPresentation(task.id)
+          : null;
+        if (undoPresentation) {
+          const icon = undoPresentation.tone === "negative" ? "xmark.circle" : "checkmark.circle";
+          return `
+            <article class="task-contextual-undo-row${undoPresentation.exiting ? " is-exiting" : ""}" data-task-card="${escapeAttr(task.id)}">
+              <span class="task-contextual-undo-row__icon ${escapeAttr(undoPresentation.tone)}" aria-hidden="true">${actionIconHtml(icon)}</span>
+              <div class="task-contextual-undo-row__content">
+                <h3>${escapeHtml(task.name)}</h3>
+                <p>
+                  <span>${escapeHtml(undoPresentation.label)}</span>
+                  ${undoPresentation.amountLabel ? `<span class="task-contextual-undo-row__amount ${escapeAttr(undoPresentation.tone)}">${escapeHtml(undoPresentation.amountLabel)}</span>` : ""}
+                </p>
+              </div>
+              <button class="task-contextual-undo-row__action" type="button" data-contextual-undo aria-label="撤回上一步操作">撤回</button>
+            </article>
+          `;
+        }
         const status = taskStatusToday(task);
         return swipeRowHtml({
           attrs: `data-task-card="${escapeAttr(task.id)}"`,
@@ -1051,6 +1070,10 @@
         const status = taskStatusToday(task);
         return !["completed", "failed"].includes(status);
       });
+      const undoAnchor = typeof UndoController !== "undefined" ? UndoController.taskAnchor() : null;
+      if (undoAnchor?.task && !activeTasks.some(task => task.id === undoAnchor.id)) {
+        activeTasks.push(undoAnchor.task);
+      }
       const futureSlotCount = document.body.classList.contains("habit-dragging") ? 6 : 4;
       const timeline = hourlyTaskTimeline(activeTasks, new Date(), futureSlotCount);
       const unscheduledGroups = timeline.unscheduled.length
@@ -1371,7 +1394,7 @@
     document.addEventListener("pointercancel", endCalendarEventPress);
 
     document.addEventListener("click", event => {
-      const undoButton = event.target.closest("[data-undo-action]");
+      const undoButton = event.target.closest("[data-contextual-undo]");
       const swipeActionButton = event.target.closest(".swipe-action");
       const swipeContent = event.target.closest("[data-swipe-content]");
       const editCard = event.target.closest("[data-edit-card]");
@@ -1427,7 +1450,7 @@
       const scoreTrendPoint = event.target.closest("[data-score-trend-point]");
 
       if (undoButton) {
-        undoLastAction();
+        UndoController.performUndo();
         return;
       }
       if (scoreTrendPoint) {
@@ -1611,6 +1634,16 @@
       if (deleteHabitButton) deleteHabit(deleteHabitButton.dataset.deleteHabit);
       if (deleteNoteButton) deleteNote(deleteNoteButton.dataset.deleteNote);
       if (deleteRewardButton) deleteReward(deleteRewardButton.dataset.deleteReward);
+    });
+
+    document.addEventListener("pointerdown", event => {
+      if (event.target.closest("[data-contextual-undo]")) UndoController.pause();
+    });
+    document.addEventListener("pointerup", event => {
+      if (event.target.closest("[data-contextual-undo]")) UndoController.resume();
+    });
+    document.addEventListener("pointercancel", () => {
+      UndoController.resume();
     });
 
     els.sheetBackdrop.addEventListener("click", event => {

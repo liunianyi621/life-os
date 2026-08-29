@@ -1459,40 +1459,27 @@
 
       clearPendingUndo(false);
       clearTimeout(showToast.timer);
-      renderSnackbar({
-        message: `任务已完成 · +${formatCoinAmount(earnedCoins)} 金币`,
-        icon: "checkmark.circle",
-        tone: "positive"
-      });
-      showToast.timer = setTimeout(() => hideSnackbar(), 3600);
+      renderTopNotice({ message: `+${formatCoinAmount(earnedCoins)} 金币` });
+      showToast.timer = setTimeout(() => hideTopNotice(), 2200);
     }
 
     function showInfoToast(lines, duration = 2200, icon = "") {
       if (pendingUndo) return;
       clearPendingUndo(false);
       clearTimeout(showToast.timer);
-      renderSnackbar({
+      renderTopNotice({
         message: lines.filter(Boolean).join(" · "),
-        icon,
-        tone: icon === "checkmark.circle" ? "positive" : "neutral"
+        tone: icon === "xmark.circle" ? "error" : "neutral"
       });
-      showToast.timer = setTimeout(() => hideSnackbar(), duration);
+      showToast.timer = setTimeout(() => hideTopNotice(), duration);
     }
 
     function clearPendingUndo(hideToast = false) {
-      if (pendingUndo?.timer) {
-        clearTimeout(pendingUndo.timer);
-      }
       pendingUndo = null;
-      if (hideToast && typeof hideSnackbar === "function") {
-        hideSnackbar();
-      } else if (hideToast && els.toast) {
-        els.toast.classList.remove("show");
-        els.toast.textContent = "";
-      }
+      if (typeof UndoController !== "undefined") UndoController.clear({ refresh: hideToast });
     }
 
-    function undoSnackbarName(undoData) {
+    function undoFeedbackName(undoData) {
       if (undoData.name) return undoData.name;
       if (undoData.taskId) return state.tasks.find(item => item.id === undoData.taskId)?.name || "";
       if (undoData.habitId) return state.habits.find(item => item.id === undoData.habitId)?.name || "";
@@ -1500,9 +1487,9 @@
       return "";
     }
 
-    function undoSnackbarPresentation(undoData = {}, options = {}) {
+    function undoFeedbackPresentation(undoData = {}, options = {}) {
       const amount = formatCoinAmount(Math.abs(parseCoinAmount(undoData.amount)));
-      const name = undoSnackbarName(undoData);
+      const name = undoFeedbackName(undoData);
       const named = fallback => name ? `「${name}」` : fallback;
       const presentations = {
         task_completed: { message: `已完成${named("任务")} · +${amount} 金币`, icon: "checkmark.circle", tone: "positive" },
@@ -1534,25 +1521,49 @@
       };
     }
 
+    function undoTaskAnchor(undoData = {}) {
+      const taskTypes = new Set(["task_completed", "task_failed", "habit_task_scheduled", "memo_task_scheduled"]);
+      if (!taskTypes.has(undoData.type) || !undoData.taskId) return null;
+      const task = state.tasks.find(item => item.id === undoData.taskId);
+      return task ? { kind: "task", id: task.id, task: { ...task } } : null;
+    }
+
+    function contextualUndoLabel(undoData = {}) {
+      if (undoData.type === "habit_task_scheduled" || undoData.type === "memo_task_scheduled") return "已安排";
+      if (undoData.type === "task_completed") return "已完成";
+      if (undoData.type === "task_failed") return "未完成";
+      return "操作已完成";
+    }
+
+    function contextualUndoAmount(undoData = {}) {
+      const amount = Math.abs(parseCoinAmount(undoData.amount));
+      if (!amount) return "";
+      const positive = ["task_completed", "habit_completed", "priority_task_reward"].includes(undoData.type);
+      return `${positive ? "+" : "-"}${formatCoinAmount(amount)} 金币`;
+    }
+
     function showUndoToast(undoData, options = {}) {
       const {
         icon = "",
         message = "操作已执行",
         lines = null,
-        undoLabel = "撤回",
-        duration = 5000,
         iconTone = ""
       } = options;
       clearPendingUndo(false);
       clearTimeout(showToast.timer);
-      pendingUndo = {
-        ...undoData,
-        timer: window.setTimeout(() => {
-          clearPendingUndo(true);
-        }, duration)
-      };
-      const presentation = undoSnackbarPresentation(undoData, { icon, message, lines, iconTone });
-      renderSnackbar({ ...presentation, actionLabel: undoLabel });
+      pendingUndo = { ...undoData };
+      const presentation = undoFeedbackPresentation(undoData, { icon, message, lines, iconTone });
+      UndoController.show({
+        actionId: `${undoData.type || "action"}:${undoData.taskId || undoData.historyId || Date.now()}`,
+        label: contextualUndoLabel(undoData),
+        amountLabel: contextualUndoAmount(undoData),
+        tone: presentation.tone,
+        anchor: undoTaskAnchor(undoData),
+        undo: undoLastAction,
+        onExpire: () => {
+          pendingUndo = null;
+        }
+      });
     }
 
     function undoLastAction() {
