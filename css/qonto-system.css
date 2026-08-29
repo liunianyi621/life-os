@@ -33,6 +33,7 @@
   --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.035);
   --shadow-floating: 0 10px 32px rgba(0, 0, 0, 0.09);
   --app-visible-height: 100dvh;
+  --review-viewport-height: 100dvh;
   --keyboard-height: 0px;
   --viewport-offset-top: 0px;
   --nav-height: 76px;
@@ -908,12 +909,12 @@ body.habit-dragging .habit-template-chip {
 
 /* Review */
 .q-review-page .header {
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 
 .review-date-control {
   position: relative;
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 
 .review-date-button {
@@ -940,29 +941,45 @@ body.habit-dragging .habit-template-chip {
   pointer-events: none;
 }
 
+.review-exit-button {
+  min-width: 52px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.review-exit-button:active {
+  background: var(--color-surface-muted);
+}
+
 .q-form-section,
 .review-form {
   overflow: hidden;
-  padding: 0 20px 20px;
+  padding: 0;
   border: 1px solid #ececec;
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
-.review-keyboard-form__body {
+.review-keyboard-form > .review-keyboard-form__body {
   gap: 0;
-  padding: 0 20px;
+  padding: 0 18px;
+  overflow: hidden;
 }
 
 .review-keyboard-form > .keyboard-form-sheet__footer {
-  padding-right: 20px;
-  padding-left: 20px;
+  padding: 8px 18px 12px;
 }
 
 .review-question {
   display: block;
-  padding: 20px 0;
+  padding: 10px 0;
 }
 
 .review-question + .review-question {
@@ -971,7 +988,7 @@ body.habit-dragging .habit-template-chip {
 
 .field-label {
   display: block;
-  margin-bottom: 9px;
+  margin-bottom: 6px;
   color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 620;
@@ -980,15 +997,26 @@ body.habit-dragging .habit-template-chip {
 
 .review-question textarea {
   width: 100%;
-  min-height: 84px;
-  padding: 14px 15px;
+  height: 72px;
+  min-height: 72px;
+  max-height: 88px;
+  padding: 11px 13px;
   border: 0;
   border-radius: var(--radius-sm);
   outline: 0;
   background: var(--color-surface-muted);
   color: var(--color-text-primary);
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.4;
+  overflow-y: auto;
+  resize: none;
+  overscroll-behavior: contain;
+}
+
+#reviewPriority {
+  height: 64px;
+  min-height: 64px;
+  max-height: 76px;
 }
 
 .review-question textarea::placeholder,
@@ -1009,7 +1037,7 @@ body.habit-dragging .habit-template-chip {
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .review-score-heading .field-label {
@@ -1028,7 +1056,7 @@ body.habit-dragging .habit-template-chip {
   grid-template-columns: 18px minmax(0, 1fr) 24px;
   align-items: center;
   gap: 9px;
-  min-height: 48px;
+  min-height: 42px;
   color: var(--color-text-tertiary);
   font-size: 12px;
   text-align: center;
@@ -1080,6 +1108,15 @@ body.habit-dragging .habit-template-chip {
 
 .q-review-page > .section-heading {
   margin-top: 30px;
+}
+
+body.review-editing .screen {
+  min-height: var(--review-viewport-height, 100dvh);
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+body.review-editing .bottom-nav {
+  display: none;
 }
 
 .review-card {
@@ -1670,20 +1707,20 @@ body.keyboard-open .q-review-page.active {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
-  height: var(--app-visible-height);
+  height: var(--review-viewport-height, var(--app-visible-height));
   padding: max(8px, env(safe-area-inset-top)) 20px 8px;
   overflow: hidden;
   background: var(--color-bg);
 }
 
 body.keyboard-open .q-review-page.active > .q-page-header {
-  min-height: 58px;
+  min-height: 48px;
   margin: 0;
   padding: 0 2px 6px;
 }
 
 body.keyboard-open .q-review-page.active > .q-page-header h1 {
-  font-size: 25px;
+  font-size: 29px;
 }
 
 body.keyboard-open .q-review-page.active > .section-heading,
@@ -1692,6 +1729,9 @@ body.keyboard-open .q-review-page.active > .review-history-list {
 }
 
 body.keyboard-open .review-keyboard-form {
+  grid-template-rows: auto auto;
+  align-self: start;
+  width: 100%;
   min-height: 0;
   border-radius: var(--radius-lg);
 }
@@ -1699,15 +1739,24 @@ body.keyboard-open .review-keyboard-form {
 body.keyboard-open .review-keyboard-form__body {
   gap: 0;
   padding: 0 16px;
+  overflow: hidden;
 }
 
 body.keyboard-open .review-keyboard-form .review-question {
-  padding: 10px 0;
+  padding: 6px 0;
 }
 
 body.keyboard-open .review-keyboard-form .review-question textarea {
-  min-height: 68px;
-  padding: 10px 12px;
+  height: 58px;
+  min-height: 58px;
+  max-height: 68px;
+  padding: 8px 11px;
+}
+
+body.keyboard-open .review-keyboard-form #reviewPriority {
+  height: 52px;
+  min-height: 52px;
+  max-height: 62px;
 }
 
 body.keyboard-open .review-keyboard-form .review-score-heading {
@@ -1715,15 +1764,93 @@ body.keyboard-open .review-keyboard-form .review-score-heading {
 }
 
 body.keyboard-open .review-keyboard-form .review-score-control {
-  min-height: 38px;
+  min-height: 34px;
 }
 
 body.keyboard-open .review-keyboard-form > .keyboard-form-sheet__footer {
-  padding: 8px 16px 10px;
+  padding: 6px 16px 8px;
 }
 
 body.keyboard-open .review-keyboard-form .q-primary-button {
   min-height: 54px;
+}
+
+@media (max-height: 520px) {
+  body.keyboard-open .q-review-page.active {
+    padding-top: max(4px, env(safe-area-inset-top));
+    padding-bottom: 4px;
+  }
+
+  body.keyboard-open .q-review-page.active > .q-page-header {
+    min-height: 38px;
+    padding-bottom: 3px;
+  }
+
+  body.keyboard-open .q-review-page.active .review-date-control {
+    margin-bottom: 0;
+  }
+
+  body.keyboard-open .q-review-page.active .review-date-button {
+    font-size: 10px;
+  }
+
+  body.keyboard-open .q-review-page.active > .q-page-header h1 {
+    font-size: 20px;
+  }
+
+  body.keyboard-open .q-review-page.active .review-exit-button {
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  body.keyboard-open .review-keyboard-form > .review-keyboard-form__body {
+    gap: 0;
+    padding: 0 12px;
+  }
+
+  body.keyboard-open .review-keyboard-form .review-question {
+    padding: 3px 0;
+  }
+
+  body.keyboard-open .review-keyboard-form .field-label {
+    margin-bottom: 2px;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  body.keyboard-open .review-keyboard-form .review-question textarea,
+  body.keyboard-open .review-keyboard-form #reviewPriority {
+    height: 40px;
+    min-height: 40px;
+    max-height: 46px;
+    padding: 6px 9px;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+
+  body.keyboard-open .review-keyboard-form .review-score-heading {
+    margin-bottom: 0;
+  }
+
+  body.keyboard-open .review-keyboard-form .review-score-heading output {
+    font-size: 13px;
+  }
+
+  body.keyboard-open .review-keyboard-form .review-score-control {
+    min-height: 28px;
+  }
+
+  body.keyboard-open .review-keyboard-form .review-score-control input[type="range"] {
+    height: 28px;
+  }
+
+  body.keyboard-open .review-keyboard-form > .keyboard-form-sheet__footer {
+    padding: 4px 12px 5px;
+  }
+
+  body.keyboard-open .review-keyboard-form > .keyboard-form-sheet__footer .q-primary-button {
+    min-height: 52px;
+  }
 }
 
 .q-tool-row,

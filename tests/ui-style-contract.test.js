@@ -213,6 +213,16 @@ test("所有动态输入 Sheet 共用 Keyboard Form，任务时间选择保持�
   assert.match(productionCss, /body\.keyboard-open \.keyboard-form-sheet\s*\{[\s\S]*?height:\s*calc\(var\(--app-visible-height\) - 16px\);/);
 });
 
+test("每日复盘使用独立可视高度并在编辑时隐藏底栏", () => {
+  assert.match(productionCss, /--review-viewport-height:\s*100dvh;/);
+  assert.match(productionCss, /body\.review-editing \.bottom-nav\s*\{\s*display:\s*none;/);
+  assert.match(productionCss, /\.review-keyboard-form > \.review-keyboard-form__body\s*\{[\s\S]*?overflow:\s*hidden;/);
+  assert.match(productionCss, /\.review-question textarea\s*\{[\s\S]*?max-height:\s*88px;[\s\S]*?overflow-y:\s*auto;[\s\S]*?resize:\s*none;/);
+  assert.match(feedbackSource, /setProperty\("--review-viewport-height"/);
+  assert.match(feedbackSource, /classList\.toggle\("review-editing", view === "review"\)/);
+  assert.match(indexHtml, /class="review-exit-button"[^>]*data-nav="today">返回<\/button>/);
+});
+
 test("当天详情以可点击时间线为主体并复用现有历史纠错入口", () => {
   assert.match(statsSource, /function dayTimelineRecords\(/);
   assert.match(statsSource, /class="day-timeline-row"[^>]*data-open-day-record/);

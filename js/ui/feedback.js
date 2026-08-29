@@ -21,6 +21,7 @@
         : 0;
       const keyboardOffset = Math.max(viewportKeyboardOffset, stableKeyboardOffset);
       document.documentElement.style.setProperty("--app-visible-height", `${viewportHeight}px`);
+      document.documentElement.style.setProperty("--review-viewport-height", `${viewportHeight}px`);
       document.documentElement.style.setProperty("--keyboard-height", `${keyboardOffset}px`);
       document.documentElement.style.setProperty("--viewport-offset-top", `${viewportTop}px`);
       document.body.classList.toggle("keyboard-open", keyboardOffset > 80 && (hasOpenModal() || reviewFormFocused));
@@ -28,6 +29,7 @@
 
     function ensureFocusedFormFieldVisible(target = document.activeElement) {
       if (!(target instanceof HTMLElement) || !target.matches("input, textarea, select")) return;
+      if (target.closest(".review-keyboard-form")) return;
       const body = target.closest(".keyboard-form-sheet__body");
       if (body) {
         const fieldRect = target.getBoundingClientRect();
@@ -40,9 +42,6 @@
           body.scrollBy({ top: fieldRect.bottom - bottomLimit, behavior: "smooth" });
         }
         return;
-      }
-      if (target.closest(".review-form")) {
-        target.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
     }
 
@@ -65,7 +64,11 @@
       if (installSheetViewportSync.installed) return;
       installSheetViewportSync.installed = true;
       const update = () => {
-        if (document.body.classList.contains("modal-open") || document.activeElement?.closest?.(".review-keyboard-form")) {
+        if (
+          document.body.classList.contains("modal-open")
+          || document.querySelector(".q-review-page.active")
+          || document.activeElement?.closest?.(".review-keyboard-form")
+        ) {
           syncSheetViewport();
         }
         syncSnackbarPosition();
@@ -83,6 +86,11 @@
         if (event.target?.matches?.(".keyboard-form-sheet input, .keyboard-form-sheet textarea, .keyboard-form-sheet select, .review-keyboard-form input, .review-keyboard-form textarea")) {
           syncSheetViewport();
           window.requestAnimationFrame(() => ensureFocusedFormFieldVisible(event.target));
+        }
+      });
+      document.addEventListener("focusout", event => {
+        if (event.target?.closest?.(".review-keyboard-form")) {
+          window.requestAnimationFrame(syncSheetViewport);
         }
       });
       syncSheetViewport();
@@ -157,12 +165,18 @@
     }
 
     function switchView(view) {
+      const activeElement = document.activeElement;
+      if (view !== "review" && activeElement?.closest?.(".review-keyboard-form")) {
+        activeElement.blur();
+      }
       document.querySelectorAll(".view").forEach(node => {
         node.classList.toggle("active", node.dataset.view === view);
       });
       document.querySelectorAll(".nav-button").forEach(button => {
         button.classList.toggle("active", button.dataset.nav === view);
       });
+      document.body.classList.toggle("review-editing", view === "review");
+      syncSheetViewport();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 

@@ -76,6 +76,7 @@ test("visualViewport 同步统一的可视高度、键盘高度和顶部偏移",
   const { context, properties, bodyClasses } = createFeedbackRuntime();
   vm.runInContext("syncSheetViewport()", context);
   assert.equal(properties.get("--app-visible-height"), "500px");
+  assert.equal(properties.get("--review-viewport-height"), "500px");
   assert.equal(properties.get("--keyboard-height"), "304px");
   assert.equal(properties.get("--viewport-offset-top"), "40px");
   assert.equal(bodyClasses.has("keyboard-open"), true);
@@ -124,6 +125,21 @@ test("聚焦字段只滚动 Form Body，不滚动 document", () => {
   assert.equal(scrolls.length, 1);
   assert.equal(scrolls[0].top, 78);
   assert.equal(scrolls[0].behavior, "smooth");
+});
+
+test("复盘字段依靠紧凑视口布局，不触发表单或页面滚动", () => {
+  const { context, FakeHTMLElement } = createFeedbackRuntime();
+  let scrolled = false;
+  const target = new FakeHTMLElement();
+  target.matches = () => true;
+  target.closest = selector => selector === ".review-keyboard-form"
+    ? {}
+    : selector === ".keyboard-form-sheet__body"
+      ? { scrollBy() { scrolled = true; } }
+      : null;
+  context.target = target;
+  vm.runInContext("ensureFocusedFormFieldVisible(target)", context);
+  assert.equal(scrolled, false);
 });
 
 test("所有可输入动态 Sheet 复用同一 Form Body/Footer 组件", () => {
