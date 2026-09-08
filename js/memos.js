@@ -316,6 +316,7 @@
           time: timeStart,
           startedAt: null,
           actualStartTime: null,
+          actualEndTime: null,
           timerStartedAt: null,
           startTime: null,
           isRunning: false,

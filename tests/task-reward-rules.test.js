@@ -147,12 +147,15 @@ function task(overrides = {}) {
   };
 }
 
-function createRuntime(state) {
+function createRuntime(state, clock = null) {
   const storage = new Map([["minimal-discipline-v1", JSON.stringify(state)]]);
   let uuid = 0;
   const context = {
     console,
-    Date: FixedDate,
+    Date: clock ? class extends Date {
+      constructor(...args) { super(...(args.length ? args : [clock.now])); }
+      static now() { return new Date(clock.now).getTime(); }
+    } : FixedDate,
     Intl,
     JSON,
     Math,
@@ -209,6 +212,61 @@ function createRuntime(state) {
 function value(context, expression) {
   return vm.runInContext(expression, context);
 }
+
+test("20:17 手动开始到 21:03 完成按时间差记录 46 分钟，刷新与撤回不改变奖励", () => {
+  const clock = { now: `${DAY}T19:17:00.000Z` }; // London summer time: 20:17.
+  const initial = emptyState([task({ status: "waiting", timeStart: "20:00", timeEnd: "21:00" })]);
+  let { context } = createRuntime(initial, clock);
+  value(context, `startTask('task-1')`);
+  const startedAt = value(context, "state.tasks[0].actualStartTime");
+  assert.equal(startedAt, clock.now);
+  const persisted = JSON.parse(value(context, "JSON.stringify(state)"));
+  clock.now = `${DAY}T20:03:00.000Z`;
+  ({ context } = createRuntime(persisted, clock));
+  assert.equal(value(context, "state.tasks[0].actualStartTime"), startedAt);
+  assert.equal(value(context, "state.tasks[0].elapsedSeconds"), 0);
+  value(context, `finishTask('task-1')`);
+  assert.equal(value(context, "state.tasks[0].actualEndTime"), clock.now);
+  assert.equal(value(context, "state.tasks[0].actualDurationMs"), 46 * 60 * 1000);
+  assert.equal(value(context, "state.tasks[0].elapsedSeconds"), 46 * 60);
+  assert.equal(value(context, "state.history[0].durationMinutes"), 46);
+  assert.equal(value(context, "state.history[0].actualStartTime"), startedAt);
+  assert.equal(value(context, "state.history[0].actualEndTime"), clock.now);
+  assert.equal(value(context, "state.coins"), 1015.33);
+  value(context, "undoLastAction()");
+  assert.equal(value(context, "state.tasks[0].status"), "running");
+  assert.equal(value(context, "state.tasks[0].actualStartTime"), startedAt);
+  assert.equal(value(context, "state.tasks[0].actualEndTime"), null);
+  assert.equal(value(context, "state.tasks[0].actualDurationMs"), null);
+  assert.equal(value(context, "state.coins"), 1000);
+});
+
+test("主动失败一次性记录时长；WAITING 不伪造开始时间；撤回恢复原始时间字段", () => {
+  for (const started of [false, true]) {
+    const clock = { now: `${DAY}T19:17:00.000Z` };
+    const { context } = createRuntime(emptyState([task({ status: "waiting", timeStart: "20:00", timeEnd: "21:00" })]), clock);
+    if (started) value(context, `startTask('task-1')`);
+    clock.now = `${DAY}T20:03:00.000Z`;
+    value(context, `failTask('task-1')`);
+    assert.equal(value(context, "state.tasks[0].actualEndTime"), clock.now);
+    assert.equal(value(context, "state.tasks[0].actualDurationMs"), started ? 2760000 : 0);
+    assert.equal(value(context, "state.history[0].durationSeconds"), started ? 2760 : 0);
+    if (!started) assert.equal(value(context, "state.history[0].actualStartTime"), null);
+    assert.equal(value(context, "state.coins"), 800);
+    value(context, "undoLastAction()");
+    assert.equal(value(context, "state.tasks[0].actualEndTime"), null);
+    assert.equal(value(context, "state.tasks[0].status"), started ? "running" : "waiting");
+    assert.equal(value(context, "state.coins"), 1000);
+  }
+});
+
+test("默认只有三个空槽但已有更晚任务不会被隐藏", () => {
+  const { context } = createRuntime(emptyState([task({ timeStart: "23:00", timeEnd: "00:00" })]));
+  const timeline = value(context, `hourlyTaskTimeline(state.tasks, new Date(2026, 6, 16, 19, 36))`);
+  assert.deepEqual(Array.from(timeline.upcoming, slot => slot.label), ["20:00", "21:00", "22:00", "23:00"]);
+  assert.equal(timeline.upcoming.filter(slot => !slot.tasks.length).length, 3);
+  assert.equal(timeline.upcoming[3].tasks[0].id, "task-1");
+});
 
 test("任务默认奖励为 20，失败统一按奖励乘以 10", () => {
   const { context } = createRuntime(emptyState());
@@ -498,27 +556,25 @@ test("习惯拖入时间始终向前安排到下一个完整整点的一小时",
   });
 });
 
-test("未来时间轴始终从下一个整点生成四个槽并正确跨午夜", () => {
+test("未来时间轴始终从下一个整点生成三个槽并正确跨午夜", () => {
   const { context } = createRuntime(emptyState([], 2000));
-  const daytime = value(context, `futureHourlySlots(new Date(2026, 6, 16, 12, 30), 4)
+  const daytime = value(context, `futureHourlySlots(new Date(2026, 6, 16, 19, 36))
     .map(slot => ({ label: slot.label, start: slot.start.getHours(), end: slot.end.getHours() }))`);
   assert.deepEqual(JSON.parse(JSON.stringify(daytime)), [
-    { label: "13:00", start: 13, end: 14 },
-    { label: "14:00", start: 14, end: 15 },
-    { label: "15:00", start: 15, end: 16 },
-    { label: "16:00", start: 16, end: 17 }
+    { label: "20:00", start: 20, end: 21 },
+    { label: "21:00", start: 21, end: 22 },
+    { label: "22:00", start: 22, end: 23 }
   ]);
 
-  const exactHour = value(context, `futureHourlySlots(new Date(2026, 6, 16, 14, 0), 4).map(slot => slot.start.getHours())`);
-  assert.deepEqual(JSON.parse(JSON.stringify(exactHour)), [15, 16, 17, 18]);
+  const exactHour = value(context, `futureHourlySlots(new Date(2026, 6, 16, 14, 0)).map(slot => slot.start.getHours())`);
+  assert.deepEqual(JSON.parse(JSON.stringify(exactHour)), [15, 16, 17]);
 
-  const overnight = value(context, `futureHourlySlots(new Date(2026, 6, 16, 22, 30), 4)
+  const overnight = value(context, `futureHourlySlots(new Date(2026, 6, 16, 22, 30))
     .map(slot => ({ label: slot.label, day: dateKey(slot.start), hour: slot.start.getHours() }))`);
   assert.deepEqual(JSON.parse(JSON.stringify(overnight)), [
     { label: "23:00", day: DAY, hour: 23 },
     { label: "明天 00:00", day: "2026-07-17", hour: 0 },
-    { label: "明天 01:00", day: "2026-07-17", hour: 1 },
-    { label: "明天 02:00", day: "2026-07-17", hour: 2 }
+    { label: "明天 01:00", day: "2026-07-17", hour: 1 }
   ]);
 });
 
@@ -560,10 +616,16 @@ test("习惯和备忘录都能保存到用户指定的整点槽且保持 WAITING
   assert.equal(habitTask.timeEnd, "16:00");
   assert.equal(habitTask.status, "waiting");
   assert.equal(habitTask.startedAt, null);
+  assert.equal(habitTask.actualStartTime, null);
+  assert.equal(habitTask.actualEndTime, null);
+  assert.equal(value(context, `undoTaskAnchor({type: 'habit_task_scheduled', taskId: '${habitTask.id}'})`), null);
   assert.equal(memoTask.timeStart, "16:00");
   assert.equal(memoTask.timeEnd, "17:00");
   assert.equal(memoTask.status, "waiting");
   assert.equal(memoTask.startedAt, null);
+  assert.equal(memoTask.actualStartTime, null);
+  assert.equal(memoTask.actualEndTime, null);
+  assert.equal(value(context, `undoTaskAnchor({type: 'memo_task_scheduled', taskId: '${memoTask.id}'})`), null);
   assert.equal(value(context, "state.history.length"), 0);
 });
 

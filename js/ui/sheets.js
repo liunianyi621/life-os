@@ -69,7 +69,7 @@
       editingId = taskId;
       const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
       const defaultRange = defaultTaskTimeRange();
-      const quickSlots = task ? [] : futureHourlySlots(new Date(), 4);
+      const quickSlots = task ? [] : futureHourlySlots();
       const startTimeValue = task ? taskStartTimeValue(task) : defaultRange.start;
       const parsedStartTime = parseTimeValue(startTimeValue);
       const initialStartTimeValue = parsedStartTime ? formatTimeParts(parsedStartTime) : "";

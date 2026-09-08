@@ -240,7 +240,7 @@
       return { start, end };
     }
 
-    function futureHourlySlots(now = new Date(), count = 4) {
+    function futureHourlySlots(now = new Date(), count = 3) {
       const firstRange = getNextFullHourRange(now);
       if (!firstRange) return [];
       const slotCount = Math.max(0, Math.floor(Number(count) || 0));
@@ -294,7 +294,7 @@
       });
     }
 
-    function hourlyTaskTimeline(tasks, now = new Date(), futureSlotCount = 4) {
+    function hourlyTaskTimeline(tasks, now = new Date(), futureSlotCount = 3) {
       const current = new Date(now);
       if (Number.isNaN(current.getTime())) {
         return { earlier: [], upcoming: [], unscheduled: [] };
@@ -403,6 +403,7 @@
             status: TASK_STATUS.WAITING,
             startedAt: null,
             actualStartTime: null,
+            actualEndTime: null,
             timerStartedAt: null,
             startTime: null,
             isRunning: false,
@@ -466,6 +467,7 @@
           time: timeStart,
           startedAt: null,
           actualStartTime: null,
+          actualEndTime: null,
           timerStartedAt: null,
           startTime: null,
           isRunning: false,

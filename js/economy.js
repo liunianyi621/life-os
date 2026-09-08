@@ -217,6 +217,8 @@
               isRunning: true,
               elapsedSeconds: resumed ? Math.max(0, Number(item.elapsedSeconds) || 0) : 0,
               endTime: null,
+              actualEndTime: null,
+              actualDurationMs: null,
               durationMinutes: null,
               durationSeconds: null,
               earnedCoins: null,
@@ -256,6 +258,8 @@
               timerStartedAt: null,
               elapsedSeconds: durationSeconds,
               endTime,
+              actualEndTime: endTime,
+              actualDurationMs: Math.max(0, new Date(endTime) - new Date(taskRunningStartTime(task))),
               durationSeconds,
               durationMinutes,
               earnedCoins,
@@ -283,7 +287,11 @@
           durationMinutes,
           durationSeconds,
           startTime: taskRunningStartTime(task),
-          endTime
+          endTime,
+          actualStartTime: taskRunningStartTime(task),
+          actualEndTime: endTime,
+          scheduledStart: task.scheduledStart || null,
+          scheduledEnd: task.scheduledEnd || null
         }
       });
       const historyId = coinEvent.historyId;
@@ -568,6 +576,12 @@
       const today = dateKey();
       const rewardAmount = taskRewardAmount(task);
       const amount = getIncompletePenalty(rewardAmount);
+      const endTime = new Date().toISOString();
+      const actualStartTime = taskStatusToday(task) === TASK_STATUS.WAITING ? null : taskRunningStartTime(task);
+      const { durationSeconds, durationMinutes } = actualStartTime
+        ? taskDurationPayload(actualStartTime, endTime, rewardAmount)
+        : { durationSeconds: 0, durationMinutes: 0 };
+      const actualDurationMs = actualStartTime ? Math.max(0, new Date(endTime) - new Date(actualStartTime)) : 0;
       const previousTask = {
         status: task.status || "pending",
         startedAt: task.startedAt || null,
@@ -577,6 +591,8 @@
         isRunning: Boolean(task.isRunning),
         elapsedSeconds: Number(task.elapsedSeconds) || 0,
         endTime: task.endTime || null,
+        actualEndTime: task.actualEndTime || null,
+        actualDurationMs: task.actualDurationMs ?? null,
         durationMinutes: task.durationMinutes ?? null,
         durationSeconds: task.durationSeconds ?? null,
         earnedCoins: task.earnedCoins ?? null
@@ -589,8 +605,14 @@
               status: "failed",
               isRunning: false,
               timerStartedAt: null,
-              failedAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
+              endTime,
+              actualEndTime: endTime,
+              actualDurationMs,
+              elapsedSeconds: durationSeconds,
+              durationSeconds,
+              durationMinutes,
+              failedAt: endTime,
+              updatedAt: endTime
             }
           : item
       ));
@@ -607,7 +629,15 @@
           coins: amount,
           rewardAmount,
           penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
-          penaltyAmount: amount
+          penaltyAmount: amount,
+          startTime: actualStartTime,
+          actualStartTime,
+          endTime,
+          actualEndTime: endTime,
+          durationSeconds,
+          durationMinutes,
+          scheduledStart: task.scheduledStart || null,
+          scheduledEnd: task.scheduledEnd || null
         }
       });
       const historyId = coinEvent.historyId;
@@ -661,6 +691,8 @@
         elapsedSeconds: Number(task.elapsedSeconds) || 0,
         lifecycleEvents: Array.isArray(task.lifecycleEvents) ? task.lifecycleEvents : [],
         endTime: task.endTime || null,
+        actualEndTime: task.actualEndTime || null,
+        actualDurationMs: task.actualDurationMs ?? null,
         durationMinutes: task.durationMinutes ?? null,
         durationSeconds: task.durationSeconds ?? null,
         earnedCoins: task.earnedCoins ?? null,
@@ -731,6 +763,8 @@
               elapsedSeconds: Number(previousTask?.elapsedSeconds) || 0,
               lifecycleEvents: Array.isArray(previousTask?.lifecycleEvents) ? previousTask.lifecycleEvents : [],
               endTime: previousTask?.endTime || null,
+              actualEndTime: previousTask?.actualEndTime || null,
+              actualDurationMs: previousTask?.actualDurationMs ?? null,
               durationMinutes: previousTask?.durationMinutes ?? null,
               durationSeconds: previousTask?.durationSeconds ?? null,
               earnedCoins: previousTask?.earnedCoins ?? null,
@@ -1522,7 +1556,7 @@
     }
 
     function undoTaskAnchor(undoData = {}) {
-      const taskTypes = new Set(["task_completed", "task_failed", "habit_task_scheduled", "memo_task_scheduled"]);
+      const taskTypes = new Set(["task_completed", "task_failed"]);
       if (!taskTypes.has(undoData.type) || !undoData.taskId) return null;
       const task = state.tasks.find(item => item.id === undoData.taskId);
       return task ? { kind: "task", id: task.id, task: { ...task } } : null;

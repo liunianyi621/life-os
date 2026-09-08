@@ -124,7 +124,7 @@ test("习惯生成任务使用 WAITING 到 RUNNING 的显式状态机", () => {
   assert.match(economySource, /function startTask[\s\S]*?startedAt,[\s\S]*?actualStartTime: startedAt[\s\S]*?timerStartedAt: actionAt/);
   assert.match(economySource, /TASK_LIFECYCLE_EVENT\.STARTED/);
   assert.match(uiSource, /等待开始/);
-  assert.match(uiSource, /data-task-elapsed/);
+  assert.doesNotMatch(uiSource, /data-task-elapsed|taskElapsedTicker|setInterval/);
   assert.match(uiSource, /class="q-row-tile[^"]*task-start-tile"[\s\S]*?data-start-task/);
   const actionSource = uiSource.slice(
     uiSource.indexOf("function taskActionsHtml"),
@@ -132,7 +132,7 @@ test("习惯生成任务使用 WAITING 到 RUNNING 的显式状态机", () => {
   );
   const tileSource = uiSource.slice(
     uiSource.indexOf("function taskTileHtml"),
-    uiSource.indexOf("function stopTaskElapsedTicker")
+    uiSource.indexOf("function taskTimelineRowsHtml")
   );
   assert.match(actionSource, /if \(status === TASK_STATUS\.WAITING\) return failAction/);
   assert.equal((tileSource.match(/data-start-task/g) || []).length, 1);
@@ -181,7 +181,8 @@ test("今日任务使用轻量整点时间轴并将拖放命中细化到具体�
   assert.match(uiSource, /data-task-timeline-slot/);
   assert.match(uiSource, /taskTimelineSectionHtml\("较早安排"/);
   assert.match(uiSource, /taskTimelineSectionHtml\("接下来"/);
-  assert.match(uiSource, /futureSlotCount = document\.body\.classList\.contains\("habit-dragging"\) \? 6 : 4/);
+  assert.match(uiSource, /hourlyTaskTimeline\(activeTasks\)/);
+  assert.match(taskSource, /futureSlotCount = 3/);
   assert.doesNotMatch(uiSource.slice(uiSource.indexOf("function renderTasks"), uiSource.indexOf("function calendarGridDays")), /taskTimeRangeLabel/);
   assert.match(sheetSource, /data-task-quick-schedule/);
   assert.match(sheetSource, /data-task-custom-time/);

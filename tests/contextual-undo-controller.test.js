@@ -9,8 +9,8 @@ const feedbackSource = fs.readFileSync(path.join(ROOT, "js/ui/feedback.js"), "ut
 const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
 const productionCss = fs.readFileSync(path.join(ROOT, "css/qonto-system.css"), "utf8");
 
-test("任务完成、失败和两种拖入任务都优先建立任务原位置 anchor", () => {
-  assert.match(economySource, /new Set\(\["task_completed", "task_failed", "habit_task_scheduled", "memo_task_scheduled"\]\)/);
+test("只有任务完成和失败建立任务原位置 anchor，安排操作使用全局撤回", () => {
+  assert.match(economySource, /new Set\(\["task_completed", "task_failed"\]\)/);
   assert.match(economySource, /return task \? \{ kind: "task", id: task\.id, task: \{ \.\.\.task \} \} : null/);
   assert.match(uiSource, /activeTasks\.push\(undoAnchor\.task\)/);
   assert.match(uiSource, /class="task-contextual-undo-row/);

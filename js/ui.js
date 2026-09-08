@@ -5,7 +5,6 @@
     let habitTouchListenersInstalled = false;
     let suppressCalendarEventTap = false;
     let suppressCalendarDateTap = false;
-    let taskElapsedTicker = null;
     const HABIT_DRAG_LONG_PRESS_MS = 400;
     const HABIT_DRAG_SCROLL_THRESHOLD = 8;
     const HABIT_TOUCH_LISTENER_OPTIONS = { passive: false, capture: true };
@@ -737,7 +736,6 @@
     }
 
     function renderActiveView(view = activeViewName()) {
-      if (view !== "today") stopTaskElapsedTicker();
       if (view === "today") {
         const activeCount = activeTasksToday().length;
         els.todayDate.textContent = formatDate();
@@ -899,9 +897,7 @@
       if (status === TASK_STATUS.RUNNING) {
         const startedAt = taskStartedAtLabel(task);
         return `
-          <span class="pill green">进行中</span>
           ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
-          <span class="pill" data-task-elapsed="${escapeAttr(task.id)}">已进行 ${formatTaskElapsedClock(taskElapsedSeconds(task))}</span>
         `;
       }
       if (taskHasTime(task)) {
@@ -962,31 +958,6 @@
       }
       const icon = status === TASK_STATUS.RUNNING ? "stop.circle" : status === TASK_STATUS.PAUSED ? "play.circle" : "checklist";
       return rowTileHtml(actionIconHtml(icon), visualToneForId(task.id), "task-row-tile");
-    }
-
-    function stopTaskElapsedTicker() {
-      if (taskElapsedTicker == null) return;
-      window.clearInterval(taskElapsedTicker);
-      taskElapsedTicker = null;
-    }
-
-    function refreshTaskElapsedLabels() {
-      const labels = document.querySelectorAll("[data-task-elapsed]");
-      if (!labels.length || activeViewName() !== "today") {
-        stopTaskElapsedTicker();
-        return;
-      }
-      labels.forEach(label => {
-        const task = state.tasks.find(item => item.id === label.dataset.taskElapsed);
-        if (!task || taskStatusToday(task) !== TASK_STATUS.RUNNING) return;
-        label.textContent = `已进行 ${formatTaskElapsedClock(taskElapsedSeconds(task))}`;
-      });
-    }
-
-    function syncTaskElapsedTicker() {
-      refreshTaskElapsedLabels();
-      if (taskElapsedTicker != null || !document.querySelector("[data-task-elapsed]")) return;
-      taskElapsedTicker = window.setInterval(refreshTaskElapsedLabels, 1000);
     }
 
     function taskTimelineRowsHtml(tasks) {
@@ -1074,8 +1045,7 @@
       if (undoAnchor?.task && !activeTasks.some(task => task.id === undoAnchor.id)) {
         activeTasks.push(undoAnchor.task);
       }
-      const futureSlotCount = document.body.classList.contains("habit-dragging") ? 6 : 4;
-      const timeline = hourlyTaskTimeline(activeTasks, new Date(), futureSlotCount);
+      const timeline = hourlyTaskTimeline(activeTasks);
       const unscheduledGroups = timeline.unscheduled.length
         ? [{ tasks: timeline.unscheduled }]
         : [];
@@ -1085,7 +1055,6 @@
         taskTimelineSectionHtml("未排期", unscheduledGroups, { tone: "unscheduled" }),
         taskTimelineSectionHtml("接下来", timeline.upcoming, { droppable: true, tone: "upcoming" })
       ].join("");
-      syncTaskElapsedTicker();
     }
 
     function calendarGridDays(month) {

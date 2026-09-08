@@ -264,7 +264,9 @@
         current.paused = true;
         current.exiting = false;
         clearTimers();
-        renderCurrent();
+        // Keep the pressed capsule mounted so pointerup can produce its click.
+        if (current.mode === "global") els.toast.classList.remove("is-exiting");
+        else renderCurrent();
       }
 
       function resume() {
@@ -272,7 +274,7 @@
         current.paused = false;
         current.expiresAt = Date.now() + current.remaining;
         schedule(current.remaining);
-        renderCurrent();
+        if (current.mode !== "global") renderCurrent();
       }
 
       function moveToGlobal() {
