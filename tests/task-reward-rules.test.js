@@ -21,6 +21,7 @@ class FixedDate extends Date {
 function emptyState(tasks = [], coins = 1000) {
   return {
     pastCoinHistoryScaleMigrationVersion: 1,
+    fixedRewardRulesSince: "2026-07-14",
     coins,
     streak: 0,
     lastCompletedDate: null,
@@ -213,49 +214,177 @@ function value(context, expression) {
   return vm.runInContext(expression, context);
 }
 
-test("20:17 手动开始到 21:03 完成按时间差记录 46 分钟，刷新与撤回不改变奖励", () => {
-  const clock = { now: `${DAY}T19:17:00.000Z` }; // London summer time: 20:17.
-  const initial = emptyState([task({ status: "waiting", timeStart: "20:00", timeEnd: "21:00" })]);
-  let { context } = createRuntime(initial, clock);
-  value(context, `startTask('task-1')`);
-  const startedAt = value(context, "state.tasks[0].actualStartTime");
-  assert.equal(startedAt, clock.now);
-  const persisted = JSON.parse(value(context, "JSON.stringify(state)"));
-  clock.now = `${DAY}T20:03:00.000Z`;
-  ({ context } = createRuntime(persisted, clock));
-  assert.equal(value(context, "state.tasks[0].actualStartTime"), startedAt);
-  assert.equal(value(context, "state.tasks[0].elapsedSeconds"), 0);
-  value(context, `finishTask('task-1')`);
-  assert.equal(value(context, "state.tasks[0].actualEndTime"), clock.now);
-  assert.equal(value(context, "state.tasks[0].actualDurationMs"), 46 * 60 * 1000);
-  assert.equal(value(context, "state.tasks[0].elapsedSeconds"), 46 * 60);
-  assert.equal(value(context, "state.history[0].durationMinutes"), 46);
-  assert.equal(value(context, "state.history[0].actualStartTime"), startedAt);
-  assert.equal(value(context, "state.history[0].actualEndTime"), clock.now);
-  assert.equal(value(context, "state.coins"), 1015.33);
-  value(context, "undoLastAction()");
-  assert.equal(value(context, "state.tasks[0].status"), "running");
-  assert.equal(value(context, "state.tasks[0].actualStartTime"), startedAt);
-  assert.equal(value(context, "state.tasks[0].actualEndTime"), null);
-  assert.equal(value(context, "state.tasks[0].actualDurationMs"), null);
-  assert.equal(value(context, "state.coins"), 1000);
+for (const reward of [5, 10, 20]) {
+  test(`固定奖励 ${reward}：直接完成、主动失败、跨天补扣和重载均只结算一次`, () => {
+    const make = () => task({ id: 'fixed', coins: reward, reward, hourlyReward: 99 });
+    const completed = createRuntime(emptyState([make()]));
+    value(completed.context, "completeTask('fixed'); completeTask('fixed')");
+    assert.equal(value(completed.context, 'state.coins'), 1000 + reward);
+    assert.equal(value(completed.context, 'state.history.length'), 1);
+    const failed = createRuntime(emptyState([make()]));
+    value(failed.context, "failTask('fixed'); failTask('fixed')");
+    assert.equal(value(failed.context, 'state.coins'), 1000 - reward * 10);
+    assert.equal(value(failed.context, 'state.history.length'), 1);
+    const overdue = make();
+    overdue.date = overdue.createdDate = '2026-07-15';
+    const settled = createRuntime(emptyState([overdue]));
+    value(settled.context, 'runAutomaticChecks({showToast:false}); runAutomaticChecks({showToast:false})');
+    assert.equal(value(settled.context, 'state.coins'), 1000 - reward * 10);
+    const reloaded = createRuntime(JSON.parse(settled.storage.get('minimal-discipline-v1')));
+    value(reloaded.context, 'runAutomaticChecks({showToast:false})');
+    assert.equal(value(reloaded.context, 'state.coins'), 1000 - reward * 10);
+    assert.equal(value(reloaded.context, 'state.history.length'), 1);
+  });
+}
+
+test('离线多日逐日补扣，已完成日期和习惯创建前日期不扣，重载不重复', () => {
+  const initial = emptyState();
+  initial.settledThroughDate = '2026-07-13';
+  initial.habits = [{id:'daily',name:'阅读',createdDate:'2026-07-14'}, {id:'new',name:'新习惯',createdDate:DAY}];
+  initial.habitCompletions = {'2026-07-14':{daily:true}};
+  const clock = {now:'2026-07-18T12:00:00Z'};
+  const runtime = createRuntime(initial, clock);
+  value(runtime.context, 'runAutomaticChecks({showToast:false})');
+  // daily: 15,16,17; new: 16,17.
+  assert.equal(value(runtime.context, 'state.coins'), 750);
+  assert.equal(value(runtime.context, 'state.history.length'), 5);
+  const reloaded = createRuntime(JSON.parse(runtime.storage.get('minimal-discipline-v1')), clock);
+  value(reloaded.context, 'runAutomaticChecks({showToast:false})');
+  assert.equal(value(reloaded.context, 'state.coins'), 750);
+  assert.equal(value(reloaded.context, 'state.history.length'), 5);
 });
 
-test("主动失败一次性记录时长；WAITING 不伪造开始时间；撤回恢复原始时间字段", () => {
-  for (const started of [false, true]) {
-    const clock = { now: `${DAY}T19:17:00.000Z` };
-    const { context } = createRuntime(emptyState([task({ status: "waiting", timeStart: "20:00", timeEnd: "21:00" })]), clock);
-    if (started) value(context, `startTask('task-1')`);
-    clock.now = `${DAY}T20:03:00.000Z`;
-    value(context, `failTask('task-1')`);
-    assert.equal(value(context, "state.tasks[0].actualEndTime"), clock.now);
-    assert.equal(value(context, "state.tasks[0].actualDurationMs"), started ? 2760000 : 0);
-    assert.equal(value(context, "state.history[0].durationSeconds"), started ? 2760 : 0);
-    if (!started) assert.equal(value(context, "state.history[0].actualStartTime"), null);
+test('首次启用不追罚旧模板时期，次日补结算启用日', () => {
+  const initial = emptyState();
+  delete initial.fixedRewardRulesSince;
+  initial.settledThroughDate = '2026-01-01';
+  initial.habits = [{id:'daily',name:'阅读',createdDate:'2026-01-01'}];
+  const clock = {now:FIXED_NOW};
+  const runtime = createRuntime(initial, clock);
+  value(runtime.context, 'runAutomaticChecks({showToast:false})');
+  assert.equal(value(runtime.context, 'state.coins'), 1000);
+  assert.equal(value(runtime.context, 'state.fixedRewardRulesSince'), DAY);
+  clock.now = '2026-07-17T12:00:00Z';
+  value(runtime.context, 'runAutomaticChecks({showToast:false})');
+  assert.equal(value(runtime.context, 'state.coins'), 950);
+  assert.equal(value(runtime.context, 'state.history.length'), 1);
+});
+
+test('习惯及其拖入任务共享每日处罚，不产生任务加习惯双重扣款', () => {
+  const initial = emptyState();
+  initial.habits = [{id:'daily',name:'阅读',coins:20,createdDate:DAY}];
+  const clock = {now:FIXED_NOW};
+  const runtime = createRuntime(initial, clock);
+  value(runtime.context, "scheduleHabitAsTask('daily', new Date())");
+  clock.now = '2026-07-17T12:00:00Z';
+  value(runtime.context, 'runAutomaticChecks({showToast:false}); runAutomaticChecks({showToast:false})');
+  assert.equal(value(runtime.context, 'state.coins'), 950);
+  assert.equal(value(runtime.context, 'state.history.length'), 1);
+  assert.equal(value(runtime.context, 'state.history[0].type'), 'habit_failed');
+  assert.equal(value(runtime.context, 'state.tasks[0].status'), 'failed');
+});
+
+test('结算保存失败恢复余额和日期游标，重试只扣一次', () => {
+  const initial = emptyState();
+  initial.settledThroughDate = '2026-07-14';
+  initial.habits = [{id:'daily',name:'阅读',createdDate:'2026-07-15'}];
+  const runtime = createRuntime(initial);
+  value(runtime.context, "originalSave = saveState; saveState = () => { throw new Error('storage full'); }; runAutomaticChecks({showToast:false})");
+  assert.equal(value(runtime.context, 'state.coins'), 1000);
+  assert.equal(value(runtime.context, 'state.history.length'), 0);
+  assert.equal(value(runtime.context, 'state.settledThroughDate'), '2026-07-14');
+  value(runtime.context, 'saveState = originalSave; runAutomaticChecks({showToast:false}); runAutomaticChecks({showToast:false})');
+  assert.equal(value(runtime.context, 'state.coins'), 950);
+  assert.equal(value(runtime.context, 'state.history.length'), 1);
+});
+
+test('完成保存失败不消耗 Memo，也不奖励金币', () => {
+  const initial = emptyState();
+  initial.memos = [{id:'memo',text:'买书',completed:false}];
+  const runtime = createRuntime(initial);
+  value(runtime.context, "scheduleMemoAsTask('memo', new Date()); originalSave = saveState; saveState = () => { throw new Error('storage full'); }; completeTask(state.tasks[0].id)");
+  assert.equal(value(runtime.context, 'state.coins'), 1000);
+  assert.equal(value(runtime.context, 'state.memos.length'), 1);
+  assert.equal(value(runtime.context, 'state.tasks[0].status'), 'pending');
+  value(runtime.context, 'saveState = originalSave; completeTask(state.tasks[0].id)');
+  assert.equal(value(runtime.context, 'state.coins'), 1005);
+  assert.equal(value(runtime.context, 'state.memos.length'), 0);
+});
+
+test('习惯主动失败及撤回复用同一每日记录，次日不会再扣前一天', () => {
+  const initial = emptyState();
+  initial.habits = [{id:'daily',name:'阅读',createdDate:DAY}];
+  const clock = {now:FIXED_NOW};
+  const {context} = createRuntime(initial, clock);
+  value(context, "scheduleHabitAsTask('daily'); failTask(state.tasks[0].id); failTask(state.tasks[0].id)");
+  assert.equal(value(context, 'state.coins'), 950);
+  value(context, 'undoLastAction()');
+  assert.equal(value(context, 'state.coins'), 1000);
+  assert.equal(value(context, 'state.tasks[0].status'), 'pending');
+  value(context, 'completeTask(state.tasks[0].id)');
+  assert.equal(value(context, 'state.coins'), 1005);
+  clock.now = '2026-07-17T12:00:00Z';
+  value(context, 'runAutomaticChecks({showToast:false})');
+  assert.equal(value(context, 'state.coins'), 1005);
+});
+
+test('仅有旧任务关联的已完成习惯仍被识别，旧金币历史原样保留', () => {
+  const initial = emptyState();
+  initial.settledThroughDate = '2026-07-14';
+  initial.habits = [{id:'daily',name:'阅读',createdDate:'2026-07-15'}];
+  initial.tasks = [{...task({id:'old',date:'2026-07-15',status:'completed'}),sourceHabitId:'daily',sourceHabitScheduledDate:'2026-07-15'}];
+  initial.history = [{id:'old-event',taskId:'old',type:'task_completed',date:'2026-07-15',coinDelta:0.14,coins:0.14}];
+  const {context} = createRuntime(initial);
+  const before = value(context, 'JSON.stringify(state.history)');
+  value(context, 'runAutomaticChecks({showToast:false})');
+  assert.equal(value(context, 'state.coins'), 1000);
+  assert.equal(value(context, 'JSON.stringify(state.history)'), before);
+  assert.equal(value(context, "habitCompletedOnDate('daily', '2026-07-16')"), false);
+});
+
+test('创建时间按本地日期判断，午夜前后的新习惯不提前扣款', () => {
+  const initial = emptyState();
+  initial.fixedRewardRulesSince = '2026-07-15';
+  initial.settledThroughDate = '2026-07-14';
+  initial.habits = [{id:'late',name:'午夜习惯',createdAt:new Date(2026,6,16,0,15).toISOString()}];
+  const {context} = createRuntime(initial);
+  value(context, 'runAutomaticChecks({showToast:false})');
+  assert.equal(value(context, 'state.coins'), 1000);
+  assert.equal(value(context, "habitActiveOnDate(state.habits[0], '2026-07-15')"), false);
+});
+
+test('新任务只接受固定选项，习惯来源编辑也不能改成其他金额', () => {
+  const initial = emptyState();
+  initial.tasks = [{...task({id:'habit-task'}),source:'HABIT',originId:'h'}];
+  const {context} = createRuntime(initial);
+  value(context, "closeSheet=()=>{}; editingId=null; saveTask({name:'invalid',coins:7}); editingId='habit-task'; saveTask({name:'阅读',coins:20})");
+  assert.equal(value(context, 'state.tasks[0].reward'), 5);
+  assert.equal(value(context, 'state.tasks[1].reward'), 5);
+  assert.equal(value(context, 'state.tasks[1].actualStartTime'), null);
+});
+
+test("旧运行任务刷新后直接按固定金额完成，不再按 46 分钟折算", () => {
+  const initial = emptyState([task({ status: "running", timeStart: "20:00", timeEnd: "21:00", startTime: DAY + "T19:17:00Z" })]);
+  const { context } = createRuntime(initial, { now: DAY + "T20:03:00Z" });
+  assert.equal(value(context, "taskUsesTimer(state.tasks[0])"), false);
+  value(context, "completeTask('task-1')");
+  assert.equal(value(context, "state.coins"), 1020);
+  assert.equal(value(context, "state.history[0].durationSeconds"), 0);
+  value(context, "undoLastAction()");
+  assert.equal(value(context, "state.coins"), 1000);
+  assert.equal(value(context, "state.tasks[0].status"), "running");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
+});
+
+test("新旧任务主动失败均按固定金额十倍扣除，撤回保留旧计时字段", () => {
+  for (const status of ["waiting", "running", "paused"]) {
+    const { context } = createRuntime(emptyState([task({ status, timeStart: "11:00", timeEnd: "12:00", startTime: FIXED_NOW })]));
+    value(context, "failTask('task-1')");
     assert.equal(value(context, "state.coins"), 800);
+    assert.equal(value(context, "state.history[0].durationSeconds"), 0);
     value(context, "undoLastAction()");
-    assert.equal(value(context, "state.tasks[0].actualEndTime"), null);
-    assert.equal(value(context, "state.tasks[0].status"), started ? "running" : "waiting");
+    assert.equal(value(context, "state.tasks[0].status"), status);
+    assert.equal(value(context, "state.tasks[0].startTime"), FIXED_NOW);
     assert.equal(value(context, "state.coins"), 1000);
   }
 });
@@ -268,27 +397,27 @@ test("默认只有三个空槽但已有更晚任务不会被隐藏", () => {
   assert.equal(timeline.upcoming[3].tasks[0].id, "task-1");
 });
 
-test("任务默认奖励为 20，失败统一按奖励乘以 10", () => {
+test("任务默认奖励为 5，失败统一按奖励乘以 10", () => {
   const { context } = createRuntime(emptyState());
 
-  assert.equal(value(context, "DEFAULT_TASK_REWARD"), 20);
+  assert.equal(value(context, "DEFAULT_TASK_REWARD"), 5);
   assert.equal(value(context, "INCOMPLETE_PENALTY_MULTIPLIER"), 10);
   assert.equal(value(context, "TASK_FAILURE_MULTIPLIER"), 10);
   assert.equal(value(context, "getIncompletePenalty(1.5)"), 15);
   assert.equal(value(context, "getIncompletePenalty(0)"), 0);
-  assert.equal(value(context, "taskRewardInputValue(null)"), 20);
-  assert.equal(value(context, "taskRewardAmount({})"), 20);
+  assert.equal(value(context, "taskRewardInputValue(null)"), 5);
+  assert.equal(value(context, "taskRewardAmount({})"), 5);
   assert.equal(value(context, "taskRewardAmount({ coins: 0, reward: 0, hourlyReward: 0 })"), 0);
   assert.equal(value(context, "taskFailurePenalty({ coins: 0, reward: 0, hourlyReward: 0 })"), 0);
-  assert.equal(value(context, "taskFailurePenalty({})"), 200);
+  assert.equal(value(context, "taskFailurePenalty({})"), 50);
   assert.equal(value(context, "taskFailurePenalty({ coins: 30 })"), 300);
   assert.equal(value(context, "taskFailurePenalty({ coins: 1.5 })"), 15);
   assert.equal(value(context, "taskFailurePenalty({ coins: 20, durationMinutes: 180 })"), 200);
   assert.equal(value(context, "taskFailurePenalty({ coins: 20, date: '2026-07-15', timeStart: '23:30', timeEnd: '00:30' })"), 200);
 
   const sheetSource = fs.readFileSync(path.join(ROOT, "js/ui/sheets.js"), "utf8");
-  assert.match(sheetSource, /placeholder="默认 20"/);
-  assert.match(sheetSource, /有时间任务默认 20 金币\/小时/);
+  assert.match(sheetSource, /type="radio" name="coins"/);
+  assert.doesNotMatch(sheetSource, /金币\/小时/);
 });
 
 test("无时间任务完成获得设置金额，主动失败记录并撤回实际处罚", () => {
@@ -313,7 +442,7 @@ test("无时间任务完成获得设置金额，主动失败记录并撤回实�
   assert.equal(value(failedRuntime.context, "state.history.length"), 0);
 });
 
-test("计时任务半小时按每小时奖励结算，失败不读取实际时长", () => {
+test("旧计时任务改为固定奖励，失败不读取实际时长", () => {
   const completedRuntime = createRuntime(emptyState([task({
     id: "timed-complete",
     status: "running",
@@ -322,9 +451,9 @@ test("计时任务半小时按每小时奖励结算，失败不读取实际时�
     startTime: "2026-07-16T11:30:00.000Z"
   })]));
   value(completedRuntime.context, `finishTask("timed-complete")`);
-  assert.equal(value(completedRuntime.context, "state.coins"), 1010);
-  assert.equal(value(completedRuntime.context, "state.history[0].earnedCoins"), 10);
-  assert.equal(value(completedRuntime.context, "state.history[0].durationSeconds"), 1800);
+  assert.equal(value(completedRuntime.context, "state.coins"), 1020);
+  assert.equal(value(completedRuntime.context, "state.history[0].earnedCoins"), 20);
+  assert.equal(value(completedRuntime.context, "state.history[0].durationSeconds"), 0);
 
   const failedRuntime = createRuntime(emptyState([task({
     id: "timed-fail",
@@ -337,9 +466,10 @@ test("计时任务半小时按每小时奖励结算，失败不读取实际时�
   assert.equal(value(failedRuntime.context, "state.history[0].coinDelta"), -200);
 });
 
-test("结束时间自动失败与主动失败使用同一 helper 和实际历史金额", () => {
+test("跨日自动失败与主动失败使用同一 helper 和实际历史金额", () => {
   const { context } = createRuntime(emptyState([task({
     id: "timeout-task",
+    date: "2026-07-15",
     coins: 30,
     timeStart: "09:00",
     timeEnd: "10:00"
@@ -353,8 +483,8 @@ test("结束时间自动失败与主动失败使用同一 helper 和实际历史
   assert.equal(value(context, "state.history[0].coins"), 300);
   assert.equal(value(context, "state.history[0].rewardAmount"), 30);
   assert.equal(value(context, "state.history[0].penaltyMultiplier"), 10);
-  assert.equal(value(context, "state.history[0].reason"), "timeout");
-  assert.equal(value(context, "state.taskAutoFailures['2026-07-16']['timeout-task']"), value(context, "state.history[0].id"));
+  assert.equal(value(context, "state.history[0].reason"), "day_end");
+  assert.equal(value(context, "state.taskAutoFailures['2026-07-15']['timeout-task']"), value(context, "state.history[0].id"));
   const repeated = value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}"))`);
   assert.equal(repeated.count, 0);
   assert.equal(value(context, "state.coins"), 700);
@@ -384,17 +514,16 @@ test("跨日计时任务仍按原任务奖励乘以 10，并且只结算一次",
   assert.equal(value(context, "state.coins"), 700);
 });
 
-test("习惯模板不再产生完成奖励或每日未完成处罚", () => {
-  const state = emptyState([], 1000);
-  state.settledThroughDate = "2026-07-14";
-  state.habits = [{ id: "habit-template", name: "看书", coins: 10, createdDate: "2026-07-15" }];
-  const { context } = createRuntime(state);
-
-  assert.equal(value(context, `settleMissedHabits("2026-07-15").count`), 0);
-  assert.equal(value(context, "runAutomaticChecks()"), false);
-  assert.equal(value(context, "state.coins"), 1000);
-  assert.equal(value(context, "state.history.length"), 0);
-  assert.equal(value(context, "state.habitCompletions['2026-07-16']?.['habit-template'] || false"), false);
+test("每日习惯未完成补扣固定 50，完成固定奖励 5", () => {
+  const initial = emptyState();
+  initial.settledThroughDate = "2026-07-14";
+  initial.habits = [{ id: "h", name: "阅读", coins: 20, createdDate: "2026-07-15" }];
+  const { context } = createRuntime(initial);
+  value(context, "runAutomaticChecks()");
+  assert.equal(value(context, "state.coins"), 950);
+  value(context, "completeHabit('h'); completeHabit('h')");
+  assert.equal(value(context, "state.coins"), 955);
+  assert.equal(value(context, "state.history.filter(h => h.type === 'habit_completed').length"), 1);
 });
 
 test("自动检查不再生成无坏习惯奖励", () => {
@@ -614,14 +743,14 @@ test("习惯和备忘录都能保存到用户指定的整点槽且保持 WAITING
 
   assert.equal(habitTask.timeStart, "15:00");
   assert.equal(habitTask.timeEnd, "16:00");
-  assert.equal(habitTask.status, "waiting");
+  assert.equal(habitTask.status, "pending");
   assert.equal(habitTask.startedAt, null);
   assert.equal(habitTask.actualStartTime, null);
   assert.equal(habitTask.actualEndTime, null);
   assert.equal(value(context, `undoTaskAnchor({type: 'habit_task_scheduled', taskId: '${habitTask.id}'})`), null);
   assert.equal(memoTask.timeStart, "16:00");
   assert.equal(memoTask.timeEnd, "17:00");
-  assert.equal(memoTask.status, "waiting");
+  assert.equal(memoTask.status, "pending");
   assert.equal(memoTask.startedAt, null);
   assert.equal(memoTask.actualStartTime, null);
   assert.equal(memoTask.actualEndTime, null);
@@ -636,6 +765,7 @@ test("明确 WAITING 的任务超过计划结束时间也不会自动失败", ()
   assert.equal(value(context, `taskPastEndTime(state.tasks[0], new Date(2026, 6, 16, 16, 0))`), false);
   value(context, `runPendingSettlements({ now: new Date(2026, 6, 16, 16, 0) })`);
   assert.equal(value(context, "state.tasks[0].status"), "waiting");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
   assert.equal(value(context, "state.history.length"), 0);
   assert.equal(value(context, "state.coins"), 2000);
 });
@@ -648,10 +778,10 @@ test("习惯拖入后创建下一个整点的等待任务，当天隐藏且不�
   const created = value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 15, 24))`);
 
   assert.equal(created.name, "看书");
-  assert.equal(created.status, "waiting");
+  assert.equal(created.status, "pending");
   assert.equal(created.source, "HABIT");
   assert.equal(created.originId, "habit-book");
-  assert.equal(created.estimateDurationMinutes, 60);
+  assert.equal(created.estimateDurationMinutes, undefined);
   assert.equal(created.startedAt, null);
   assert.equal(created.actualStartTime, null);
   assert.equal(created.timerStartedAt, null);
@@ -667,11 +797,11 @@ test("习惯拖入后创建下一个整点的等待任务，当天隐藏且不�
   assert.equal(created.lifecycleEvents[0].type, "TASK_SCHEDULED");
   assert.equal(created.lifecycleEvents[0].scheduledStart, created.scheduledStart);
   assert.equal(created.lifecycleEvents[0].scheduledEnd, created.scheduledEnd);
-  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "waiting");
-  assert.equal(value(context, "taskUsesTimer(state.tasks[0])"), true);
-  assert.equal(created.coins, 10);
-  assert.equal(created.hourlyReward, 10);
-  assert.equal(created.reward, 10);
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
+  assert.equal(value(context, "taskUsesTimer(state.tasks[0])"), false);
+  assert.equal(created.coins, 5);
+  assert.equal(created.hourlyReward, undefined);
+  assert.equal(created.reward, 5);
   assert.equal(created.sourceHabitId, "habit-book");
   assert.equal(value(context, `habitScheduledAsTaskOnDate("habit-book", "${DAY}")`), true);
   assert.deepEqual(JSON.parse(JSON.stringify(value(context, "visibleHabitsToday().map(habit => habit.id)"))), []);
@@ -689,41 +819,19 @@ test("习惯拖入后创建下一个整点的等待任务，当天隐藏且不�
   assert.equal(value(context, "state.coins"), 2000);
 });
 
-test("等待任务只有点击开始后才记录真实开始时间并进入运行中", () => {
-  const state = emptyState([], 2000);
-  state.habits = [{ id: "habit-book", name: "看书", coins: 10, createdDate: DAY }];
-  const { context } = createRuntime(state);
-
-  const taskId = value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 10, 0)).id`);
-  const waiting = value(context, `state.tasks.find(task => task.id === "${taskId}")`);
-  assert.equal(waiting.startedAt, null);
-  assert.equal(waiting.actualStartTime, null);
-  assert.equal(waiting.timerStartedAt, null);
-  assert.equal(waiting.isRunning, false);
-  assert.equal(waiting.elapsedSeconds, 0);
-  assert.equal(waiting.createdAt, waiting.scheduledAt);
-  assert.equal(waiting.timeStart, "11:00");
-  assert.equal(waiting.timeEnd, "12:00");
-  assert.equal(value(context, "state.history.length"), 0);
-
-  value(context, `startTask("${taskId}")`);
-  const started = value(context, `state.tasks.find(task => task.id === "${taskId}")`);
-  assert.equal(started.status, "running");
-  assert.equal(started.startedAt, FIXED_NOW);
-  assert.equal(started.actualStartTime, FIXED_NOW);
-  assert.equal(started.timerStartedAt, FIXED_NOW);
-  assert.equal(started.startTime, FIXED_NOW);
-  assert.equal(started.isRunning, true);
-  assert.equal(started.elapsedSeconds, 0);
-  assert.notEqual(started.createdAt, started.startedAt);
-  assert.notEqual(started.scheduledStart, started.actualStartTime);
-  assert.equal(started.timeStart, "11:00");
-  assert.equal(started.timeEnd, "12:00");
-  assert.equal(started.lifecycleEvents.length, 2);
-  assert.equal(started.lifecycleEvents[1].type, "TASK_STARTED");
-  assert.equal(started.lifecycleEvents[1].timestamp, FIXED_NOW);
-  assert.equal(value(context, `taskStatusToday(state.tasks.find(task => task.id === "${taskId}"))`), "running");
-  assert.equal(value(context, "state.history.length"), 0);
+test("习惯拖入后无需开始，直接完成且同一天只奖励一次", () => {
+  const initial = emptyState([], 2000);
+  initial.habits = [{ id: "h", name: "阅读", coins: 20, createdDate: DAY }];
+  const { context } = createRuntime(initial);
+  const id = value(context, "scheduleHabitAsTask('h').id");
+  assert.equal(value(context, "startTask('" + id + "')"), false);
+  assert.equal(value(context, "state.tasks[0].actualStartTime"), null);
+  value(context, "completeTask('" + id + "'); completeTask('" + id + "'); completeHabit('h')");
+  assert.equal(value(context, "state.coins"), 2005);
+  assert.equal(value(context, "habitCompletedToday('h')"), true);
+  assert.equal(value(context, "state.history.length"), 1);
+  value(context, "undoLastAction()");
+  assert.equal(value(context, "habitCompletedToday('h')"), false);
   assert.equal(value(context, "state.coins"), 2000);
 });
 
@@ -736,14 +844,14 @@ test("习惯任务超过计划结束时间仍保持等待，不会自动开始�
   value(context, `runPendingSettlements({ now: new Date("2026-07-16T13:30:00.000Z") })`);
 
   const waiting = value(context, "state.tasks[0]");
-  assert.equal(waiting.status, "waiting");
+  assert.equal(waiting.status, "pending");
   assert.equal(waiting.startedAt, null);
   assert.equal(waiting.actualStartTime, null);
   assert.equal(waiting.timerStartedAt, null);
   assert.equal(waiting.isRunning, false);
   assert.equal(waiting.timeStart, "11:00");
   assert.equal(waiting.timeEnd, "12:00");
-  assert.equal(value(context, `taskElapsedSeconds(state.tasks[0], new Date("2026-07-16T13:30:00.000Z"))`), 0);
+  assert.equal(value(context, "typeof taskElapsedSeconds"), "undefined");
   assert.deepEqual(JSON.parse(JSON.stringify(waiting.lifecycleEvents.map(event => event.type))), ["TASK_SCHEDULED"]);
   assert.equal(value(context, "state.history.length"), 0);
 });
@@ -781,11 +889,11 @@ test("手动有时间任务保持用户设置的时间并使用统一 WAITING �
   })`);
 
   assert.equal(created.source, "MANUAL");
-  assert.equal(created.status, "waiting");
+  assert.equal(created.status, "pending");
   assert.equal(created.timeStart, "13:25");
   assert.equal(created.timeEnd, "14:10");
   assert.equal(created.startedAt, null);
-  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "waiting");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
 });
 
 test("旧 pending 有时间任务读取为 WAITING，旧运行和完成状态保持兼容", () => {
@@ -794,8 +902,8 @@ test("旧 pending 有时间任务读取为 WAITING，旧运行和完成状态保
   const completed = task({ id: "manual-completed", status: "completed", timeStart: "09:00", timeEnd: "10:00" });
   const { context } = createRuntime(emptyState([pending, running, completed], 2000));
 
-  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "waiting");
-  assert.equal(value(context, "taskStatusToday(state.tasks[1])"), "running");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
+  assert.equal(value(context, "taskStatusToday(state.tasks[1])"), "pending");
   assert.equal(value(context, "taskStatusToday(state.tasks[2])"), "completed");
 });
 
@@ -808,7 +916,7 @@ test("旧备忘录拖入后创建 MEMO 来源的下一个整点 WAITING 任务",
   assert.equal(created.source, "MEMO");
   assert.equal(created.originId, "memo-1");
   assert.equal(created.sourceMemoId, "memo-1");
-  assert.equal(created.status, "waiting");
+  assert.equal(created.status, "pending");
   assert.equal(created.timeStart, "14:00");
   assert.equal(created.timeEnd, "15:00");
   assert.equal(created.startedAt, null);
@@ -816,7 +924,7 @@ test("旧备忘录拖入后创建 MEMO 来源的下一个整点 WAITING 任务",
   assert.equal(created.timerStartedAt, null);
   assert.equal(created.isRunning, false);
   assert.equal(created.elapsedSeconds, 0);
-  assert.equal(created.reward, 20);
+  assert.equal(created.reward, 5);
   assert.equal(created.lifecycleEvents[0].type, "TASK_SCHEDULED");
   assert.equal(created.lifecycleEvents[0].source, "MEMO");
   assert.equal(value(context, `state.memos[0].status`), "SCHEDULED");
@@ -873,7 +981,7 @@ test("MEMO 任务失败后恢复备忘录，撤回失败后重新关联", () => 
 
   const taskId = value(context, `scheduleMemoAsTask("memo-fail", new Date(2026, 6, 16, 10, 0)).id`);
   value(context, `failTask("${taskId}")`);
-  assert.equal(value(context, "state.coins"), 1800);
+  assert.equal(value(context, "state.coins"), 1950);
   assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
   assert.equal(value(context, "state.memos[0].linkedTaskId"), null);
 
@@ -881,7 +989,7 @@ test("MEMO 任务失败后恢复备忘录，撤回失败后重新关联", () => 
   assert.equal(value(context, "state.coins"), 2000);
   assert.equal(value(context, `memoStatus(state.memos[0])`), "SCHEDULED");
   assert.equal(value(context, "state.memos[0].linkedTaskId"), taskId);
-  assert.equal(value(context, "state.tasks[0].status"), "waiting");
+  assert.equal(value(context, "state.tasks[0].status"), "pending");
 });
 
 test("MEMO 任务完成后永久删除备忘录，删除已完成任务不会恢复", () => {
@@ -898,7 +1006,7 @@ test("MEMO 任务完成后永久删除备忘录，删除已完成任务不会恢
     finishTask("${taskId}")`);
   assert.equal(value(context, "state.memos.length"), 0);
   assert.equal(value(context, "state.tasks[0].status"), "completed");
-  assert.equal(value(context, "state.coins"), 2020);
+  assert.equal(value(context, "state.coins"), 2005);
 
   value(context, "pendingUndo = null; closeSheet = () => {}; deleteTask(state.tasks[0].id)");
   assert.equal(value(context, "state.tasks.length"), 0);
@@ -915,7 +1023,7 @@ test("旧 in_progress 和 startTime 任务继续识别为运行中", () => {
   legacy.timeEnd = "10:00";
   const { context } = createRuntime(emptyState([legacy], 2000));
 
-  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "running");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
   assert.equal(value(context, "taskRunningStartTime(state.tasks[0])"), `${DAY}T09:30:00.000Z`);
 });
 
@@ -925,7 +1033,7 @@ test("旧任务的 timerStartedAt 和 isRunning 仍可识别为运行中", () =>
   legacy.isRunning = true;
   const { context } = createRuntime(emptyState([legacy], 2000));
 
-  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "running");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
   assert.equal(value(context, "taskRunningStartTime(state.tasks[0])"), `${DAY}T09:45:00.000Z`);
 });
 
@@ -937,15 +1045,15 @@ test("当天安排状态按本地日期持久化，同一习惯第二天自然�
   value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 15, 24))`);
   const persisted = JSON.parse(storage.get("minimal-discipline-v1"));
   assert.deepEqual(persisted.scheduledHabitIdsByDate[DAY], ["habit-book"]);
-  assert.equal(persisted.tasks[0].status, "waiting");
+  assert.equal(persisted.tasks[0].status, "pending");
   assert.equal(persisted.tasks[0].startedAt, null);
   assert.equal(persisted.tasks[0].actualStartTime, null);
   assert.equal(persisted.tasks[0].timerStartedAt, null);
   assert.equal(persisted.tasks[0].isRunning, false);
   assert.equal(persisted.tasks[0].elapsedSeconds, 0);
   const reloaded = createRuntime(persisted);
-  assert.equal(value(reloaded.context, "taskStatusToday(state.tasks[0])"), "waiting");
-  assert.equal(value(reloaded.context, "taskElapsedSeconds(state.tasks[0])"), 0);
+  assert.equal(value(reloaded.context, "taskStatusToday(state.tasks[0])"), "pending");
+  assert.equal(value(reloaded.context, "taskUsesTimer(state.tasks[0])"), false);
   assert.equal(value(context, `habitScheduledAsTaskOnDate("habit-book", "2026-07-17")`), false);
   assert.deepEqual(JSON.parse(JSON.stringify(value(context, `state.habits.filter(habit => !habitScheduledAsTaskOnDate(habit.id, "2026-07-17")).map(habit => habit.id)`))), ["habit-book"]);
   assert.equal(value(context, `scheduleHabitAsTask("habit-book", new Date(2026, 6, 16, 16, 24))`), null);
@@ -980,12 +1088,12 @@ test("没有有效奖励的习惯模板回落到今日任务默认奖励", () =>
   const { context } = createRuntime(state);
 
   const created = value(context, `scheduleHabitAsTask("habit-no-reward", new Date(2026, 6, 16, 15, 24))`);
-  assert.equal(created.coins, 20);
-  assert.equal(created.hourlyReward, 20);
-  assert.equal(created.reward, 20);
+  assert.equal(created.coins, 5);
+  assert.equal(created.hourlyReward, undefined);
+  assert.equal(created.reward, 5);
 });
 
-test("习惯当前金币配置优先于旧奖励兼容字段", () => {
+test("习惯旧奖励配置保留但新结算固定为 5", () => {
   const state = emptyState([], 2000);
   state.habits = [{
     id: "habit-current-reward",
@@ -998,9 +1106,9 @@ test("习惯当前金币配置优先于旧奖励兼容字段", () => {
   const { context } = createRuntime(state);
 
   const created = value(context, `scheduleHabitAsTask("habit-current-reward", new Date(2026, 6, 16, 15, 24))`);
-  assert.equal(created.coins, 10);
-  assert.equal(created.hourlyReward, 10);
-  assert.equal(created.reward, 10);
+  assert.equal(created.coins, 5);
+  assert.equal(created.hourlyReward, undefined);
+  assert.equal(created.reward, 5);
 });
 
 test("重点事项完成和主动失败固定使用 100 / 500，并按历史实际金额撤回", () => {

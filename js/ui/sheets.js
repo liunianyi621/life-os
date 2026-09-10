@@ -81,16 +81,19 @@
             <span class="field-label">任务名称</span>
             <input name="name" type="text" maxlength="80" value="${escapeAttr(task?.name || defaults.name || "")}" placeholder="输入任务名称" required>
           </label>
-          <label class="field">
+          <div class="field task-reward-field">
             <span class="field-label">奖励金币</span>
-            <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${taskRewardInputValue(task)}" placeholder="默认 20">
-            <span class="field-help">有时间任务默认 20 金币/小时；无时间任务按设置的固定奖励金额结算。</span>
-          </label>
+            <div class="task-fixed-rewards" role="group" aria-label="固定奖励金币">
+              ${(taskHabitId(task) ? [5] : FIXED_TASK_REWARDS).map(amount => `
+                <label><input type="radio" name="coins" value="${amount}" ${amount === taskRewardInputValue(task) ? "checked" : ""}><span>${amount}</span></label>
+              `).join("")}
+            </div>
+          </div>
           <div class="field task-time-field">
             ${task ? "" : `
               <div class="task-quick-schedule" data-task-quick-schedule>
                 <div class="task-quick-schedule__heading">安排到</div>
-                <div class="task-quick-schedule__options" role="group" aria-label="快速选择计划开始时间">
+                <div class="task-quick-schedule__options" role="group" aria-label="选择计划位置">
                   ${quickSlots.map((slot, index) => `
                     <button
                       class="task-quick-schedule__option${index === 0 ? " is-selected" : ""}"
@@ -107,13 +110,13 @@
               <input name="timeStart" type="hidden" value="${escapeAttr(initialStartTimeValue)}">
               <div class="time-picker-header">
                 <button class="time-picker-trigger" type="button" data-toggle-time-picker aria-expanded="false">
-                  <span>开始时间</span>
+                  <span>计划位置</span>
                   <strong class="time-picker-value" data-time-value>${escapeHtml(initialStartTimeValue || "未设置")}</strong>
                 </button>
-                <button class="time-clear" type="button" data-clear-time>无时间任务</button>
+                <button class="time-clear" type="button" data-clear-time>不安排时间</button>
               </div>
               <div class="time-picker-panel">
-                <div class="time-wheels" aria-label="选择开始时间">
+                <div class="time-wheels" aria-label="选择计划位置">
                   <div class="time-wheel" data-time-wheel="hour" aria-label="小时">
                     ${timeOptionButtons("hour", parsedStartTime?.hour)}
                   </div>
@@ -127,7 +130,6 @@
                 <button class="time-picker-done" type="button" data-close-time-picker>完成</button>
               </div>
             </div>
-            <span class="field-help">结束时间会自动设为开始时间后一小时。</span>
           </div>
         </div>
         `,
@@ -334,15 +336,12 @@
             <span class="field-label">习惯名称</span>
             <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入习惯名称" required>
           </label>
-          <label class="field">
-            <span class="field-label">任务奖励金额</span>
-            <input name="coins" type="number" min="0" step="0.01" inputmode="decimal" value="${habit?.coins ?? ""}" placeholder="0">
-            <span class="field-help">生成的一小时任务使用此奖励；未设置时使用今日任务默认奖励。</span>
-          </label>
+          <p class="field-help">每天完成 +5 金币，当天未完成 -50 金币。</p>
           ${habit ? `
             <button class="q-secondary-button habit-template-sheet-action" type="button" data-schedule-habit="${escapeAttr(habit.id)}">
-              开始做这件事
+              安排到今日任务
             </button>
+            <button class="q-secondary-button habit-template-sheet-action" type="button" data-complete-habit="${escapeAttr(habit.id)}">完成今日习惯</button>
           ` : ""}
         `,
         submitLabel: habit ? "保存习惯" : "创建习惯",
@@ -512,7 +511,6 @@
         saveTask({
           name: String(formData.get("name") || "").trim(),
           coins: taskCoins,
-          hourlyReward: taskCoins,
           reward: taskCoins,
           timeStart,
           timeEnd,
@@ -521,8 +519,7 @@
             date: dateKey(scheduledStartDate),
             createdDate: dateKey(scheduledStartDate),
             scheduledStart,
-            scheduledEnd,
-            estimateDurationMinutes: 60
+            scheduledEnd
           } : {})
         });
       }
@@ -534,7 +531,7 @@
       if (sheetMode === "habit") {
         saveHabit({
           name: String(formData.get("name") || "").trim(),
-          coins: Math.max(0, parseCoinAmount(formData.get("coins")))
+          coins: 5
         });
       }
       if (sheetMode === "note") {

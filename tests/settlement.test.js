@@ -22,6 +22,7 @@ class FixedDate extends Date {
 function createState(overrides = {}) {
   return {
     pastCoinHistoryScaleMigrationVersion: 1,
+    fixedRewardRulesSince: "2026-07-14",
     coins: 2000,
     streak: 0,
     lastCompletedDate: null,
@@ -141,14 +142,14 @@ function countHistory(context, type) {
   return value(context, `state.history.filter(item => item.type === "${type}").length`);
 }
 
-test("今日任务超时按任务奖励乘以 10 自动失败", () => {
+test("计划时段结束不处罚，只有跨日才结算", () => {
   const { context } = createRuntime(createState({ tasks: [timedTask({ coins: 20 })] }));
   const result = value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}"))`);
 
-  assert.equal(result.count, 1);
-  assert.equal(result.totalPenalty, 200);
-  assert.equal(value(context, "state.coins"), 1800);
-  assert.equal(value(context, "state.history[0].coinDelta"), -200);
+  assert.equal(result.count, 0);
+  assert.equal(result.totalPenalty, 0);
+  assert.equal(value(context, "state.coins"), 2000);
+  assert.equal(value(context, "state.history.length"), 0);
 });
 
 test("今日任务跨日仍按原任务奖励乘以 10 自动失败", () => {
@@ -163,7 +164,7 @@ test("今日任务跨日仍按原任务奖励乘以 10 自动失败", () => {
 });
 
 test("同一个超时任务连续检查三次只扣一次", () => {
-  const { context } = createRuntime(createState({ tasks: [timedTask()] }));
+  const { context } = createRuntime(createState({ tasks: [timedTask({ date: YESTERDAY })] }));
 
   value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}"))`);
   value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}"))`);
@@ -174,7 +175,7 @@ test("同一个超时任务连续检查三次只扣一次", () => {
 });
 
 test("启动、切换页面、刷新后的重复检查不会重复结算", () => {
-  const first = createRuntime(createState({ tasks: [timedTask()] }));
+  const first = createRuntime(createState({ tasks: [timedTask({ date: YESTERDAY })] }));
   value(first.context, "runAutomaticChecks({ showToast: false })");
   value(first.context, "runAutomaticChecks({ showToast: false })");
 
@@ -186,20 +187,20 @@ test("启动、切换页面、刷新后的重复检查不会重复结算", () =>
   assert.equal(value(refreshed.context, "state.coins"), 1800);
 });
 
-test("习惯模板未使用不会自动扣除", () => {
+test("习惯每日未完成固定扣除 50", () => {
   const state = createState({
     habits: [{ id: "habit-1", name: "收拾屋子", coins: 10, createdDate: "2026-07-14" }]
   });
   const { context } = createRuntime(state);
   const result = value(context, `settleMissedHabits("${YESTERDAY}")`);
 
-  assert.equal(result.count, 0);
-  assert.equal(result.totalPenalty, 0);
-  assert.equal(value(context, "state.history.length"), 0);
-  assert.equal(value(context, "state.coins"), 2000);
+  assert.equal(result.count, 1);
+  assert.equal(result.totalPenalty, 50);
+  assert.equal(value(context, "state.history.length"), 1);
+  assert.equal(value(context, "state.coins"), 1950);
 });
 
-test("习惯模板重复自动检查也不会生成失败事件", () => {
+test("习惯每日处罚重复检查只生成一次", () => {
   const state = createState({
     habits: [{ id: "habit-1", name: "看书", coins: 10, createdDate: "2026-07-14" }]
   });
@@ -209,8 +210,8 @@ test("习惯模板重复自动检查也不会生成失败事件", () => {
   value(context, `settleMissedHabits("${YESTERDAY}")`);
   value(context, `settleMissedHabits("${YESTERDAY}")`);
 
-  assert.equal(countHistory(context, "habit_failed"), 0);
-  assert.equal(value(context, "state.coins"), 2000);
+  assert.equal(countHistory(context, "habit_failed"), 1);
+  assert.equal(value(context, "state.coins"), 1950);
 });
 
 test("重点事项跨日未完成固定扣除 500 且重复扫描只结算一次", () => {
@@ -280,7 +281,7 @@ test("习惯生成的等待任务只有预计时长，不会按一小时截止�
   waiting.sourceHabitId = "habit-book";
   const { context } = createRuntime(createState({ tasks: [waiting] }));
 
-  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "waiting");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
   assert.equal(value(context, `settleTimedTaskTimeouts(new Date("${FIXED_NOW}")).count`), 0);
   assert.equal(value(context, `runPendingSettlements({ now: new Date("${FIXED_NOW}") }).taskFailures.count`), 0);
   assert.equal(value(context, "state.tasks[0].status"), "waiting");
@@ -288,7 +289,7 @@ test("习惯生成的等待任务只有预计时长，不会按一小时截止�
   assert.equal(value(context, "state.coins"), 2000);
 });
 
-test("跨日进行中的任务不会自动失败", () => {
+test("旧运行任务升级后也只按日结算固定处罚", () => {
   const running = timedTask({
     id: "cross-day-running",
     date: YESTERDAY,
@@ -300,10 +301,10 @@ test("跨日进行中的任务不会自动失败", () => {
   const { context } = createRuntime(createState({ tasks: [running] }));
 
   const result = value(context, `runPendingSettlements({ now: new Date("${FIXED_NOW}") })`);
-  assert.equal(result.taskFailures.count, 0);
-  assert.equal(value(context, "state.tasks[0].status"), "running");
-  assert.equal(value(context, "state.history.length"), 0);
-  assert.equal(value(context, "todayTasks().some(task => task.id === 'cross-day-running')"), true);
+  assert.equal(result.taskFailures.count, 1);
+  assert.equal(value(context, "state.tasks[0].status"), "failed");
+  assert.equal(value(context, "state.history.length"), 1);
+  assert.equal(value(context, "todayTasks().some(task => task.id === 'cross-day-running')"), false);
 });
 
 test("旧任务只有 startedAt 也会被识别为进行中", () => {
@@ -324,13 +325,13 @@ test("已完成习惯不会产生未完成处罚", () => {
   });
   const { context } = createRuntime(state);
 
-  assert.equal(value(context, "runAutomaticChecks({ showToast: false })"), false);
+  assert.equal(value(context, "runAutomaticChecks({ showToast: false })"), true);
   assert.equal(countHistory(context, "habit_failed"), 0);
   assert.equal(value(context, "state.coins"), 2000);
 });
 
 test("撤回自动任务失败后，既有失败标记阻止被动重复结算", () => {
-  const { context } = createRuntime(createState({ tasks: [timedTask()] }));
+  const { context } = createRuntime(createState({ tasks: [timedTask({ date: YESTERDAY })] }));
   value(context, "runAutomaticChecks()");
   value(context, "undoLastAction()");
 
@@ -386,7 +387,7 @@ test("旧任务、习惯和重点事项历史共同进入统一结算索引", ()
   assert.equal(result.taskFailures.count, 0);
   assert.equal(result.habitFailures.count, 0);
   assert.equal(result.priorityFailures.count, 0);
-  assert.equal(result.changed, false);
+  assert.equal(result.changed, true);
   assert.equal(value(context, "state.history.length"), 3);
   assert.equal(value(context, "state.coins"), 2000);
 });

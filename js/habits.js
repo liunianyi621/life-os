@@ -1,8 +1,9 @@
     function habitRewardAmount(habit) {
-      return Math.max(0, parseCoinAmount(habit?.coins));
+      return 5;
     }
 
     function saveHabit(habitData) {
+      habitData = { ...habitData, coins: 5 };
       if (!habitData.name) {
         showToast("请输入习惯名称");
         return;
@@ -54,7 +55,12 @@
       render();
     }
     function habitCompletedOnDate(habitId, day) {
-      return Boolean(state.habitCompletions?.[day]?.[habitId]);
+      return Boolean(state.habitCompletions?.[day]?.[habitId])
+        || state.history.some(item => item.habitId === habitId && (item.habitDate || item.date) === day
+          && ["habit_completed", "task_completed"].includes(item.type))
+        || state.tasks.some(task => taskHabitId(task) === habitId && (task.sourceHabitScheduledDate || taskDate(task)) === day
+          && (String(task.status).toLowerCase() === "completed"
+            || state.history.some(item => item.taskId === task.id && item.type === "task_completed")));
     }
 
     function habitCompletedToday(habitId) {
@@ -62,12 +68,18 @@
     }
 
     function habitFailedOnDate(habitId, day) {
-      return Boolean(state.habitFailures?.[day]?.[habitId]);
+      return Boolean(state.habitFailures?.[day]?.[habitId])
+        || state.history.some(item => item.habitId === habitId && (item.habitDate || item.date) === day
+          && ["habit_failed", "task_failed"].includes(item.type))
+        || state.tasks.some(task => taskHabitId(task) === habitId && (task.sourceHabitScheduledDate || taskDate(task)) === day
+          && (String(task.status).toLowerCase() === "failed"
+            || state.history.some(item => item.taskId === task.id && ["task_failed", "task_missed"].includes(item.type))));
     }
 
     function habitActiveOnDate(habit, day) {
-      const createdDate = String(habit.createdDate || habit.createdAt || "").slice(0, 10);
-      return !createdDate || createdDate <= day;
+      const created = new Date(habit.createdAt || "");
+      const createdDate = habit.createdDate || (!Number.isNaN(created.getTime()) ? dateKey(created) : "");
+      return habit.active !== false && habit.archived !== true && (!createdDate || createdDate <= day);
     }
 
     function scheduledHabitDateKey(day = dateKey()) {
@@ -110,6 +122,8 @@
       const today = dateKey();
       return state.habits.filter(habit => (
         habitActiveOnDate(habit, today)
+        && !habitCompletedOnDate(habit.id, today)
+        && !habitFailedOnDate(habit.id, today)
         && !habitScheduledAsTaskOnDate(habit.id, today)
       ));
     }

@@ -91,54 +91,24 @@ test("备忘录 Chip 复用拖拽通道并分流到 MEMO 任务入口", () => {
   assert.match(memoSource, /data-memo-card=/);
   assert.match(memoSource, /source: "MEMO"/);
   assert.match(memoSource, /originId: memo\.id/);
-  assert.match(memoSource, /status: TASK_STATUS\.WAITING/);
+  assert.match(memoSource, /status: "pending"/);
   assert.match(uiSource, /\[data-habit-card\], \[data-memo-card\]/);
   assert.match(uiSource, /drag\.sourceType === "MEMO"[\s\S]*?scheduleMemoAsTask/);
   assert.match(productionCss, /#homeMemoList\.memo-template-grid/);
 });
 
-test("习惯生成任务使用 WAITING 到 RUNNING 的显式状态机", () => {
+test("任务可直接完成，不再有计时操作或小时奖励表单", () => {
   const taskSource = fs.readFileSync(path.join(ROOT, "js/tasks.js"), "utf8");
-  const economySource = fs.readFileSync(path.join(ROOT, "js/economy.js"), "utf8");
   const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
-
-  assert.match(taskSource, /const TASK_STATUS = Object\.freeze\([\s\S]*?WAITING: "waiting"[\s\S]*?PAUSED: "paused"/);
-  assert.match(taskSource, /function scheduleHabitAsTask[\s\S]*?status: TASK_STATUS\.WAITING/);
-  assert.match(taskSource, /function getNextFullHourRange[\s\S]*?setMinutes\(0, 0, 0\)[\s\S]*?setHours\(start\.getHours\(\) \+ 1\)/);
-  assert.match(taskSource, /scheduledStart,[\s\S]*?scheduledEnd,[\s\S]*?timeStart,[\s\S]*?timeEnd/);
-  assert.match(taskSource, /estimateDurationMinutes: 60/);
+  const sheetSource = fs.readFileSync(path.join(ROOT, "js/ui/sheets.js"), "utf8");
   assert.match(taskSource, /source: "HABIT"/);
-  assert.match(taskSource, /originId: habit\.id/);
-  assert.match(taskSource, /startedAt: null/);
+  assert.match(taskSource, /status: "pending"/);
   assert.match(taskSource, /actualStartTime: null/);
-  assert.match(taskSource, /timerStartedAt: null/);
-  assert.match(taskSource, /isRunning: false/);
-  assert.match(taskSource, /elapsedSeconds: 0/);
-  const scheduleSource = taskSource.slice(
-    taskSource.indexOf("function scheduleHabitAsTask"),
-    taskSource.indexOf("function todayTasks")
-  );
-  assert.doesNotMatch(scheduleSource, /status: "in_progress"/);
-  assert.doesNotMatch(scheduleSource, /startTask\s*\(/);
-  assert.match(economySource, /function startTask[\s\S]*?status: TASK_STATUS\.RUNNING/);
-  assert.match(economySource, /function startTask[\s\S]*?startedAt,[\s\S]*?actualStartTime: startedAt[\s\S]*?timerStartedAt: actionAt/);
-  assert.match(economySource, /TASK_LIFECYCLE_EVENT\.STARTED/);
-  assert.match(uiSource, /等待开始/);
-  assert.doesNotMatch(uiSource, /data-task-elapsed|taskElapsedTicker|setInterval/);
-  assert.match(uiSource, /class="q-row-tile[^"]*task-start-tile"[\s\S]*?data-start-task/);
-  const actionSource = uiSource.slice(
-    uiSource.indexOf("function taskActionsHtml"),
-    uiSource.indexOf("function taskTileHtml")
-  );
-  const tileSource = uiSource.slice(
-    uiSource.indexOf("function taskTileHtml"),
-    uiSource.indexOf("function taskTimelineRowsHtml")
-  );
-  assert.match(actionSource, /if \(status === TASK_STATUS\.WAITING\) return failAction/);
-  assert.equal((tileSource.match(/data-start-task/g) || []).length, 1);
-  assert.match(tileSource, /aria-label="开始任务"/);
-  assert.doesNotMatch(tileSource, />开始</);
-  assert.match(taskSource, /source: taskData\.source \|\| "MANUAL"[\s\S]*?status: TASK_STATUS\.WAITING/);
+  assert.doesNotMatch(taskSource, /durationSeconds \/ 3600|function taskDurationPayload/);
+  assert.match(uiSource, /data-complete-task/);
+  assert.doesNotMatch(uiSource, /data-start-task|data-stop-task|已进行|等待开始|预计 1 小时|金币\/小时|setInterval/);
+  assert.match(sheetSource, /type="radio" name="coins"/);
+  assert.doesNotMatch(sheetSource, /金币\/小时|每小时金币/);
 });
 
 test("iOS 习惯拖拽使用独立 Touch Events 状态机并与 Pointer 通道隔离", () => {
@@ -255,14 +225,14 @@ test("所有动态输入 Sheet 共用 Keyboard Form，任务时间选择保持�
   assert.match(productionCss, /body\.keyboard-open \.keyboard-form-sheet\s*\{[\s\S]*?height:\s*calc\(var\(--app-visible-height\) - 16px\);/);
 });
 
-test("每日复盘使用独立可视高度并在编辑时隐藏底栏", () => {
+test("每日复盘保持紧凑且复用主底栏，不再显示返回", () => {
   assert.match(productionCss, /--review-viewport-height:\s*100dvh;/);
-  assert.match(productionCss, /body\.review-editing \.bottom-nav\s*\{\s*display:\s*none;/);
+  assert.doesNotMatch(productionCss, /body\.review-editing \.bottom-nav\s*\{\s*display:\s*none;/);
   assert.match(productionCss, /\.review-keyboard-form > \.review-keyboard-form__body\s*\{[\s\S]*?overflow:\s*hidden;/);
   assert.match(productionCss, /\.review-question textarea\s*\{[\s\S]*?max-height:\s*88px;[\s\S]*?overflow-y:\s*auto;[\s\S]*?resize:\s*none;/);
   assert.match(feedbackSource, /setProperty\("--review-viewport-height"/);
   assert.match(feedbackSource, /classList\.toggle\("review-editing", view === "review"\)/);
-  assert.match(indexHtml, /class="review-exit-button"[^>]*data-nav="today">返回<\/button>/);
+  assert.doesNotMatch(indexHtml, /review-exit-button/);
 });
 
 test("当天详情以可点击时间线为主体并复用现有历史纠错入口", () => {

@@ -1,4 +1,5 @@
-    const DEFAULT_TASK_REWARD = 20;
+    const DEFAULT_TASK_REWARD = 5;
+    const FIXED_TASK_REWARDS = Object.freeze([5, 10, 20]);
     const INCOMPLETE_PENALTY_MULTIPLIER = 10;
     const TASK_FAILURE_MULTIPLIER = INCOMPLETE_PENALTY_MULTIPLIER;
     const TASK_STATUS = Object.freeze({
@@ -70,10 +71,6 @@
       if (result === "completed" || result === "failed") return result;
       if ([TASK_STATUS.COMPLETED, "done"].includes(task.status)) return "completed";
       if (task.status === "failed") return "failed";
-      if (task.status === TASK_STATUS.PAUSED) return TASK_STATUS.PAUSED;
-      if (task.status === TASK_STATUS.WAITING) return TASK_STATUS.WAITING;
-      if (taskUsesTimer(task) && taskIsInProgress(task)) return TASK_STATUS.RUNNING;
-      if ((!task.status || task.status === "pending") && taskUsesTimer(task)) return TASK_STATUS.WAITING;
       return "pending";
     }
 
@@ -90,13 +87,29 @@
     }
 
     function taskRewardInputValue(task) {
-      const value = Number(firstPresentValue([task?.hourlyReward, task?.reward, task?.coins]));
-      return Number.isFinite(value) && value >= 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
+      const value = taskRewardAmount(task);
+      return FIXED_TASK_REWARDS.includes(value) ? value : DEFAULT_TASK_REWARD;
     }
 
     function taskRewardAmount(task) {
-      const value = Number(firstPresentValue([task?.hourlyReward, task?.reward, task?.coins]));
+      if (taskHabitId(task)) return 5;
+      const value = Number(firstPresentValue([task?.reward, task?.coins, task?.hourlyReward]));
       return Number.isFinite(value) && value >= 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
+    }
+
+    function taskHabitId(task) {
+      return task?.sourceHabitId || (task?.source === "HABIT" ? task.originId : null) || null;
+    }
+
+    function taskSettlementDay(task) {
+      const day = taskHabitId(task) ? task.sourceHabitScheduledDate || taskDate(task) : taskDate(task);
+      return day && day > (state.fixedRewardRulesSince || "") ? day : state.fixedRewardRulesSince || day;
+    }
+
+    function taskIsSettled(task) {
+      return ["completed", "done", "failed"].includes(String(task?.status || "").toLowerCase())
+        || Object.values(state.taskResults || {}).some(results => ["completed", "failed"].includes(results?.[task?.id]))
+        || state.history.some(item => item.taskId === task?.id && ["task_completed", "task_failed", "task_missed"].includes(item.type));
     }
 
     function taskFailurePenalty(task) {
@@ -113,49 +126,10 @@
     }
 
     function taskUsesTimer(task) {
-      return taskHasTime(task) || taskEstimateDurationMinutes(task) > 0 || taskIsInProgress(task);
+      return false;
     }
 
-    function taskEstimateDurationLabel(task) {
-      const minutes = taskEstimateDurationMinutes(task);
-      if (!minutes) return "";
-      if (minutes % 60 === 0) return `预计 ${formatNumber(minutes / 60)} 小时`;
-      return `预计 ${formatNumber(minutes)} 分钟`;
-    }
 
-    function taskElapsedSeconds(task, now = new Date()) {
-      const runningStartTime = taskRunningStartTime(task);
-      if (!runningStartTime) return 0;
-      const startedAt = new Date(runningStartTime);
-      const current = new Date(now);
-      if (Number.isNaN(startedAt.getTime()) || Number.isNaN(current.getTime())) return 0;
-      return Math.max(0, Math.floor((current.getTime() - startedAt.getTime()) / 1000));
-    }
-
-    function formatTaskElapsedClock(seconds) {
-      const value = Math.max(0, Math.floor(Number(seconds) || 0));
-      const hours = Math.floor(value / 3600);
-      const minutes = Math.floor((value % 3600) / 60);
-      const restSeconds = value % 60;
-      return [hours, minutes, restSeconds].map(part => String(part).padStart(2, "0")).join(":");
-    }
-
-    function taskDurationPayload(startTime, endTime = new Date(), hourlyCoins = DEFAULT_TASK_REWARD) {
-      const start = new Date(startTime);
-      const end = new Date(endTime);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-        return {
-          durationSeconds: 0,
-          durationMinutes: 0,
-          earnedCoins: 0
-        };
-      }
-      const durationSeconds = Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000));
-      const durationMinutes = Math.round((durationSeconds / 60) * 100) / 100;
-      const rate = Number(hourlyCoins);
-      const earnedCoins = parseCoinAmount((durationSeconds / 3600) * (Number.isFinite(rate) ? rate : DEFAULT_TASK_REWARD));
-      return { durationSeconds, durationMinutes, earnedCoins };
-    }
 
     function formatTaskDurationClock(seconds) {
       const value = Math.max(0, Math.round(Number(seconds) || 0));
@@ -385,10 +359,7 @@
     }
 
     function habitTaskRewardAmount(habit) {
-      const configuredReward = [habit?.coins, habit?.reward, habit?.hourlyReward]
-        .map(value => Number(value))
-        .find(value => Number.isFinite(value) && value > 0);
-      return configuredReward == null ? DEFAULT_TASK_REWARD : parseCoinAmount(configuredReward);
+      return 5;
     }
 
     function saveTask(taskData) {
@@ -396,11 +367,15 @@
         showToast("请输入任务名称");
         return null;
       }
-      const createData = !editingId && taskHasTime(taskData)
+      const habitTask = taskHabitId(taskData) || taskHabitId(state.tasks.find(task => task.id === editingId) || {});
+      const reward = !habitTask && FIXED_TASK_REWARDS.includes(Number(taskData.reward ?? taskData.coins))
+        ? Number(taskData.reward ?? taskData.coins) : DEFAULT_TASK_REWARD;
+      taskData = { ...taskData, coins: reward, reward };
+      const createData = !editingId
         ? {
             ...taskData,
             source: taskData.source || "MANUAL",
-            status: TASK_STATUS.WAITING,
+            status: "pending",
             startedAt: null,
             actualStartTime: null,
             actualEndTime: null,
@@ -437,7 +412,7 @@
         : getNextFullHourRange(arrangedAt);
       if (!habit || !range) return null;
       const habitScheduleDate = dateKey(arrangedAt);
-      if (habitScheduledAsTaskOnDate(habit.id, habitScheduleDate)) {
+      if (habitScheduledAsTaskOnDate(habit.id, habitScheduleDate) || habitCompletedOnDate(habit.id, habitScheduleDate) || habitFailedOnDate(habit.id, habitScheduleDate)) {
         showToast("今天已安排过该习惯");
         return null;
       }
@@ -453,12 +428,11 @@
         ...createTaskRecord({
           name: habit.name,
           coins: rewardAmount,
-          hourlyReward: rewardAmount,
           reward: rewardAmount,
           source: "HABIT",
           originId: habit.id,
           sourceHabitScheduledDate: habitScheduleDate,
-          status: TASK_STATUS.WAITING,
+          status: "pending",
           scheduledAt,
           scheduledStart,
           scheduledEnd,
@@ -473,7 +447,6 @@
           isRunning: false,
           elapsedSeconds: 0,
           endTime: null,
-          estimateDurationMinutes: 60,
           durationMinutes: null,
           durationSeconds: null,
           earnedCoins: null,
@@ -529,7 +502,7 @@
       const today = dateKey(now);
       const futureLimit = now.getTime() + (24 * 60 * 60 * 1000);
       return state.tasks.filter(task => {
-        if (taskDate(task) === today || taskIsInProgress(task)) return true;
+        if (taskDate(task) === today || (!taskIsSettled(task) && taskDate(task) <= today)) return true;
         const scheduledStart = taskScheduledStartDate(task);
         const createdAt = new Date(task?.createdAt || "");
         return Boolean(

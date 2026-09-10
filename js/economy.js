@@ -192,63 +192,38 @@
       if (typeof openTaskSheet !== "function") return;
       window.setTimeout(() => openTaskSheet(), 0);
     }
-    function startTask(taskId, sourceEl = null) {
-      const task = todayTasks().find(item => item.id === taskId);
-      if (!task || taskResultToday(taskId)) return;
-      if (!taskUsesTimer(task)) return;
-      const currentStatus = taskStatusToday(task);
-      if (currentStatus === TASK_STATUS.RUNNING) return;
-      if (![TASK_STATUS.WAITING, TASK_STATUS.PAUSED, "pending"].includes(currentStatus)) return;
-
-      const actionAt = new Date().toISOString();
-      const resumed = currentStatus === TASK_STATUS.PAUSED && taskRunningStartTime(task);
-      const startedAt = resumed
-        ? taskRunningStartTime(task)
-        : actionAt;
-      state.tasks = state.tasks.map(item => (
-        item.id === taskId
-          ? {
-              ...item,
-              status: TASK_STATUS.RUNNING,
-              startedAt,
-              actualStartTime: startedAt,
-              timerStartedAt: actionAt,
-              startTime: startedAt,
-              isRunning: true,
-              elapsedSeconds: resumed ? Math.max(0, Number(item.elapsedSeconds) || 0) : 0,
-              endTime: null,
-              actualEndTime: null,
-              actualDurationMs: null,
-              durationMinutes: null,
-              durationSeconds: null,
-              earnedCoins: null,
-              lifecycleEvents: appendTaskLifecycleEvent(
-                item,
-                resumed ? TASK_LIFECYCLE_EVENT.RESUMED : TASK_LIFECYCLE_EVENT.STARTED,
-                actionAt
-              ),
-              updatedAt: actionAt
-            }
-          : item
-      ));
-      saveState();
-      render();
-    }
+    // Legacy callers remain safe; tasks no longer have a start/timer phase.
+    function startTask() { return false; }
 
     function finishTask(taskId, sourceEl = null) {
+      return completeTask(taskId, sourceEl);
+    }
+
+    function saveTaskAction(previousState) {
+      try { saveState(); return true; }
+      catch (error) {
+        state = JSON.parse(previousState);
+        render();
+        showToast("保存失败，请重试");
+        return false;
+      }
+    }
+
+    function completeTask(taskId, sourceEl = null) {
+      runAutomaticChecks({ showToast: false });
       const task = todayTasks().find(item => item.id === taskId);
-      if (!task || taskResultToday(taskId) || taskStatusToday(task) !== TASK_STATUS.RUNNING) return;
-      if (!taskUsesTimer(task)) return;
+      if (!task || taskIsSettled(task)) return;
+      const habitId = taskHabitId(task);
+      const habitDate = taskSettlementDay(task);
+      if (habitId && (habitCompletedOnDate(habitId, habitDate) || habitFailedOnDate(habitId, habitDate))) return;
+      const before = JSON.stringify(state);
 
       const today = dateKey();
-      const endTime = new Date().toISOString();
+      const completedAt = new Date().toISOString();
+      const earnedCoins = taskRewardAmount(task);
       const previousTask = taskPreviousState(task);
       const previousProgress = progressSnapshot(today, task.id);
-      const { durationSeconds, durationMinutes, earnedCoins } = taskDurationPayload(
-        taskRunningStartTime(task),
-        endTime,
-        taskRewardAmount(task)
-      );
+      const previousHabitProgress = habitId ? habitProgressSnapshot(habitDate, habitId) : null;
       state.tasks = state.tasks.map(item => (
         item.id === taskId
           ? {
@@ -256,92 +231,6 @@
               status: TASK_STATUS.COMPLETED,
               isRunning: false,
               timerStartedAt: null,
-              elapsedSeconds: durationSeconds,
-              endTime,
-              actualEndTime: endTime,
-              actualDurationMs: Math.max(0, new Date(endTime) - new Date(taskRunningStartTime(task))),
-              durationSeconds,
-              durationMinutes,
-              earnedCoins,
-              updatedAt: endTime
-            }
-          : item
-      ));
-      state.completions[today] = state.completions[today] || {};
-      state.completions[today][taskId] = true;
-      state.taskResults[today] = state.taskResults[today] || {};
-      state.taskResults[today][taskId] = "completed";
-      state.totals.completedTasks = (Number(state.totals.completedTasks) || 0) + 1;
-      state.totals.taskDurationSeconds = (Number(state.totals.taskDurationSeconds) || 0) + durationSeconds;
-      state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + earnedCoins);
-      updateStreakForCompletion(today);
-      const coinEvent = recordCoinEvent({
-        type: "task_completed",
-        amount: earnedCoins,
-        date: today,
-        history: {
-          taskId: task.id,
-          name: task.name,
-          coins: earnedCoins,
-          earnedCoins,
-          durationMinutes,
-          durationSeconds,
-          startTime: taskRunningStartTime(task),
-          endTime,
-          actualStartTime: taskRunningStartTime(task),
-          actualEndTime: endTime,
-          scheduledStart: task.scheduledStart || null,
-          scheduledEnd: task.scheduledEnd || null
-        }
-      });
-      const historyId = coinEvent.historyId;
-      const memoSnapshot = typeof consumeMemoForCompletedTask === "function"
-        ? consumeMemoForCompletedTask(task)
-        : null;
-      clearNextStepForTask(taskId);
-      saveState();
-      updatePrimaryReadouts();
-      prepareActionCard(sourceEl);
-      if (sourceEl) sourceEl.classList.add("task-exit-success");
-      showCoinFeedback(earnedCoins, "positive", sourceEl, { flash: false });
-      scheduleRender(sourceEl ? 380 : 0);
-      showTaskRewardToast({
-        earnedCoins,
-        undoData: {
-          type: "task_completed",
-          name: task.name,
-          historyId,
-          taskId: task.id,
-          date: today,
-          amount: earnedCoins,
-          durationSeconds,
-          previousTask,
-          previousProgress,
-          memoSnapshot
-        }
-      });
-      promptNextStepAfterCompletion();
-    }
-
-    function completeTask(taskId, sourceEl = null) {
-      const task = todayTasks().find(item => item.id === taskId);
-      if (!task || taskResultToday(taskId)) return;
-      if (taskUsesTimer(task)) {
-        finishTask(taskId, sourceEl);
-        return;
-      }
-
-      const today = dateKey();
-      const completedAt = new Date().toISOString();
-      const earnedCoins = taskRewardAmount(task);
-      const previousTask = taskPreviousState(task);
-      const previousProgress = progressSnapshot(today, task.id);
-      state.tasks = state.tasks.map(item => (
-        item.id === taskId
-          ? {
-              ...item,
-              status: TASK_STATUS.COMPLETED,
-              isRunning: false,
               endTime: completedAt,
               durationMinutes: 0,
               durationSeconds: 0,
@@ -354,6 +243,10 @@
       state.completions[today][taskId] = true;
       state.taskResults[today] = state.taskResults[today] || {};
       state.taskResults[today][taskId] = "completed";
+      if (habitId) {
+        state.habitCompletions[habitDate] = state.habitCompletions[habitDate] || {};
+        state.habitCompletions[habitDate][habitId] = true;
+      }
       state.totals.completedTasks = (Number(state.totals.completedTasks) || 0) + 1;
       state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + earnedCoins);
       updateStreakForCompletion(today);
@@ -364,6 +257,7 @@
         timestamp: completedAt,
         history: {
           taskId: task.id,
+          ...(habitId ? { habitId, habitDate } : {}),
           name: task.name,
           coins: earnedCoins,
           earnedCoins,
@@ -378,7 +272,7 @@
         ? consumeMemoForCompletedTask(task)
         : null;
       clearNextStepForTask(taskId);
-      saveState();
+      if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
       if (sourceEl) sourceEl.classList.add("task-exit-success");
@@ -396,6 +290,9 @@
           durationSeconds: 0,
           previousTask,
           previousProgress,
+          habitId,
+          habitDate,
+          previousHabitProgress,
           memoSnapshot
         }
       });
@@ -521,8 +418,12 @@
     }
 
     function completeHabit(habitId, sourceEl = null) {
+      runAutomaticChecks({ showToast: false });
       const habit = state.habits.find(item => item.id === habitId);
-      if (!habit || habitCompletedToday(habitId)) return;
+      if (!habit || habitCompletedToday(habitId) || habitFailedOnDate(habitId, dateKey())) return;
+      const linkedTask = state.tasks.find(task => taskHabitId(task) === habitId && taskSettlementDay(task) === dateKey() && !taskIsSettled(task));
+      if (linkedTask) return completeTask(linkedTask.id, sourceEl);
+      const before = JSON.stringify(state);
 
       const today = dateKey();
       const amount = habitRewardAmount(habit);
@@ -541,7 +442,7 @@
         }
       });
       const historyId = coinEvent.historyId;
-      saveState();
+      if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
       if (sourceEl) sourceEl.classList.add("task-exit-success");
@@ -570,18 +471,28 @@
     }
 
     function failTask(taskId, sourceEl = null) {
+      runAutomaticChecks({ showToast: false });
       const task = todayTasks().find(item => item.id === taskId);
-      if (!task || taskResultToday(taskId)) return;
+      if (!task || taskIsSettled(task)) return;
+      const before = JSON.stringify(state);
+      const habitId = taskHabitId(task);
+      if (habitId) {
+        const habit = state.habits.find(item => item.id === habitId) || { id: habitId, name: task.name };
+        const entry = settleHabitFailure(habit, taskSettlementDay(task), buildSettledEventKeys(), new Date(), false);
+        if (!entry || !saveTaskAction(before)) return;
+        render();
+        showUndoToast({ type: "habit_auto_failed", habitEntries: [entry], historyId: entry.historyId, amount: entry.amount }, { message: "习惯未完成" });
+        return;
+      }
 
       const today = dateKey();
       const rewardAmount = taskRewardAmount(task);
       const amount = getIncompletePenalty(rewardAmount);
       const endTime = new Date().toISOString();
-      const actualStartTime = taskStatusToday(task) === TASK_STATUS.WAITING ? null : taskRunningStartTime(task);
-      const { durationSeconds, durationMinutes } = actualStartTime
-        ? taskDurationPayload(actualStartTime, endTime, rewardAmount)
-        : { durationSeconds: 0, durationMinutes: 0 };
-      const actualDurationMs = actualStartTime ? Math.max(0, new Date(endTime) - new Date(actualStartTime)) : 0;
+      const actualStartTime = null;
+      const durationSeconds = 0;
+      const durationMinutes = 0;
+      const actualDurationMs = 0;
       const previousTask = {
         status: task.status || "pending",
         startedAt: task.startedAt || null,
@@ -644,7 +555,7 @@
       const memoSnapshot = typeof releaseMemoForTask === "function"
         ? releaseMemoForTask(task)
         : null;
-      saveState();
+      if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
       if (sourceEl) sourceEl.classList.add("task-exit-penalty");
@@ -776,6 +687,7 @@
     }
 
     function runAutomaticChecks(options = {}) {
+      const before = JSON.stringify(state);
       const { showToast: shouldShowToast = true } = options;
       const settlementResult = runPendingSettlements();
       const habitResult = settlementResult.habitFailures;
@@ -783,7 +695,7 @@
       const priorityResult = settlementResult.priorityFailures;
       if (!settlementResult.changed) return false;
 
-      saveState();
+      if (!saveTaskAction(before)) return false;
       updatePrimaryReadouts();
 
       if (
@@ -814,7 +726,7 @@
         ];
         const totalPenalty = parseCoinAmount(taskResult.totalPenalty + habitResult.totalPenalty + priorityResult.totalPenalty);
         const reasons = [
-          taskResult.count > 0 ? "任务超时未完成" : "",
+          taskResult.count > 0 ? "任务当天未完成" : "",
           habitResult.count > 0 ? "习惯未完成" : "",
           priorityResult.count > 0 ? "今天最重要的一件事未完成" : ""
         ].filter(Boolean).join(" / ");
@@ -1023,6 +935,7 @@
     function applyHistoryRecordDeletion(item, day) {
       if (item.type === "task_completed") {
         resetTaskAfterRecordDeletion(item, day);
+        if (item.habitId) removeDayValue("habitCompletions", item.habitDate || day, item.habitId);
       }
       if (item.type === "task_failed" || item.type === "task_missed") {
         resetTaskAfterRecordDeletion(item, day, true);
@@ -1672,6 +1585,13 @@
       }
       if (undo.type === "habit_auto_failed" || undo.type === "automatic_failures") {
         const entries = undo.habitEntries || undo.entries || [];
+        entries.forEach(entry => {
+          (entry.taskEntries || []).forEach(taskEntry => {
+            removeDayValue("taskResults", taskEntry.date, taskEntry.taskId);
+            restoreTaskState(taskEntry.taskId, taskEntry.previousTask);
+          });
+          if (entry.automatic === false) removeDayValue("habitFailures", entry.date, entry.habitId);
+        });
         const restoredAmount = entries.reduce((total, entry) => {
           const historyEntry = undoHistoryById.get(entry.historyId);
           const actualAmount = historyEntry
@@ -1701,6 +1621,7 @@
       if (undo.type === "task_completed") {
         restoreTaskState(undo.taskId, undo.previousTask);
         restoreTaskProgress(undo.date, undo.taskId, undo.previousProgress);
+        if (undo.habitId) restoreHabitProgress(undo.habitDate || undo.date, undo.habitId, undo.previousHabitProgress);
         if (undo.memoSnapshot && typeof restoreMemoSnapshot === "function") {
           restoreMemoSnapshot(undo.memoSnapshot);
         }

@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
   try {
     browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
     for (const width of [375, 390, 430]) {
-      const context = await browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, timezoneId: 'Europe/London' });
+      const context = await browser.newContext({ viewport: { width, height: width === 375 ? 667 : width === 430 ? 932 : 844 }, isMobile: true, hasTouch: true, timezoneId: 'Europe/London' });
       const page = await context.newPage();
       const imageDir = path.join(root, 'outputs/life-rpg/test-evidence');
       fs.mkdirSync(imageDir, { recursive: true });
@@ -35,6 +35,7 @@ const server = http.createServer((req, res) => {
       await page.evaluate(() => {
         state = cloneEmptyState();
         state.pastCoinHistoryScaleMigrationVersion = 1;
+        state.fixedRewardRulesSince = dateKey();
         state.settledThroughDate = dateKey();
         state.habits = [{ id: 'test-habit', name: 'Duolingo', coins: 10, createdDate: dateKey() }];
         state.memos = [{ id: 'test-memo', text: '买转换插头', completed: false, createdAt: new Date().toISOString() }];
@@ -64,15 +65,16 @@ const server = http.createServer((req, res) => {
         assert.notEqual(after.preview, before.preview);
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
         const task = await page.evaluate(source => state.tasks.find(task => task.source === source), source);
-        assert.equal(task.status, 'waiting');
+        assert.equal(task.status, 'pending');
         assert.equal(task.actualStartTime, null);
         assert.equal(task.actualEndTime, null);
         assert.equal(task.isRunning, false);
         assert.equal(task.elapsedSeconds, 0);
         const row = page.locator(`[data-task-card="${task.id}"]`);
-        assert.match(await row.innerText(), /等待开始/);
+        assert.match(await row.innerText(), /5.*金币/);
+        assert.doesNotMatch(await row.innerText(), /等待开始|预计|开始于|进行中|小时/);
         assert.doesNotMatch(await row.innerText(), /已安排|撤回/);
-        assert.equal(await row.locator('[data-start-task]').count(), 1);
+        assert.equal(await row.locator('[data-complete-task]').count(), 1);
         assert.equal(await row.locator('.inline-card-actions [data-start-task]').count(), 0);
         assert.equal(await page.locator('.task-contextual-undo-row').count(), 0);
         assert.equal(await page.locator('#toast [data-contextual-undo]').count(), 1);
@@ -85,16 +87,16 @@ const server = http.createServer((req, res) => {
       }
 
       await page.reload();
-      let running = await page.evaluate(() => state.tasks.find(task => task.source === 'HABIT'));
-      assert.equal(running.status, 'waiting');
-      await page.clock.setFixedTime(new Date('2026-09-08T19:17:00Z'));
-      await page.locator(`[data-start-task="${running.id}"]`).click();
-      running = await page.evaluate(() => state.tasks.find(task => task.source === 'HABIT'));
-      assert.equal(running.actualStartTime, '2026-09-08T19:17:00.000Z');
+      const pending = await page.evaluate(() => state.tasks.find(task => task.source === 'HABIT'));
+      assert.equal(pending.status, 'pending');
+      const balance = await page.evaluate(() => state.coins);
+      await page.locator('[data-complete-task="' + pending.id + '"]').click();
+      await page.evaluate(() => closeSheet());
+      assert.equal(await page.evaluate(() => state.coins), balance + 5);
+      assert.equal(await page.evaluate(() => habitCompletedOnDate('test-habit', dateKey())), true);
       await page.reload();
-      const row = page.locator(`[data-task-card="${running.id}"]`);
-      assert.match(await row.innerText(), /开始于 20:17/);
-      assert.doesNotMatch(await row.innerText(), /已进行|等待开始|\d\d:\d\d:\d\d/);
+      assert.equal(await page.evaluate(() => state.coins), balance + 5);
+      assert.equal(await page.locator('[data-start-task]').count(), 0);
       await page.evaluate(() => {
         window.testWrites = 0;
         window.testMutations = 0;
@@ -106,8 +108,47 @@ const server = http.createServer((req, res) => {
       assert.deepEqual(await page.evaluate(() => [window.testWrites, window.testMutations]), [0, 0]);
       assert.equal(await page.evaluate(() => state.tasks.find(task => task.source === 'HABIT').elapsedSeconds), 0);
       await page.screenshot({ path: path.join(imageDir, `timeline-${width}.png`), fullPage: true });
+      await page.locator('[data-nav="review"]').click();
+      await page.waitForTimeout(650);
+      assert.equal(await page.locator('.bottom-nav').isVisible(), true);
+      assert.equal(await page.locator('[data-nav="review"].active').count(), 1);
+      assert.equal(await page.getByRole('button', { name: '返回', exact: true }).count(), 0);
+      const layout = await page.evaluate(() => {
+        const nav = document.querySelector('.bottom-nav').getBoundingClientRect();
+        const form = document.querySelector('.review-keyboard-form').getBoundingClientRect();
+        return { navTop: nav.top, formTop: form.top, formBottom: form.bottom, height: innerHeight };
+      });
+      assert.ok(layout.formTop >= 0 && layout.formBottom <= layout.navTop, JSON.stringify(layout));
+      await page.screenshot({ path: path.join(imageDir, 'review-fixed-' + width + '.png'), fullPage: false });
+      console.log(JSON.stringify({width, reviewLayout: layout}));
+      await page.locator('[data-nav="today"]').click();
+      await page.waitForTimeout(650);
+      await page.locator('[data-open-task]').click();
+      const form = page.locator('#sheetForm');
+      assert.equal(await form.locator('input[name="coins"]').count(), 3);
+      assert.equal(await form.locator('input[name="coins"]:checked').inputValue(), '5');
+      const chosenReward = width === 375 ? 5 : width === 390 ? 10 : 20;
+      await form.locator('input[name="name"]').fill('固定奖励任务');
+      await form.locator('input[name="coins"][value="' + chosenReward + '"]').check();
+      await form.locator('button[type="submit"]').click();
+      const manual = await page.evaluate(() => state.tasks.find(task => task.name === '固定奖励任务'));
+      assert.equal(manual.reward, chosenReward);
+      const beforeManual = await page.evaluate(() => state.coins);
+      await page.locator('[data-complete-task="' + manual.id + '"]').click();
+      await page.waitForTimeout(100);
+      await page.evaluate(() => closeSheet());
+      assert.equal(await page.evaluate(() => state.coins), beforeManual + chosenReward);
+      await page.evaluate(() => { scheduleMemoAsTask('test-memo'); });
+      const memoTask = await page.evaluate(() => state.tasks.find(task => task.source === 'MEMO'));
+      const beforeMemo = await page.evaluate(() => state.coins);
+      await page.locator('[data-complete-task="' + memoTask.id + '"]').click();
+      await page.waitForTimeout(100);
+      await page.evaluate(() => closeSheet());
+      assert.equal(await page.evaluate(() => state.coins), beforeMemo + 5);
+      assert.equal(await page.evaluate(() => state.memos.length), 0);
+      console.log(JSON.stringify({width, manualReward:chosenReward, memoCompleted:true}));
       assert.deepEqual(errors, []);
-      console.log(JSON.stringify({ width, runningRestored: true, idleWrites: 0, idleTaskMutations: 0, consoleErrors: errors }));
+      console.log(JSON.stringify({ width, directCompletionRestored: true, idleWrites: 0, idleTaskMutations: 0, consoleErrors: errors }));
       await context.close();
     }
   } finally {

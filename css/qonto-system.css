@@ -929,6 +929,7 @@ body.habit-dragging .habit-template-chip {
 }
 
 .task-hour-slot__tasks .swipe-card {
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 68px;
   padding: 10px 11px;
   border-radius: var(--radius-md);
@@ -1000,6 +1001,45 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 
 .task-quick-schedule + .time-picker:not(.task-time-custom-active) .time-picker-panel {
   display: none;
+}
+
+.task-fixed-rewards {
+  display: flex;
+  gap: 8px;
+}
+
+.task-fixed-rewards label {
+  position: relative;
+  flex: 1;
+}
+
+.task-fixed-rewards input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+}
+
+.task-fixed-rewards span {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-muted);
+}
+
+.task-fixed-rewards input:checked + span {
+  background: #111;
+  color: #fff;
+}
+
+.task-fixed-rewards input:focus-visible + span {
+  outline: 2px solid #555;
+  outline-offset: 2px;
+}
+
+.task-fixed-rewards input:focus {
+  box-shadow: none;
 }
 
 .empty-state {
@@ -1081,22 +1121,6 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
   pointer-events: none;
 }
 
-.review-exit-button {
-  min-width: 52px;
-  min-height: 44px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 14px;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: 15px;
-  font-weight: 650;
-}
-
-.review-exit-button:active {
-  background: var(--color-surface-muted);
-}
-
 .q-form-section,
 .review-form {
   overflow: hidden;
@@ -1137,8 +1161,8 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 
 .review-question textarea {
   width: 100%;
-  height: 72px;
-  min-height: 72px;
+  height: clamp(44px, calc((var(--review-viewport-height) - 520px) / 3), 72px);
+  min-height: 44px;
   max-height: 88px;
   padding: 11px 13px;
   border: 0;
@@ -1154,8 +1178,8 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 }
 
 #reviewPriority {
-  height: 64px;
-  min-height: 64px;
+  height: clamp(44px, calc((var(--review-viewport-height) - 520px) / 3), 64px);
+  min-height: 44px;
   max-height: 76px;
 }
 
@@ -1252,11 +1276,6 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 
 body.review-editing .screen {
   min-height: var(--review-viewport-height, 100dvh);
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-}
-
-body.review-editing .bottom-nav {
-  display: none;
 }
 
 .review-card {
@@ -1936,11 +1955,6 @@ body.keyboard-open .review-keyboard-form .q-primary-button {
 
   body.keyboard-open .q-review-page.active > .q-page-header h1 {
     font-size: 20px;
-  }
-
-  body.keyboard-open .q-review-page.active .review-exit-button {
-    min-height: 44px;
-    font-size: 13px;
   }
 
   body.keyboard-open .review-keyboard-form > .review-keyboard-form__body {

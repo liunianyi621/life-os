@@ -257,7 +257,7 @@
       const preview = document.createElement("div");
       preview.className = "habit-drag-preview";
       preview.setAttribute("aria-hidden", "true");
-      preview.innerHTML = "<strong></strong><span>安排 1 小时</span>";
+      preview.innerHTML = "<strong></strong><span>安排到今日任务</span>";
       preview.querySelector("strong").textContent = drag.sourceName;
       document.body.appendChild(preview);
       drag.preview = preview;
@@ -861,7 +861,7 @@
       if (!habits.length) {
         els.habitList.innerHTML = `
           <div class="empty-state">
-            <strong>今天的习惯已安排</strong>
+            <strong>今天没有待安排的习惯</strong>
           </div>
         `;
         return;
@@ -880,84 +880,14 @@
       `).join("");
     }
 
-    function taskMetaHtml(task, status) {
-      if (status === TASK_STATUS.WAITING) {
-        return `
-          <span class="pill">等待开始</span>
-          <span class="pill">${escapeHtml(taskEstimateDurationLabel(task) || "预计 1 小时")}</span>
-        `;
-      }
-      if (status === TASK_STATUS.PAUSED) {
-        const startedAt = taskStartedAtLabel(task);
-        return `
-          <span class="pill">已暂停</span>
-          ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
-        `;
-      }
-      if (status === TASK_STATUS.RUNNING) {
-        const startedAt = taskStartedAtLabel(task);
-        return `
-          ${startedAt ? `<span class="pill">开始于 ${escapeHtml(startedAt)}</span>` : ""}
-        `;
-      }
-      if (taskHasTime(task)) {
-        return `<span class="pill coin-pill">${formatCoinAmount(taskRewardAmount(task))} 金币/小时</span>`;
-      }
-      return `<span class="pill coin-pill">${formatCoinAmount(taskRewardAmount(task))} 金币</span>`;
+    function taskMetaHtml(task) {
+      return `<span class="pill coin-pill">+${formatCoinAmount(taskRewardAmount(task))} 金币</span>`;
     }
 
-    function taskActionsHtml(task, status) {
+    function taskActionsHtml(task) {
       const taskId = escapeAttr(task.id);
-      const failAction = actionButtonHtml({
-        tone: "red",
-        icon: "xmark.circle",
-        label: "任务未完成",
-        attrs: `data-fail-task="${taskId}"`
-      });
-      if (!taskUsesTimer(task)) {
-        return `
-          ${actionButtonHtml({
-            tone: "green",
-            icon: "checkmark.circle",
-            label: "完成任务",
-            attrs: `data-complete-task="${taskId}"`
-          })}
-          ${failAction}
-        `;
-      }
-      if (status === TASK_STATUS.WAITING) return failAction;
-      const primaryAction = status === TASK_STATUS.RUNNING
-        ? actionButtonHtml({
-            tone: "green",
-            icon: "stop.circle",
-            label: "完成计时任务",
-            attrs: `data-stop-task="${taskId}"`
-          })
-        : actionButtonHtml({
-            tone: "blue",
-            icon: "play.circle",
-            label: status === TASK_STATUS.PAUSED ? "继续任务" : "开始任务",
-            attrs: `data-start-task="${taskId}"`
-          });
-      return `
-        ${primaryAction}
-        ${failAction}
-      `;
-    }
-
-    function taskTileHtml(task, status) {
-      if (status === TASK_STATUS.WAITING) {
-        return `
-          <button
-            class="q-row-tile q-row-tile-${visualToneForId(task.id)} task-row-tile task-start-tile"
-            type="button"
-            data-start-task="${escapeAttr(task.id)}"
-            aria-label="开始任务"
-          >${actionIconHtml("play.circle")}</button>
-        `;
-      }
-      const icon = status === TASK_STATUS.RUNNING ? "stop.circle" : status === TASK_STATUS.PAUSED ? "play.circle" : "checklist";
-      return rowTileHtml(actionIconHtml(icon), visualToneForId(task.id), "task-row-tile");
+      return actionButtonHtml({ tone: "green", icon: "checkmark.circle", label: "完成任务", attrs: `data-complete-task="${taskId}"` })
+        + actionButtonHtml({ tone: "red", icon: "xmark.circle", label: "任务未完成", attrs: `data-fail-task="${taskId}"` });
     }
 
     function taskTimelineRowsHtml(tasks) {
@@ -984,12 +914,11 @@
         const status = taskStatusToday(task);
         return swipeRowHtml({
           attrs: `data-task-card="${escapeAttr(task.id)}"`,
-          actionWidth: status === TASK_STATUS.WAITING ? 84 : 168,
+          actionWidth: 168,
           editType: "task",
           editId: task.id,
           actions: taskActionsHtml(task, status),
           content: `
-            ${taskTileHtml(task, status)}
             <div class="card-main">
               <div class="title-wrap">
                 <h3>${escapeHtml(task.name)}</h3>
@@ -1387,10 +1316,9 @@
       const editNoteButton = event.target.closest("[data-edit-note]");
       const editRewardButton = event.target.closest("[data-edit-reward]");
       const completeTaskButton = event.target.closest("[data-complete-task]");
+      const completeHabitButton = event.target.closest("[data-complete-habit]");
       const completePriorityButton = event.target.closest("[data-complete-priority]");
       const failPriorityButton = event.target.closest("[data-fail-priority]");
-      const startTaskButton = event.target.closest("[data-start-task]");
-      const stopTaskButton = event.target.closest("[data-stop-task]");
       const scheduleHabitButton = event.target.closest("[data-schedule-habit]");
       const failTaskButton = event.target.closest("[data-fail-task]");
       const depositFundButton = event.target.closest("[data-deposit-fund]");
@@ -1556,17 +1484,15 @@
       if (completeTaskButton) {
         completeTask(completeTaskButton.dataset.completeTask, completeTaskButton.closest("[data-task-card]"));
       }
+      if (completeHabitButton) {
+        completeHabit(completeHabitButton.dataset.completeHabit);
+        closeSheet();
+      }
       if (completePriorityButton) {
         completePriorityTask(completePriorityButton.dataset.completePriority, completePriorityButton.closest("[data-priority-card]"));
       }
       if (failPriorityButton) {
         failPriorityTask(failPriorityButton.dataset.failPriority, failPriorityButton.closest("[data-priority-card]"));
-      }
-      if (startTaskButton) {
-        startTask(startTaskButton.dataset.startTask, startTaskButton.closest("[data-task-card]"));
-      }
-      if (stopTaskButton) {
-        finishTask(stopTaskButton.dataset.stopTask, stopTaskButton.closest("[data-task-card]"));
       }
       if (scheduleHabitButton) {
         if (scheduleHabitButton.closest("#sheetBackdrop")) closeSheet();

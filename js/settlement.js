@@ -66,16 +66,65 @@
       return state[collection][day];
     }
 
+    function ensureFixedRewardRules(now = new Date()) {
+      if (state.fixedRewardRulesSince) return false;
+      // Never back-charge the previous template-only period on upgrade.
+      state.fixedRewardRulesSince = dateKey(now);
+      state.settledThroughDate = shiftDateKey(state.fixedRewardRulesSince, -1);
+      return true;
+    }
+
+    function settleHabitFailure(habit, day, settledEventKeys = buildSettledEventKeys(), now = new Date(), automatic = true) {
+      const identity = habitFailureSettlementIdentity(habit.id, day);
+      if (habitCompletedOnDate(habit.id, day) || habitFailedOnDate(habit.id, day) || settledEventKeys.has(identity)) return null;
+      const amount = getIncompletePenalty(habitRewardAmount(habit));
+      const taskEntries = state.tasks.filter(task => taskHabitId(task) === habit.id
+        && taskSettlementDay(task) === day && !taskIsSettled(task))
+        .map(task => ({ taskId: task.id, date: day, previousTask: taskPreviousState(task) }));
+      const failedAt = now.toISOString();
+      const coinEvent = recordCoinEvent({
+        type: "habit_failed", amount: -amount, date: day, timestamp: failedAt,
+        history: { habitId: habit.id, name: habit.name, coins: amount, rewardAmount: 5,
+          penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER, penaltyAmount: amount,
+          reason: automatic ? "day_end" : "manual", linkedTaskIds: taskEntries.map(entry => entry.taskId) }
+      });
+      ensureSettlementDayRecord("habitFailures", day)[habit.id] = coinEvent.historyId;
+      taskEntries.forEach(entry => {
+        const task = state.tasks.find(task => task.id === entry.taskId);
+        Object.assign(task, { status: "failed", isRunning: false, timerStartedAt: null, failedAt, updatedAt: failedAt });
+        ensureSettlementDayRecord("taskResults", day)[task.id] = "failed";
+      });
+      state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
+      settledEventKeys.add(identity);
+      return { habitId: habit.id, date: day, amount, historyId: coinEvent.historyId, taskEntries, automatic };
+    }
+
     function settleMissedHabits(day = yesterdayKey(), settledEventKeys = buildSettledEventKeys()) {
-      return { count: 0, totalPenalty: 0, entries: [] };
+      const entries = [];
+      if (!state.fixedRewardRulesSince || day < state.fixedRewardRulesSince) return { count: 0, totalPenalty: 0, entries };
+      state.habits.filter(habit => habitActiveOnDate(habit, day)).forEach(habit => {
+        const entry = settleHabitFailure(habit, day, settledEventKeys);
+        if (entry) entries.push(entry);
+      });
+      return { count: entries.length, totalPenalty: entries.reduce((sum, entry) => sum + entry.amount, 0), entries };
     }
 
     function settleMissedHabitsThroughDate(lastDay = yesterdayKey(), settledEventKeys = buildSettledEventKeys()) {
+      const entries = [];
+      let checkedThroughChanged = false;
+      let day = state.settledThroughDate ? shiftDateKey(state.settledThroughDate, 1) : state.fixedRewardRulesSince;
+      if (day < state.fixedRewardRulesSince) day = state.fixedRewardRulesSince;
+      while (day && day <= lastDay) {
+        entries.push(...settleMissedHabits(day, settledEventKeys).entries);
+        state.settledThroughDate = day;
+        checkedThroughChanged = true;
+        day = shiftDateKey(day, 1);
+      }
       return {
-        count: 0,
-        totalPenalty: 0,
-        entries: [],
-        checkedThroughChanged: false
+        count: entries.length,
+        totalPenalty: entries.reduce((sum, entry) => sum + entry.amount, 0),
+        entries,
+        checkedThroughChanged
       };
     }
 
@@ -90,14 +139,11 @@
       let totalPenalty = 0;
 
       state.tasks.forEach(task => {
-        const taskDay = taskDate(task);
-        if (!taskDay || taskDay > today) return;
-        if (!taskHasTime(task)) return;
-        if (state.taskResults?.[taskDay]?.[task.id]) return;
-        if (["completed", "done", "failed"].includes(task.status)) return;
-        if (taskIsInProgress(task)) return;
+        const taskDay = taskSettlementDay(task);
+        if (!state.fixedRewardRulesSince || !taskDay || taskDay >= today) return;
+        if (taskHabitId(task) && state.habits.some(habit => habit.id === taskHabitId(task))) return; // Share the habit's daily identity while its definition exists.
+        if (taskIsSettled(task)) return;
         if (taskAutoFailedOnDate(task.id, taskDay, settledEventKeys)) return;
-        if (!taskPastEndTime(task, now)) return;
 
         const identity = taskFailureSettlementIdentity(task.id, taskDay);
         const rewardAmount = taskRewardAmount(task);
@@ -110,6 +156,8 @@
             ? {
                 ...item,
                 status: "failed",
+                isRunning: false,
+                timerStartedAt: null,
                 failedAt,
                 updatedAt: failedAt
               }
@@ -130,10 +178,11 @@
             rewardAmount,
             penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
             penaltyAmount: amount,
-            reason: "timeout"
+            reason: "day_end"
           }
         });
         const historyId = coinEvent.historyId;
+        const memoSnapshot = typeof releaseMemoForTask === "function" ? releaseMemoForTask(task) : null;
         ensureSettlementDayRecord("taskAutoFailures", taskDay)[task.id] = historyId;
         settledEventKeys.add(identity);
         entries.push({
@@ -143,7 +192,8 @@
           amount,
           rewardAmount,
           penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
-          previousTask
+          previousTask,
+          memoSnapshot
         });
         totalPenalty = parseCoinAmount(totalPenalty + amount);
       });
@@ -211,12 +261,13 @@
 
     function runPendingSettlements(options = {}) {
       const now = options.now instanceof Date ? options.now : new Date();
+      const activated = ensureFixedRewardRules(now);
       const lastHabitDay = options.lastHabitDay || shiftDateKey(dateKey(now), -1);
       const settledEventKeys = buildSettledEventKeys();
       const habitFailures = settleMissedHabitsThroughDate(lastHabitDay, settledEventKeys);
       const taskFailures = settleTimedTaskTimeouts(now, settledEventKeys);
       const priorityFailures = settleMissedPriorityTasks(now, settledEventKeys);
-      const changed = habitFailures.count > 0
+      const changed = activated || habitFailures.count > 0
         || taskFailures.count > 0
         || priorityFailures.count > 0
         || habitFailures.checkedThroughChanged;
