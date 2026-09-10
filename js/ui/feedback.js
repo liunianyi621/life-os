@@ -5,7 +5,7 @@
 
     function syncSheetViewport() {
       const viewport = window.visualViewport;
-      const viewportHeight = Math.max(320, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
+      const viewportHeight = Math.max(1, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
       const viewportTop = Math.max(0, Math.round(viewport?.offsetTop || 0));
       const layoutHeight = Math.max(viewportHeight, Math.round(window.innerHeight || document.documentElement.clientHeight || viewportHeight));
       const activeElement = document.activeElement;
@@ -29,7 +29,6 @@
 
     function ensureFocusedFormFieldVisible(target = document.activeElement) {
       if (!(target instanceof HTMLElement) || !target.matches("input, textarea, select")) return;
-      if (target.closest(".review-keyboard-form")) return;
       const body = target.closest(".keyboard-form-sheet__body");
       if (body) {
         const fieldRect = target.getBoundingClientRect();
@@ -90,6 +89,7 @@
       window.visualViewport?.addEventListener("resize", update);
       window.visualViewport?.addEventListener("scroll", update);
       window.addEventListener("resize", update);
+      window.addEventListener("scroll", syncContextualUndoPosition, { passive: true });
       window.addEventListener("orientationchange", updateOrientation);
       document.addEventListener("focusin", event => {
         if (event.target?.matches?.(".keyboard-form-sheet input, .keyboard-form-sheet textarea, .keyboard-form-sheet select, .review-keyboard-form input, .review-keyboard-form textarea")) {
@@ -113,7 +113,8 @@
       const balanceRect = balance?.getClientRects?.().length ? balance.getBoundingClientRect() : null;
       if (balanceRect) {
         const centeredTop = balanceRect.top + Math.max(0, (balanceRect.height - 40) / 2);
-        els.toast.style.setProperty("--contextual-undo-top", `${Math.round(centeredTop)}px`);
+        const safeTop = Math.max(16, Math.round(window.visualViewport?.offsetTop || 0) + 16);
+        els.toast.style.setProperty("--contextual-undo-top", `${Math.max(safeTop, Math.round(centeredTop))}px`);
         els.toast.style.setProperty("--contextual-undo-right", `${Math.max(16, Math.round(viewportWidth - balanceRect.right))}px`);
         return;
       }

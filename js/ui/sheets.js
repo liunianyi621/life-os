@@ -339,7 +339,7 @@
           <p class="field-help">每天完成 +5 金币，当天未完成 -50 金币。</p>
           ${habit ? `
             <button class="q-secondary-button habit-template-sheet-action" type="button" data-schedule-habit="${escapeAttr(habit.id)}">
-              安排到今日任务
+              安排到…
             </button>
             <button class="q-secondary-button habit-template-sheet-action" type="button" data-complete-habit="${escapeAttr(habit.id)}">完成今日习惯</button>
           ` : ""}
@@ -351,6 +351,24 @@
       });
       openSheet({ position: "top", kind: "habit", keyboardForm: true });
       focusSheetField("input[name='name']");
+    }
+
+    function openArrangementSheet(source, originId) {
+      const item = source === "HABIT"
+        ? state.habits.find(habit => habit.id === originId)
+        : memoItems().find(memo => memo.id === originId && memoIsActive(memo));
+      if (!item) return;
+      closeMemoSheet();
+      sheetMode = "arrangement";
+      editingId = null;
+      els.sheetTitle.textContent = "安排到…";
+      els.sheetForm.innerHTML = `<div class="keyboard-form-sheet__body">
+        <p>${escapeHtml(item.name || item.text)}</p>
+        ${futureHourlySlots().map(slot => `<button class="q-secondary-button" type="button"
+          data-arrange-source="${source}" data-arrange-origin="${escapeAttr(originId)}"
+          data-arrange-slot="${escapeAttr(slot.key)}">${escapeHtml(slot.label)}</button>`).join("")}
+      </div>`;
+      openSheet({ position: "top", kind: "arrangement" });
     }
 
     function openNoteSheet(noteId = null) {

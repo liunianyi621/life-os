@@ -939,6 +939,20 @@ body.habit-dragging .habit-template-chip {
   background: var(--color-neutral-soft);
 }
 
+.today-task-section .swipe-action[data-complete-task] {
+  width: 48px;
+  height: 48px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-primary);
+}
+
+.today-task-section .swipe-action[data-fail-task] {
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
 body.habit-dragging .task-hour-slot[data-task-timeline-slot] {
   margin: 2px 0;
   border-color: var(--color-border-strong);
@@ -1888,8 +1902,8 @@ body.keyboard-open .q-review-page.active > .review-history-list {
 }
 
 body.keyboard-open .review-keyboard-form {
-  grid-template-rows: auto auto;
-  align-self: start;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-self: stretch;
   width: 100%;
   min-height: 0;
   border-radius: var(--radius-lg);
@@ -1898,7 +1912,8 @@ body.keyboard-open .review-keyboard-form {
 body.keyboard-open .review-keyboard-form__body {
   gap: 0;
   padding: 0 16px;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 body.keyboard-open .review-keyboard-form .review-question {
@@ -1950,11 +1965,11 @@ body.keyboard-open .review-keyboard-form .q-primary-button {
   }
 
   body.keyboard-open .q-review-page.active .review-date-button {
-    font-size: 10px;
+    font-size: 14px;
   }
 
   body.keyboard-open .q-review-page.active > .q-page-header h1 {
-    font-size: 20px;
+    font-size: 28px;
   }
 
   body.keyboard-open .review-keyboard-form > .review-keyboard-form__body {
@@ -1968,18 +1983,18 @@ body.keyboard-open .review-keyboard-form .q-primary-button {
 
   body.keyboard-open .review-keyboard-form .field-label {
     margin-bottom: 2px;
-    font-size: 11px;
-    line-height: 1.15;
+    font-size: 15px;
+    line-height: 1.4;
   }
 
   body.keyboard-open .review-keyboard-form .review-question textarea,
   body.keyboard-open .review-keyboard-form #reviewPriority {
-    height: 40px;
-    min-height: 40px;
-    max-height: 46px;
+    height: 58px;
+    min-height: 58px;
+    max-height: 68px;
     padding: 6px 9px;
-    font-size: 14px;
-    line-height: 1.25;
+    font-size: 16px;
+    line-height: 1.4;
   }
 
   body.keyboard-open .review-keyboard-form .review-score-heading {
@@ -2015,6 +2030,13 @@ body.keyboard-open .review-keyboard-form .q-primary-button {
   border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: none;
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .q-chart-section + .q-tool-row {
@@ -2429,6 +2451,18 @@ body.keyboard-open .review-keyboard-form .q-primary-button {
 
 .memo-body {
   min-width: 0;
+}
+
+.memo-item > [data-arrange-memo] {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: start;
+  min-height: 44px;
+}
+
+.memo-item > .memo-delete {
+  grid-column: 3;
+  grid-row: 1;
 }
 
 .memo-text {

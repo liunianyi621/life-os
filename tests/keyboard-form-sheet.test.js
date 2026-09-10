@@ -127,7 +127,7 @@ test("聚焦字段只滚动 Form Body，不滚动 document", () => {
   assert.equal(scrolls[0].behavior, "smooth");
 });
 
-test("复盘字段依靠紧凑视口布局，不触发表单或页面滚动", () => {
+test("复盘低视口聚焦最后字段时，只滚动表单 Body", () => {
   const { context, FakeHTMLElement } = createFeedbackRuntime();
   let scrolled = false;
   const target = new FakeHTMLElement();
@@ -135,11 +135,12 @@ test("复盘字段依靠紧凑视口布局，不触发表单或页面滚动", ()
   target.closest = selector => selector === ".review-keyboard-form"
     ? {}
     : selector === ".keyboard-form-sheet__body"
-      ? { scrollBy() { scrolled = true; } }
+      ? { getBoundingClientRect: () => ({ top: 70, bottom: 310 }), scrollBy() { scrolled = true; } }
       : null;
+  target.getBoundingClientRect = () => ({ top: 340, bottom: 400 });
   context.target = target;
   vm.runInContext("ensureFocusedFormFieldVisible(target)", context);
-  assert.equal(scrolled, false);
+  assert.equal(scrolled, true);
 });
 
 test("所有可输入动态 Sheet 复用同一 Form Body/Footer 组件", () => {

@@ -54,7 +54,7 @@
         return;
       }
 
-      els.homeMemoList.innerHTML = activeMemos.map(memo => `
+      els.homeMemoList.innerHTML = activeMemos.slice(0, 4).map(memo => `
         <button
           class="habit-template-chip memo-template-chip"
           type="button"
@@ -64,7 +64,7 @@
         >
           <span class="habit-template-chip__name">${escapeHtml(memo.text)}</span>
         </button>
-      `).join("");
+      `).join("") + (activeMemos.length > 4 ? `<button class="habit-template-chip" type="button" data-open-memo aria-label="查看全部备忘录">+${activeMemos.length - 4}</button>` : "");
     }
 
     function setMemoSubmitIcon(icon, label) {
@@ -117,6 +117,7 @@
             <div class="memo-body" role="button" tabindex="0" data-edit-memo="${memoId}" aria-label="编辑备忘录">
               <p class="memo-text">${escapeHtml(memo.text)}</p>
             </div>
+            ${!completed ? `<button class="q-secondary-button" type="button" data-arrange-memo="${memoId}">安排到…</button>` : ""}
             ${iconActionButtonHtml({
               className: "memo-action memo-delete",
               icon: "trash",

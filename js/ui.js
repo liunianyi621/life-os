@@ -742,7 +742,6 @@
         renderMemoSummary();
         renderPriorityTask();
         renderNextStepCard();
-        els.habitCount.textContent = `${visibleHabitsToday().length} 项`;
         els.todayTaskCount.textContent = `${activeCount} 项`;
         renderHabits();
         renderTasks();
@@ -848,6 +847,7 @@
     }
 
     function renderHabits() {
+      els.habitCount.textContent = `还剩 ${state.habits.filter(habit => habitActiveOnDate(habit, dateKey()) && !habitCompletedToday(habit.id) && !habitFailedOnDate(habit.id, dateKey())).length} 项`;
       if (!state.habits.length) {
         els.habitList.innerHTML = `
           <div class="empty-state">
@@ -861,7 +861,7 @@
       if (!habits.length) {
         els.habitList.innerHTML = `
           <div class="empty-state">
-            <strong>今天没有待安排的习惯</strong>
+            <strong>${state.habits.some(habit => habitActiveOnDate(habit, dateKey()) && !habitCompletedToday(habit.id) && !habitFailedOnDate(habit.id, dateKey())) ? "剩余习惯已安排，请在今日任务中完成" : "今天的习惯已处理"}</strong>
           </div>
         `;
         return;
@@ -873,7 +873,7 @@
           type="button"
           data-habit-card="${escapeAttr(habit.id)}"
           data-edit-habit="${escapeAttr(habit.id)}"
-          aria-label="编辑习惯模板「${escapeAttr(habit.name)}」，长按可安排到今日任务"
+          aria-label="待完成习惯「${escapeAttr(habit.name)}」，点击查看或安排"
         >
           <span class="habit-template-chip__name">${escapeHtml(habit.name)}</span>
         </button>
@@ -1029,6 +1029,7 @@
         month: "long",
         day: "numeric"
       }).format(dateFromKey(day));
+      if (day < dateKey()) return `${dateLabel}，已有${eventCount}个计划，查看当日计划`;
       return eventCount
         ? `${dateLabel}，已有${eventCount}个计划，点击空白区域新增计划`
         : `${dateLabel}，点击新增计划`;
@@ -1037,7 +1038,7 @@
     function openCalendarDateForCreate(day) {
       selectedCalendarDate = normalizeCalendarDate(day);
       renderCalendar();
-      openCalendarEventSheet(null, { date: selectedCalendarDate });
+      if (selectedCalendarDate >= dateKey()) openCalendarEventSheet(null, { date: selectedCalendarDate });
     }
 
     function calendarSegmentHtml(event, day) {
@@ -1292,7 +1293,28 @@
     document.addEventListener("pointercancel", endCalendarEventPress);
 
     document.addEventListener("click", event => {
+      if (event.target.closest("[data-export-backup]")) {
+        try { exportLifeOSBackup(); } catch { showToast("备份导出失败，请重试"); }
+        return;
+      }
+      if (event.target.closest("[data-import-backup]")) {
+        document.getElementById("lifeosBackupFile").click();
+        return;
+      }
       const undoButton = event.target.closest("[data-contextual-undo]");
+      const arrangeMemoButton = event.target.closest("[data-arrange-memo]");
+      const arrangeSlotButton = event.target.closest("[data-arrange-slot]");
+      if (arrangeMemoButton) {
+        openArrangementSheet("MEMO", arrangeMemoButton.dataset.arrangeMemo);
+        return;
+      }
+      if (arrangeSlotButton) {
+        const { arrangeSource, arrangeOrigin, arrangeSlot } = arrangeSlotButton.dataset;
+        const schedule = arrangeSource === "HABIT" ? scheduleHabitAsTask : scheduleMemoAsTask;
+        closeSheet();
+        schedule(arrangeOrigin, new Date(), arrangeSlot);
+        return;
+      }
       const swipeActionButton = event.target.closest(".swipe-action");
       const swipeContent = event.target.closest("[data-swipe-content]");
       const editCard = event.target.closest("[data-edit-card]");
@@ -1495,8 +1517,7 @@
         failPriorityTask(failPriorityButton.dataset.failPriority, failPriorityButton.closest("[data-priority-card]"));
       }
       if (scheduleHabitButton) {
-        if (scheduleHabitButton.closest("#sheetBackdrop")) closeSheet();
-        scheduleHabitAsTask(scheduleHabitButton.dataset.scheduleHabit, new Date());
+        openArrangementSheet("HABIT", scheduleHabitButton.dataset.scheduleHabit);
         return;
       }
       if (failTaskButton) {
@@ -1609,6 +1630,12 @@
         confirmText: "确认重置"
       });
       if (confirmed) resetAllData();
+    });
+
+    document.getElementById("lifeosBackupFile").addEventListener("change", event => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      importLifeOSBackup(file);
     });
 
     document.addEventListener("keydown", event => {

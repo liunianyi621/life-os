@@ -188,10 +188,6 @@
       if (els.statPenalty) els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
     }
 
-    function promptNextStepAfterCompletion() {
-      if (typeof openTaskSheet !== "function") return;
-      window.setTimeout(() => openTaskSheet(), 0);
-    }
     // Legacy callers remain safe; tasks no longer have a start/timer phase.
     function startTask() { return false; }
 
@@ -296,7 +292,6 @@
           memoSnapshot
         }
       });
-      promptNextStepAfterCompletion();
     }
 
     function completePriorityTask(day = dateKey(), sourceEl = null) {
@@ -467,7 +462,6 @@
         duration: 5000,
         iconTone: "positive"
       });
-      promptNextStepAfterCompletion();
     }
 
     function failTask(taskId, sourceEl = null) {
