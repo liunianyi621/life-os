@@ -13,6 +13,26 @@ const sheetSource = fs.readFileSync(path.join(ROOT, "js/ui/sheets.js"), "utf8");
 const timePickerSource = fs.readFileSync(path.join(ROOT, "js/ui/time-picker.js"), "utf8");
 const statsSource = fs.readFileSync(path.join(ROOT, "js/stats.js"), "utf8");
 
+test("Today 紧凑布局删除冗余说明，导航空间只作用于当前首页", () => {
+  assert.doesNotMatch(uiSource, /今天只放一件最重要的事|剩余习惯已安排，请在今日任务中完成/);
+  assert.match(uiSource, /已全部安排/);
+  const balance = indexHtml.match(/<div class="home-coin-balance"[\s\S]*?<\/div>/)[0];
+  assert.match(balance, /当前金币/);
+  assert.doesNotMatch(balance, /<span>金币<\/span>/);
+  assert.match(productionCss, /\.screen:has\(> \.today-page.active\)\s*\{[^}]*var\(--nav-height\)[^}]*safe-area-inset-bottom/);
+});
+
+test("Today 完成按钮复用语义绿色，并保留移动端点击尺寸", () => {
+  const completion = productionCss.match(/\.today-task-section \.swipe-action\[data-complete-task\]\s*\{[^}]*\}/)[0];
+  assert.match(completion, /width:\s*48px/);
+  assert.match(completion, /height:\s*48px/);
+  assert.match(completion, /background:\s*var\(--color-success-soft\)/);
+  assert.match(completion, /color:\s*var\(--color-success\)/);
+  const failure = productionCss.match(/\.today-task-section \.swipe-action\[data-fail-task\]\s*\{[^}]*\}/)[0];
+  assert.match(failure, /background:\s*transparent/);
+  assert.match(failure, /color:\s*var\(--color-text-secondary\)/);
+});
+
 test("生产样式覆盖全部热力图状态 class", () => {
   [
     "net-0",
@@ -151,7 +171,7 @@ test("今日任务使用轻量整点时间轴并将拖放命中细化到具体�
   assert.match(taskSource, /function hourlyTaskTimeline\(/);
   assert.match(uiSource, /data-task-timeline-slot/);
   assert.match(uiSource, /taskListSection\("其他安排"/);
-  assert.match(uiSource, /taskTimelineSectionHtml\("接下来"/);
+  assert.match(uiSource, /taskTimelineSectionHtml\("", timeline.upcoming/);
   assert.match(uiSource, /hourlyTaskTimeline\(activeTasks\)/);
   assert.match(taskSource, /Array\.from\(\{ length: 3 \}/);
   assert.doesNotMatch(uiSource.slice(uiSource.indexOf("function renderTasks"), uiSource.indexOf("function calendarGridDays")), /taskTimeRangeLabel/);

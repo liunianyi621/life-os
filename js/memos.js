@@ -54,7 +54,8 @@
         return;
       }
 
-      els.homeMemoList.innerHTML = activeMemos.slice(0, 4).map(memo => `
+      const previewLimit = 3;
+      els.homeMemoList.innerHTML = activeMemos.slice(0, previewLimit).map(memo => `
         <button
           class="habit-template-chip memo-template-chip"
           type="button"
@@ -64,7 +65,7 @@
         >
           <span class="habit-template-chip__name">${escapeHtml(memo.text)}</span>
         </button>
-      `).join("") + (activeMemos.length > 4 ? `<button class="habit-template-chip" type="button" data-open-memo aria-label="查看全部备忘录">+${activeMemos.length - 4}</button>` : "");
+      `).join("") + (activeMemos.length > previewLimit ? `<button class="habit-template-chip" type="button" data-open-memo aria-label="查看全部备忘录">+${activeMemos.length - previewLimit}</button>` : "");
     }
 
     function setMemoSubmitIcon(icon, label) {

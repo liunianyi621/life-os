@@ -35,7 +35,7 @@ const server = http.createServer((req,res) => {
         state.memos = Array.from({length:8},(_,i) => ({id:'m'+i,text:'以后要做的事情'+i,createdAt:new Date().toISOString()}));
         saveState(); render();
       });
-      assert.equal(await page.locator('#homeMemoList [data-memo-card]').count(),4);
+      assert.equal(await page.locator('#homeMemoList [data-memo-card]').count(),3);
       await page.locator('[data-habit-card="h0"]').click();
       await page.locator('[data-schedule-habit="h0"]').click();
       await page.locator('[data-arrange-slot]').nth(2).click();

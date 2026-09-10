@@ -53,7 +53,7 @@ test("首页使用紧凑余额与独立备忘录 Chip 区域", () => {
   assert.doesNotMatch(productionCss, /\.home-memo-card\s*\{/);
 });
 
-test("首页把所有 ACTIVE 备忘录渲染为纯文字 Chip，并隐藏已安排与已完成项", () => {
+test("首页预览前三条 ACTIVE 备忘录，其余通过数量入口查看", () => {
   const { context } = createMemoContext([
     { id: "completed", text: "已完成内容", completed: true, updatedAt: "2026-08-27T12:00:00Z" },
     { id: "memo-1", text: "第一条", completed: false, updatedAt: "2026-08-27T11:00:00Z" },
@@ -65,10 +65,12 @@ test("首页把所有 ACTIVE 备忘录渲染为纯文字 Chip，并隐藏已安�
   const chips = context.els.homeMemoList.innerHTML;
 
   assert.equal(context.els.homeMemoCount.textContent, "4 项");
-  assert.match(chips, /第一条[\s\S]*第二条[\s\S]*第三条[\s\S]*第四条/);
-  assert.doesNotMatch(chips, /已完成内容|已安排内容/);
-  assert.equal((chips.match(/memo-template-chip/g) || []).length, 4);
-  assert.equal((chips.match(/data-memo-card/g) || []).length, 4);
+  assert.match(chips, /第一条[\s\S]*第二条[\s\S]*第三条/);
+  assert.match(chips, /data-open-memo[^>]*>\+1</);
+  assert.doesNotMatch(chips, /已完成内容|已安排内容|第四条/);
+  assert.equal((chips.match(/memo-template-chip/g) || []).length, 3);
+  assert.equal((chips.match(/data-memo-card/g) || []).length, 3);
+  assert.equal(context.state.memos.length, 6);
   assert.doesNotMatch(chips, /<svg|金币|data-toggle-memo|data-delete-memo/);
 });
 

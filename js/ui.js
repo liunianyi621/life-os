@@ -795,9 +795,8 @@
         els.priorityTaskCard.innerHTML = `
           <section class="priority-card priority-empty q-feature-card">
             <div>
-              <span class="priority-label">今天最重要的一件事</span>
-              <h2>今天只放一件最重要的事</h2>
-              <p>完成 +100，未完成 -500</p>
+              <h2>今天最重要的一件事</h2>
+              <p>+100 · 未完成 −500</p>
             </div>
             <button class="button priority-set-button" type="button" data-open-priority>设定</button>
           </section>
@@ -835,14 +834,12 @@
         editId: task.date,
         actions: priorityActions,
         content: `
-          ${rowTileHtml(actionIconHtml(done ? "checkmark.circle" : failed ? "xmark.circle" : "target"), "purple", "priority-row-tile")}
           <div class="card-main priority-main">
             <div class="title-wrap">
               <span class="priority-label">今天最重要的一件事</span>
               <h3>${escapeHtml(task.title)}</h3>
               <div class="meta-row">
-                <span class="pill green">完成 +100</span>
-                <span class="pill red">未完成 -500</span>
+                <span class="pill">+100 · 未完成 −500</span>
                 ${done ? `<span class="pill green">已完成</span>` : ""}
                 ${failed ? `<span class="pill red">已扣除</span>` : ""}
               </div>
@@ -867,7 +864,7 @@
       if (!habits.length) {
         els.habitList.innerHTML = `
           <div class="empty-state">
-            <strong>${state.habits.some(habit => habitActiveOnDate(habit, dateKey()) && !habitCompletedToday(habit.id) && !habitFailedOnDate(habit.id, dateKey())) ? "剩余习惯已安排，请在今日任务中完成" : "今天的习惯已处理"}</strong>
+            <strong>${state.habits.some(habit => habitActiveOnDate(habit, dateKey()) && !habitCompletedToday(habit.id) && !habitFailedOnDate(habit.id, dateKey())) ? "已全部安排" : "今日已处理"}</strong>
           </div>
         `;
         return;
@@ -963,7 +960,7 @@
       if (!groups.length) return "";
       return `
         <section class="task-timeline-section task-timeline-section-${options.tone || "default"}">
-          <h3 class="task-timeline-section__title">${escapeHtml(title)}</h3>
+          ${title ? `<h3 class="task-timeline-section__title">${escapeHtml(title)}</h3>` : ""}
           <div class="task-timeline-section__slots">
             ${groups.map(group => taskHourSlotHtml(group, options)).join("")}
           </div>
@@ -991,7 +988,7 @@
         </section>` : "";
       els.todayTaskList.classList.add("task-hourly-timeline");
       els.todayTaskList.innerHTML = [
-        taskTimelineSectionHtml("接下来", timeline.upcoming, { droppable: true, tone: "upcoming" }),
+        taskTimelineSectionHtml("", timeline.upcoming, { droppable: true, tone: "upcoming" }),
         taskListSection("其他安排", timeline.other, true),
         taskListSection("未排期", timeline.unscheduled)
       ].join("");
