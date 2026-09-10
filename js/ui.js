@@ -146,8 +146,15 @@
     }
 
     function habitDragTargetFromEvent(event) {
-      const row = event.target.closest?.("[data-habit-card], [data-memo-card]");
+      const row = event.target.closest?.("[data-habit-card], [data-memo-card], [data-reschedule-task]");
       if (!row || event.target.closest?.("input, textarea, select, a")) return null;
+      if (row.dataset.rescheduleTask) {
+        if (event.target.closest?.("button, [role='button']")) return null;
+        const task = state.tasks.find(item => item.id === row.dataset.rescheduleTask);
+        return task && !taskIsSettled(task)
+          ? { row, card: row, sourceType: "TASK", sourceId: task.id, sourceName: task.name }
+          : null;
+      }
       if (row.dataset.memoCard) {
         const memo = memoItems().find(item => item.id === row.dataset.memoCard);
         return memo && memoIsActive(memo)
@@ -253,7 +260,6 @@
       drag.row.classList.add("habit-drag-source");
       document.getSelection?.()?.removeAllRanges();
       habitTaskDropZone()?.classList.add("habit-drop-available");
-      renderTasks();
       const preview = document.createElement("div");
       preview.className = "habit-drag-preview";
       preview.setAttribute("aria-hidden", "true");
@@ -393,10 +399,7 @@
       window.setTimeout(() => {
         suppressNextCardTap = false;
       }, 220);
-      if (shouldSchedule) {
-        if (drag.sourceType === "MEMO") scheduleMemoAsTask(drag.memoId, new Date(), scheduledSlotStart);
-        else scheduleHabitAsTask(drag.habitId, new Date(), scheduledSlotStart);
-      }
+      if (shouldSchedule) dropTaskMaterial(drag, scheduledSlotStart);
     }
 
     function endHabitTouchDrag(event, cancelled = false) {
@@ -419,10 +422,13 @@
       window.setTimeout(() => {
         suppressNextCardTap = false;
       }, 220);
-      if (shouldSchedule) {
-        if (drag.sourceType === "MEMO") scheduleMemoAsTask(drag.memoId, new Date(), scheduledSlotStart);
-        else scheduleHabitAsTask(drag.habitId, new Date(), scheduledSlotStart);
-      }
+      if (shouldSchedule) dropTaskMaterial(drag, scheduledSlotStart);
+    }
+
+    function dropTaskMaterial(drag, scheduledSlotStart) {
+      if (drag.sourceType === "TASK") return rescheduleTask(drag.sourceId, scheduledSlotStart);
+      if (drag.sourceType === "MEMO") return scheduleMemoAsTask(drag.memoId, new Date(), scheduledSlotStart);
+      return scheduleHabitAsTask(drag.habitId, new Date(), scheduledSlotStart);
     }
 
     function cancelHabitPointerDrag(event) {
@@ -456,7 +462,7 @@
       if (event.target.closest("button, input, textarea, select, a")) return;
       const card = event.target.closest("[data-edit-card]");
       if (!card) return;
-      if (card.closest("[data-habit-card]")) return;
+      if (card.closest("[data-habit-card], [data-reschedule-task]")) return;
       const row = card.closest("[data-swipe-row]");
       if (!row) return;
 
@@ -890,7 +896,7 @@
         + actionButtonHtml({ tone: "red", icon: "xmark.circle", label: "任务未完成", attrs: `data-fail-task="${taskId}"` });
     }
 
-    function taskTimelineRowsHtml(tasks) {
+    function taskTimelineRowsHtml(tasks, { showPlan = false } = {}) {
       return tasks.map(task => {
         const undoPresentation = typeof UndoController !== "undefined"
           ? UndoController.taskPresentation(task.id)
@@ -913,7 +919,7 @@
         }
         const status = taskStatusToday(task);
         return swipeRowHtml({
-          attrs: `data-task-card="${escapeAttr(task.id)}"`,
+          attrs: `data-task-card="${escapeAttr(task.id)}" data-reschedule-task="${escapeAttr(task.id)}"`,
           actionWidth: 168,
           editType: "task",
           editId: task.id,
@@ -923,6 +929,7 @@
               <div class="title-wrap">
                 <h3>${escapeHtml(task.name)}</h3>
                 <div class="meta-row">
+                  ${showPlan && taskScheduledStartDate(task) ? `<span class="pill">${escapeHtml(hourlyTimelineLabel(taskScheduledStartDate(task)))}</span>` : ""}
                   ${taskMetaHtml(task, status)}
                 </div>
               </div>
@@ -965,6 +972,8 @@
     }
 
     function renderTasks() {
+      // Keep the active touch target mounted until drag cleanup.
+      if (activeHabitDrag?.dragging) return;
       const tasksForToday = todayTasks();
       const activeTasks = tasksForToday.filter(task => {
         const status = taskStatusToday(task);
@@ -975,14 +984,16 @@
         activeTasks.push(undoAnchor.task);
       }
       const timeline = hourlyTaskTimeline(activeTasks);
-      const unscheduledGroups = timeline.unscheduled.length
-        ? [{ tasks: timeline.unscheduled }]
-        : [];
+      const taskListSection = (title, tasks, showPlan = false) => tasks.length ? `
+        <section class="task-timeline-section">
+          <h3 class="task-timeline-section__title">${escapeHtml(title)}</h3>
+          <div class="task-hour-slot__tasks">${taskTimelineRowsHtml(tasks, { showPlan })}</div>
+        </section>` : "";
       els.todayTaskList.classList.add("task-hourly-timeline");
       els.todayTaskList.innerHTML = [
-        taskTimelineSectionHtml("较早安排", timeline.earlier, { tone: "earlier" }),
-        taskTimelineSectionHtml("未排期", unscheduledGroups, { tone: "unscheduled" }),
-        taskTimelineSectionHtml("接下来", timeline.upcoming, { droppable: true, tone: "upcoming" })
+        taskTimelineSectionHtml("接下来", timeline.upcoming, { droppable: true, tone: "upcoming" }),
+        taskListSection("其他安排", timeline.other, true),
+        taskListSection("未排期", timeline.unscheduled)
       ].join("");
     }
 
@@ -1499,6 +1510,10 @@
         return;
       }
       if (editCard?.dataset.editCard === "note") handleEditCardTap(editCard);
+      if (editCard?.dataset.editCard === "task" && !event.target.closest("button, input, textarea, select, a")) {
+        handleEditCardTap(editCard);
+        return;
+      }
       if (editTaskButton) openTaskSheet(editTaskButton.dataset.editTask);
       if (editHabitButton) openHabitSheet(editHabitButton.dataset.editHabit);
       if (editNoteButton) openNoteSheet(editNoteButton.dataset.editNote);
@@ -1706,16 +1721,16 @@
     window.addEventListener("pagehide", clearHabitDrag);
 
     document.addEventListener("selectstart", event => {
-      if (event.target.closest?.("[data-habit-card]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task]")) event.preventDefault();
     });
     document.addEventListener("selectionchange", () => {
       if (activeHabitDrag?.phase === "dragging") document.getSelection?.()?.removeAllRanges();
     });
     document.addEventListener("contextmenu", event => {
-      if (event.target.closest?.("[data-habit-card]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task]")) event.preventDefault();
     });
     document.addEventListener("dragstart", event => {
-      if (event.target.closest?.("[data-habit-card]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task]")) event.preventDefault();
     });
 
     installSheetViewportSync();

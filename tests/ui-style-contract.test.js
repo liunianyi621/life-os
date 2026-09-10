@@ -135,7 +135,8 @@ test("iOS 习惯拖拽使用独立 Touch Events 状态机并与 Pointer 通道�
   assert.match(uiSource, /lock\.scrollTarget\.scrollTop = lock\.scrollTop/);
   assert.match(uiSource, /restoreHabitDragScroll\(drag\)/);
   assert.match(uiSource, /taskTimelineSlotAt\(touch\.clientX, touch\.clientY\)/);
-  assert.match(uiSource, /else scheduleHabitAsTask\(drag\.habitId, new Date\(\), scheduledSlotStart\)/);
+  assert.match(uiSource, /return scheduleHabitAsTask\(drag\.habitId, new Date\(\), scheduledSlotStart\)/);
+  assert.match(uiSource, /return rescheduleTask\(drag\.sourceId, scheduledSlotStart\)/);
   assert.match(uiSource, /Habit drag entered dragging state but touch coordinates are not updating\./);
   assert.match(uiSource, /window\.addEventListener\("pagehide", clearHabitDrag\)/);
   assert.match(productionCss, /html\.habit-dragging,[\s\S]*?overflow:\s*hidden;/);
@@ -149,10 +150,10 @@ test("今日任务使用轻量整点时间轴并将拖放命中细化到具体�
   assert.match(taskSource, /function futureHourlySlots\([\s\S]*?getNextFullHourRange/);
   assert.match(taskSource, /function hourlyTaskTimeline\(/);
   assert.match(uiSource, /data-task-timeline-slot/);
-  assert.match(uiSource, /taskTimelineSectionHtml\("较早安排"/);
+  assert.match(uiSource, /taskListSection\("其他安排"/);
   assert.match(uiSource, /taskTimelineSectionHtml\("接下来"/);
   assert.match(uiSource, /hourlyTaskTimeline\(activeTasks\)/);
-  assert.match(taskSource, /futureSlotCount = 3/);
+  assert.match(taskSource, /Array\.from\(\{ length: 3 \}/);
   assert.doesNotMatch(uiSource.slice(uiSource.indexOf("function renderTasks"), uiSource.indexOf("function calendarGridDays")), /taskTimeRangeLabel/);
   assert.match(sheetSource, /data-task-quick-schedule/);
   assert.match(sheetSource, /data-task-custom-time/);

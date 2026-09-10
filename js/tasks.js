@@ -268,18 +268,27 @@
       });
     }
 
-    function hourlyTaskTimeline(tasks, now = new Date(), futureSlotCount = 3) {
+    function hourlyTaskTimeline(tasks, now = new Date()) {
       const current = new Date(now);
       if (Number.isNaN(current.getTime())) {
-        return { earlier: [], upcoming: [], unscheduled: [] };
+        return { earlier: [], upcoming: [], unscheduled: [], other: [] };
       }
-      const earlierByTime = new Map();
-      const upcomingByTime = new Map();
-      const unscheduled = [];
-
-      futureHourlySlots(current, futureSlotCount).forEach(slot => {
-        upcomingByTime.set(slot.start.getTime(), { ...slot, tasks: [] });
+      const currentHour = new Date(current);
+      currentHour.setMinutes(0, 0, 0);
+      const occupiedHours = tasks.filter(task => !taskIsSettled(task)).map(taskScheduledStartDate)
+        .filter(Boolean).map(start => getHourlyRangeFromStart(start).start)
+        .filter(start => start <= currentHour);
+      const first = occupiedHours.length
+        ? new Date(Math.min(...occupiedHours.map(start => start.getTime())))
+        : getNextFullHourRange(current).start;
+      const upcoming = Array.from({ length: 3 }, (_, index) => {
+        const start = new Date(first);
+        start.setHours(start.getHours() + index);
+        const { end } = getHourlyRangeFromStart(start);
+        return { key: start.toISOString(), start, end, label: hourlyTimelineLabel(start, current), tasks: [] };
       });
+      const unscheduled = [];
+      const other = [];
 
       tasks.forEach(task => {
         const start = taskScheduledStartDate(task);
@@ -287,31 +296,43 @@
           unscheduled.push(task);
           return;
         }
-        const key = start.getTime();
-        const target = key < current.getTime() ? earlierByTime : upcomingByTime;
-        if (!target.has(key)) {
-          const end = new Date(start);
-          end.setHours(end.getHours() + 1);
-          target.set(key, {
-            key: start.toISOString(),
-            start,
-            end,
-            label: hourlyTimelineLabel(start, current),
-            tasks: []
-          });
-        }
-        target.get(key).tasks.push(task);
+        const hour = getHourlyRangeFromStart(start).start.getTime();
+        const slot = upcoming.find(group => group.start.getTime() === hour);
+        if (slot) slot.tasks.push(task);
+        else other.push(task);
       });
-
-      const sortGroups = groups => [...groups.values()]
-        .sort((left, right) => left.start.getTime() - right.start.getTime())
-        .map(group => ({ ...group, tasks: sortTasksByCreatedAt(group.tasks) }));
-
       return {
-        earlier: sortGroups(earlierByTime),
-        upcoming: sortGroups(upcomingByTime),
-        unscheduled: sortTasksByCreatedAt(unscheduled)
+        earlier: [],
+        upcoming: upcoming.map(group => ({ ...group, tasks: sortTasksByCreatedAt(group.tasks) })),
+        unscheduled: sortTasksByCreatedAt(unscheduled),
+        other: sortTasksByCreatedAt(other).sort((a, b) => taskScheduledStartDate(a) - taskScheduledStartDate(b))
       };
+    }
+
+    function rescheduleTask(taskId, scheduledSlotStart) {
+      if (!scheduledSlotStart) return false;
+      const task = state.tasks.find(item => item.id === taskId);
+      const range = getHourlyRangeFromStart(scheduledSlotStart);
+      if (!task || taskIsSettled(task) || !range) return false;
+      const previousTasks = state.tasks;
+      const timeStart = minutesToClockLabel(range.start.getHours() * 60);
+      const timeEnd = minutesToClockLabel(range.end.getHours() * 60);
+      state.tasks = state.tasks.map(item => item.id === taskId ? {
+        ...item,
+        // Legacy habit tasks use date as their obligation day; scheduling must not move it.
+        date: taskHabitId(item) && !item.sourceHabitScheduledDate ? taskDate(item) : dateKey(range.start),
+        scheduledStart: range.start.toISOString(),
+        scheduledEnd: range.end.toISOString(),
+        timeStart, timeEnd, time: timeStart
+      } : item);
+      try { saveState(); }
+      catch {
+        state.tasks = previousTasks;
+        showToast("排期保存失败，请重试");
+        return false;
+      }
+      renderTasks();
+      return true;
     }
 
     function taskTimeRange(task) {
@@ -504,13 +525,11 @@
       return state.tasks.filter(task => {
         if (taskDate(task) === today || (!taskIsSettled(task) && taskDate(task) <= today)) return true;
         const scheduledStart = taskScheduledStartDate(task);
-        const createdAt = new Date(task?.createdAt || "");
         return Boolean(
           scheduledStart
           && scheduledStart.getTime() > now.getTime()
           && scheduledStart.getTime() <= futureLimit
-          && !Number.isNaN(createdAt.getTime())
-          && dateKey(createdAt) === today
+          && !taskIsSettled(task)
         );
       });
     }

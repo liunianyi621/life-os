@@ -214,6 +214,84 @@ function value(context, expression) {
   return vm.runInContext(expression, context);
 }
 
+for (const [hour, minute, occupied, expected] of [
+  [16,53,[16],['16:00','17:00','18:00']],
+  [16,53,[],['17:00','18:00','19:00']],
+  [16,53,[16,17],['16:00','17:00','18:00']],
+  [23,40,[23],['23:00','明天 00:00','明天 01:00']]
+]) test(`三槽总量：${hour}:${minute}，占用 ${occupied}`, () => {
+  const {context} = createRuntime(emptyState(occupied.map((h,i) => task({id:'t'+i,timeStart:`${h}:00`,timeEnd:`${h+1}:00`}))));
+  const timeline = value(context,`hourlyTaskTimeline(state.tasks,new Date(2026,6,16,${hour},${minute}))`);
+  assert.deepEqual(Array.from(timeline.upcoming,slot => slot.label),expected);
+  assert.equal(timeline.earlier.length + timeline.upcoming.length,3);
+});
+
+test('当前小时结算后窗口前移，确认态不会额外占一个小时槽', () => {
+  const {context} = createRuntime(emptyState([task({timeStart:'16:00',timeEnd:'17:00'})]));
+  value(context,"state.history.push({id:'settled',taskId:'task-1',type:'task_completed'})");
+  assert.deepEqual(Array.from(value(context,'hourlyTaskTimeline(state.tasks,new Date(2026,6,16,16,53)).upcoming'),slot=>slot.label),['17:00','18:00','19:00']);
+});
+
+test('同一小时的多个任务只占一槽，非整点手动排期不增加新槽', () => {
+  const {context} = createRuntime(emptyState([
+    task({id:'a',timeStart:'16:00',timeEnd:'17:00'}),
+    task({id:'b',timeStart:'16:30',timeEnd:'17:30'})
+  ]));
+  const timeline=value(context,'hourlyTaskTimeline(state.tasks,new Date(2026,6,16,16,53))');
+  assert.equal(timeline.upcoming.length,3);
+  assert.equal(timeline.upcoming[0].tasks.length,2);
+  assert.equal(value(context,'state.tasks[1].timeStart'),'16:30');
+});
+
+for (const source of ['MANUAL','HABIT','MEMO']) test(`重新排期只改计划字段：${source}`, () => {
+  const initial = emptyState([task({timeStart:'16:00',timeEnd:'17:00'})]);
+  Object.assign(initial.tasks[0],{source,originId:'origin',sourceHabitScheduledDate:DAY});
+  const {context,storage} = createRuntime(initial);
+  value(context,'renderTasks = () => {}; globalThis.before = JSON.stringify(state)');
+  assert.equal(value(context,"rescheduleTask('task-1',new Date(2026,6,16,18))"),true);
+  const previous = JSON.parse(value(context,'before'));
+  const after = JSON.parse(value(context,'JSON.stringify(state)'));
+  const changed = ['date','scheduledStart','scheduledEnd','timeStart','timeEnd','time'];
+  for (const key of changed) { delete previous.tasks[0][key]; delete after.tasks[0][key]; }
+  assert.deepEqual(after,previous);
+  const reloaded = createRuntime(JSON.parse(storage.get('minimal-discipline-v1')));
+  assert.equal(value(reloaded.context,'state.tasks[0].timeStart'),'18:00');
+  assert.equal(value(reloaded.context,'state.history.length'),0);
+});
+
+test('排期保存失败恢复旧任务；已结算任务拒绝拖动', () => {
+  const {context} = createRuntime(emptyState([task({timeStart:'16:00',timeEnd:'17:00'})]));
+  value(context,"renderTasks = () => {}; globalThis.before = JSON.stringify(state); saveState = () => {throw new Error('quota')}");
+  assert.equal(value(context,"rescheduleTask('task-1',new Date(2026,6,16,18))"),false);
+  assert.equal(value(context,'JSON.stringify(state)'),value(context,'before'));
+  value(context,"state.tasks[0].status = 'completed'");
+  assert.equal(value(context,"rescheduleTask('task-1',new Date(2026,6,16,18))"),false);
+});
+
+test('旧任务重新排到次日仍可见，创建日期和习惯责任日期不变', () => {
+  const initial = emptyState([task()]);
+  initial.tasks[0].createdAt = '2026-07-15T12:00:00Z';
+  const {context} = createRuntime(initial);
+  value(context,'renderTasks = () => {}');
+  assert.equal(value(context,"rescheduleTask('task-1',new Date(2026,6,17,0))"),true);
+  assert.equal(value(context,'state.tasks[0].date'),'2026-07-17');
+  assert.equal(value(context,'state.tasks[0].timeStart'),'00:00');
+  assert.equal(value(context,'state.tasks[0].timeEnd'),'01:00');
+  assert.equal(value(context,'todayTasks().length'),1);
+  assert.equal(value(context,'state.tasks[0].createdDate'),DAY);
+});
+
+test('缺少独立责任日期的旧 Habit 任务跨日排期不改变习惯责任日', () => {
+  const initial=emptyState([task()]);
+  Object.assign(initial.tasks[0],{source:'HABIT',originId:'h'});
+  const {context}=createRuntime(initial);
+  value(context,'renderTasks=()=>{}');
+  assert.equal(value(context,"rescheduleTask('task-1',new Date(2026,6,17,0))"),true);
+  assert.equal(value(context,'taskSettlementDay(state.tasks[0])'),DAY);
+  assert.equal(value(context,'dateKey(taskScheduledStartDate(state.tasks[0]))'),'2026-07-17');
+  assert.equal(value(context,'state.history.length'),0);
+});
+
 for (const reward of [5, 10, 20]) {
   test(`固定奖励 ${reward}：直接完成、主动失败、跨天补扣和重载均只结算一次`, () => {
     const make = () => task({ id: 'fixed', coins: reward, reward, hourlyReward: 99 });
@@ -389,12 +467,12 @@ test("新旧任务主动失败均按固定金额十倍扣除，撤回保留旧�
   }
 });
 
-test("默认只有三个空槽但已有更晚任务不会被隐藏", () => {
+test("最多三个小时槽，更晚的已有任务进入其他安排", () => {
   const { context } = createRuntime(emptyState([task({ timeStart: "23:00", timeEnd: "00:00" })]));
   const timeline = value(context, `hourlyTaskTimeline(state.tasks, new Date(2026, 6, 16, 19, 36))`);
-  assert.deepEqual(Array.from(timeline.upcoming, slot => slot.label), ["20:00", "21:00", "22:00", "23:00"]);
+  assert.deepEqual(Array.from(timeline.upcoming, slot => slot.label), ["20:00", "21:00", "22:00"]);
   assert.equal(timeline.upcoming.filter(slot => !slot.tasks.length).length, 3);
-  assert.equal(timeline.upcoming[3].tasks[0].id, "task-1");
+  assert.equal(timeline.other[0].id, "task-1");
 });
 
 test("任务默认奖励为 5，失败统一按奖励乘以 10", () => {
@@ -716,12 +794,11 @@ test("时间轴只显示开始时间并把过时任务与未来任务分开", ()
   const { context } = createRuntime(state);
   const timeline = value(context, `hourlyTaskTimeline(state.tasks, new Date(2026, 6, 16, 12, 30), 4)`);
 
-  assert.equal(timeline.earlier.length, 1);
-  assert.equal(timeline.earlier[0].label, "11:00");
+  assert.equal(timeline.earlier.length, 0);
+  assert.equal(timeline.upcoming[0].label, "11:00");
   assert.equal(timeline.upcoming.some(slot => slot.label.includes("15:00 - 16:00")), false);
-  const sharedSlot = timeline.upcoming.find(slot => slot.label === "15:00");
-  assert.deepEqual(JSON.parse(JSON.stringify(sharedSlot.tasks.map(item => item.name))), ["看书", "整理照片"]);
-  assert.equal(timeline.upcoming.length, 4);
+  assert.deepEqual(JSON.parse(JSON.stringify(timeline.other.map(item => item.name))), ["看书", "整理照片"]);
+  assert.equal(timeline.upcoming.length, 3);
 });
 
 test("习惯和备忘录都能保存到用户指定的整点槽且保持 WAITING", () => {
