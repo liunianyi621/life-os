@@ -442,7 +442,7 @@ test('新任务只接受固定选项，习惯来源编辑也不能改成其他�
 });
 
 test("旧运行任务刷新后直接按固定金额完成，不再按 46 分钟折算", () => {
-  const initial = emptyState([task({ status: "running", timeStart: "20:00", timeEnd: "21:00", startTime: DAY + "T19:17:00Z" })]);
+  const initial = emptyState([task({ status: "running", timeStart: "21:00", timeEnd: "22:00", startTime: DAY + "T19:17:00Z" })]);
   const { context } = createRuntime(initial, { now: DAY + "T20:03:00Z" });
   assert.equal(value(context, "taskUsesTimer(state.tasks[0])"), false);
   value(context, "completeTask('task-1')");
@@ -456,7 +456,7 @@ test("旧运行任务刷新后直接按固定金额完成，不再按 46 分钟�
 
 test("新旧任务主动失败均按固定金额十倍扣除，撤回保留旧计时字段", () => {
   for (const status of ["waiting", "running", "paused"]) {
-    const { context } = createRuntime(emptyState([task({ status, timeStart: "11:00", timeEnd: "12:00", startTime: FIXED_NOW })]));
+    const { context } = createRuntime(emptyState([task({ status, timeStart: "13:00", timeEnd: "14:00", startTime: FIXED_NOW })]));
     value(context, "failTask('task-1')");
     assert.equal(value(context, "state.coins"), 800);
     assert.equal(value(context, "state.history[0].durationSeconds"), 0);
@@ -524,8 +524,8 @@ test("旧计时任务改为固定奖励，失败不读取实际时长", () => {
   const completedRuntime = createRuntime(emptyState([task({
     id: "timed-complete",
     status: "running",
-    timeStart: "11:00",
-    timeEnd: "12:00",
+    timeStart: "13:00",
+    timeEnd: "14:00",
     startTime: "2026-07-16T11:30:00.000Z"
   })]));
   value(completedRuntime.context, `finishTask("timed-complete")`);
@@ -835,16 +835,118 @@ test("习惯和备忘录都能保存到用户指定的整点槽且保持 WAITING
   assert.equal(value(context, "state.history.length"), 0);
 });
 
-test("明确 WAITING 的任务超过计划结束时间也不会自动失败", () => {
+test("旧 WAITING 状态也遵守 slot deadline，但不恢复旧计时器", () => {
   const waiting = task({ id: "waiting-late", status: "waiting", timeStart: "10:00", timeEnd: "11:00" });
   const { context } = createRuntime(emptyState([waiting], 2000));
 
   assert.equal(value(context, `taskPastEndTime(state.tasks[0], new Date(2026, 6, 16, 16, 0))`), false);
-  value(context, `runPendingSettlements({ now: new Date(2026, 6, 16, 16, 0) })`);
-  assert.equal(value(context, "state.tasks[0].status"), "waiting");
-  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "pending");
-  assert.equal(value(context, "state.history.length"), 0);
-  assert.equal(value(context, "state.coins"), 2000);
+  value(context, `runAutomaticChecks({ showToast:false, now: new Date(2026, 6, 16, 16, 0) })`);
+  assert.equal(value(context, "state.tasks[0].status"), "failed");
+  assert.equal(value(context, "taskStatusToday(state.tasks[0])"), "failed");
+  assert.equal(value(context, "state.history.length"), 1);
+  assert.equal(value(context, "state.coins"), 1800);
+});
+
+for (const reward of [5,10,20]) {
+  test(`slot 截止前完成 +${reward}，之后不可再扣款`, () => {
+    const clock={now:new Date(2026,6,16,10,59)};
+    const {context}=createRuntime(emptyState([task({reward,timeStart:'10:00',timeEnd:'11:00'})]),clock);
+    value(context,"completeTask('task-1')");
+    clock.now=new Date(2026,6,16,15);
+    value(context,"runAutomaticChecks({showToast:false}); completeTask('task-1')");
+    assert.equal(value(context,'state.coins'),1000+reward);
+    assert.equal(value(context,'state.history.length'),1);
+  });
+
+  test(`slot 在 11:00 精确失败 -${reward*10}，刷新和重开不重复`, () => {
+    const clock={now:new Date(2026,6,16,10,59,59)};
+    const {context}=createRuntime(emptyState([task({reward,timeStart:'10:00',timeEnd:'11:00'})]),clock);
+    value(context,'runAutomaticChecks({showToast:false})');
+    assert.equal(value(context,'state.coins'),1000);
+    clock.now=new Date(2026,6,16,11);
+    value(context,'runAutomaticChecks({showToast:false}); runPendingSettlements()');
+    assert.equal(value(context,'state.coins'),1000-reward*10);
+    assert.equal(value(context,'state.history[0].reason'),'slot_deadline');
+    const reopened=createRuntime(JSON.parse(value(context,'JSON.stringify(state)')),clock).context;
+    value(reopened,"runAutomaticChecks({showToast:false}); completeTask('task-1'); runPendingSettlements()");
+    assert.equal(value(reopened,'state.coins'),1000-reward*10);
+    assert.equal(value(reopened,'state.history.length'),1);
+    assert.equal(value(reopened,'hourlyTaskTimeline(todayTasks()).upcoming.length'),3);
+  });
+}
+
+test('10:40 从 10 点拖到 12 点，仅新 deadline 13:00 生效', () => {
+  const clock={now:new Date(2026,6,16,10,40)};
+  const {context}=createRuntime(emptyState([task({reward:5,timeStart:'10:00',timeEnd:'11:00'})]),clock);
+  value(context,'renderTasks=()=>{}');
+  assert.equal(value(context,'rescheduleTask("task-1",new Date(2026,6,16,12))'),true);
+  assert.equal(value(context,'state.history.length'),0);
+  assert.equal(value(context,'state.tasks.length'),1);
+  clock.now=new Date(2026,6,16,11);
+  value(context,'runAutomaticChecks({showToast:false})');
+  assert.equal(value(context,'state.coins'),1000);
+  assert.equal(value(context,'taskSlotDeadline(state.tasks[0]).getHours()'),13);
+  clock.now=new Date(2026,6,16,13);
+  value(context,'runAutomaticChecks({showToast:false})');
+  assert.equal(value(context,'state.coins'),950);
+});
+
+test('Habit deadline 与每日 obligation 共用 -50，Memo 失败恢复且不重扣', () => {
+  const clock={now:new Date(2026,6,16,10,40)};
+  const initial=emptyState();
+  initial.habits=[{id:'h',name:'看书',createdDate:DAY}];
+  initial.tasks=[{...task({id:'ht',timeStart:'10:00',timeEnd:'11:00'}),source:'HABIT',originId:'h',sourceHabitScheduledDate:DAY},
+    {...task({id:'mt',reward:5,timeStart:'10:00',timeEnd:'11:00'}),source:'MEMO',originId:'m',sourceMemoId:'m'}];
+  initial.memos=[{id:'m',text:'买牙刷',status:'SCHEDULED',linkedTaskId:'mt'}];
+  const {context}=createRuntime(initial,clock);
+  clock.now=new Date(2026,6,16,11);
+  value(context,'runAutomaticChecks({showToast:false})');
+  assert.equal(value(context,'state.coins'),900);
+  assert.equal(value(context,'state.history.filter(item=>item.type==="habit_failed").length'),1);
+  assert.equal(value(context,'state.history.find(item=>item.type==="habit_failed").reason'),'slot_deadline');
+  assert.equal(value(context,'state.memos[0].status'),'ACTIVE');
+  clock.now=new Date(2026,6,17,9);
+  value(context,'runAutomaticChecks({showToast:false}); runAutomaticChecks({showToast:false})');
+  assert.equal(value(context,'state.coins'),900);
+  assert.equal(value(context,'state.history.length'),2);
+});
+
+for (const [day,nextDay] of [['2026-07-16','2026-07-17'],['2026-07-31','2026-08-01'],['2026-12-31','2027-01-01']]) {
+  test(`本地 23 点截止 ${nextDay} 00:00，跨日只结算一次`, () => {
+    const clock={now:new Date(day+'T23:59:59')};
+    const initial=emptyState([task({date:day,reward:5,timeStart:'23:00',timeEnd:'00:00'})]);
+    initial.fixedRewardRulesSince=day;initial.settledThroughDate=day;
+    const {context}=createRuntime(initial,clock);
+    assert.equal(value(context,'dateKey(taskSlotDeadline(state.tasks[0]))'),nextDay);
+    value(context,'runAutomaticChecks({showToast:false})');assert.equal(value(context,'state.coins'),1000);
+    clock.now=new Date(nextDay+'T00:00:00');
+    value(context,'runAutomaticChecks({showToast:false}); runPendingSettlements()');
+    assert.equal(value(context,'state.coins'),950);assert.equal(value(context,'state.history.length'),1);
+  });
+}
+
+test('deadline 保存失败回滚全批次，不能越过截止点奖励；恢复存储后只扣一次', () => {
+  const clock={now:new Date(2026,6,16,11)};
+  const {context}=createRuntime(emptyState([task({reward:5,timeStart:'10:00',timeEnd:'11:00'})]),clock);
+  const before=value(context,'JSON.stringify(state)');
+  value(context,"originalSetItem=localStorage.setItem; localStorage.setItem=()=>{throw new Error('full')}; runAutomaticChecks({showToast:false}); completeTask('task-1')");
+  assert.equal(value(context,'JSON.stringify(state)'),before);
+  value(context,'localStorage.setItem=originalSetItem; runAutomaticChecks({showToast:false}); runAutomaticChecks({showToast:false})');
+  assert.equal(value(context,'state.coins'),950);
+});
+
+for (const [day,hour,expected] of [['2026-03-29','00:00','2026-03-29T01:00:00.000Z'],['2026-10-25','01:00','2026-10-25T02:00:00.000Z']]) {
+  test(`英国夏令时切换 ${day} 使用本地整点截止`, () => {
+    const {context}=createRuntime(emptyState([task({date:day,timeStart:hour})]));
+    assert.equal(value(context,'taskSlotDeadline(state.tasks[0]).toISOString()'),expected);
+  });
+}
+
+test('已到期任务不能通过重新拖动绕过截止点，也不由 reschedule 直接扣款', () => {
+  const {context}=createRuntime(emptyState([task({timeStart:'10:00',timeEnd:'11:00'})]));
+  const before=value(context,'JSON.stringify(state)');
+  assert.equal(value(context,'rescheduleTask("task-1",new Date(2026,6,16,15))'),false);
+  assert.equal(value(context,'JSON.stringify(state)'),before);
 });
 
 test("习惯拖入后创建下一个整点的等待任务，当天隐藏且不改变习惯和金币", () => {
@@ -1056,7 +1158,7 @@ test("MEMO 任务失败后恢复备忘录，撤回失败后重新关联", () => 
   state.memos = [{ id: "memo-fail", text: "整理签证材料", completed: false, createdAt: FIXED_NOW }];
   const { context } = createRuntime(state);
 
-  const taskId = value(context, `scheduleMemoAsTask("memo-fail", new Date(2026, 6, 16, 10, 0)).id`);
+  const taskId = value(context, `scheduleMemoAsTask("memo-fail", new Date(2026, 6, 16, 13, 0)).id`);
   value(context, `failTask("${taskId}")`);
   assert.equal(value(context, "state.coins"), 1950);
   assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
@@ -1074,7 +1176,7 @@ test("MEMO 任务完成后永久删除备忘录，删除已完成任务不会恢
   state.memos = [{ id: "memo-done", text: "给 Raphael 回消息", completed: false, createdAt: FIXED_NOW }];
   const { context } = createRuntime(state);
 
-  const taskId = value(context, `scheduleMemoAsTask("memo-done", new Date(2026, 6, 16, 10, 0)).id`);
+  const taskId = value(context, `scheduleMemoAsTask("memo-done", new Date(2026, 6, 16, 13, 0)).id`);
   value(context, `startTask("${taskId}")`);
   value(context, `state.tasks[0].startedAt = "2026-07-16T11:00:00.000Z";
     state.tasks[0].actualStartTime = "2026-07-16T11:00:00.000Z";

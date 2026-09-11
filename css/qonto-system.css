@@ -1467,26 +1467,108 @@ body.review-editing .screen {
 }
 
 .q-rewards-page > .section-heading {
-  margin-top: 28px;
+  margin-top: 18px;
+}
+
+.q-rewards-page {
+  --goal-accent: #566c89;
+  --goal-accent-soft: #eef2f6;
+}
+
+.q-rewards-page .header {
+  margin-bottom: 18px;
+}
+
+.q-rewards-page .balance-strip {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.q-rewards-page .balance-strip > span {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.q-rewards-page .balance-strip strong {
+  align-self: auto;
+  font-size: 28px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .q-rewards-page .swipe-card {
-  min-height: 104px;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  min-height: 144px;
+  gap: 14px;
+  padding: 18px;
+}
+
+.q-rewards-page .inline-card-actions {
+  align-self: end;
+}
+
+.q-rewards-page .swipe-action {
+  width: 44px;
+  height: 44px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+}
+
+.fund-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.q-rewards-page .fund-heading h3 {
+  font-size: 20px;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.fund-percentage {
+  flex: 0 0 auto;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.fund-near-goal .fund-percentage {
+  color: var(--goal-accent);
+  background: var(--goal-accent-soft);
+  padding: 3px 7px;
+  border-radius: 8px;
+}
+
+.fund-goal-status {
+  display: block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
 }
 
 .fund-progress {
-  height: 4px;
-  margin-top: 13px;
+  height: 3px;
+  margin-top: 12px;
   overflow: hidden;
   border-radius: 2px;
-  background: #e9e9e9;
+  background: var(--color-surface-muted);
 }
 
 .fund-progress-fill {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--color-text-primary);
+  background: var(--goal-accent);
 }
 
 .fund-progress-meta {
@@ -1497,6 +1579,16 @@ body.review-editing .screen {
   margin-top: 8px;
   color: var(--color-text-secondary);
   font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.fund-completed .fund-progress-fill {
+  background: var(--color-success);
+}
+
+.fund-completed .fund-percentage,
+.fund-completed .fund-goal-status {
+  color: var(--color-success);
 }
 
 .fund-progress-meta strong {

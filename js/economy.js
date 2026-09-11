@@ -165,6 +165,10 @@
       const start = now();
       const change = to - from;
       const tick = timestamp => {
+        if (state.coins !== to) {
+          setCoinReadouts(state.coins);
+          return;
+        }
         const progress = Math.min(1, (timestamp - start) / duration);
         const eased = 1 - Math.pow(1 - progress, 3);
         setCoinReadouts(parseCoinAmount(from + change * eased));
@@ -206,9 +210,9 @@
     }
 
     function completeTask(taskId, sourceEl = null) {
-      runAutomaticChecks({ showToast: false });
+      if (runAutomaticChecks({ showToast: false })) render();
       const task = todayTasks().find(item => item.id === taskId);
-      if (!task || taskIsSettled(task)) return;
+      if (!task || taskIsSettled(task) || taskSlotExpired(task)) return;
       const habitId = taskHabitId(task);
       const habitDate = taskSettlementDay(task);
       if (habitId && (habitCompletedOnDate(habitId, habitDate) || habitFailedOnDate(habitId, habitDate))) return;
@@ -464,25 +468,35 @@
       });
     }
 
-    function failTask(taskId, sourceEl = null) {
-      runAutomaticChecks({ showToast: false });
-      const task = todayTasks().find(item => item.id === taskId);
+    function failTask(taskId, sourceEl = null, options = {}) {
+      const automatic = options.automatic === true;
+      const now = options.now instanceof Date ? options.now : new Date();
+      if (!automatic && runAutomaticChecks({ showToast: false })) render();
+      const task = (automatic ? state.tasks : todayTasks()).find(item => item.id === taskId);
       if (!task || taskIsSettled(task)) return;
-      const before = JSON.stringify(state);
+      if (automatic && taskAutoFailedOnDate(task.id, taskSettlementDay(task), buildSettledEventKeys())) return;
+      const before = automatic ? null : JSON.stringify(state);
       const habitId = taskHabitId(task);
       if (habitId) {
         const habit = state.habits.find(item => item.id === habitId) || { id: habitId, name: task.name };
-        const entry = settleHabitFailure(habit, taskSettlementDay(task), buildSettledEventKeys(), new Date(), false);
+        const entry = settleHabitFailure(habit, taskSettlementDay(task), buildSettledEventKeys(), now, automatic);
+        if (automatic) {
+          if (entry) {
+            const history = state.history.find(item => item.id === entry.historyId);
+            if (history) Object.assign(history, { reason: "slot_deadline", deadline: taskSlotDeadline(task).toISOString() });
+          }
+          return entry ? { habitEntry: entry } : null;
+        }
         if (!entry || !saveTaskAction(before)) return;
         render();
         showUndoToast({ type: "habit_auto_failed", habitEntries: [entry], historyId: entry.historyId, amount: entry.amount }, { message: "习惯未完成" });
         return;
       }
 
-      const today = dateKey();
+      const today = automatic ? taskSettlementDay(task) : dateKey();
       const rewardAmount = taskRewardAmount(task);
       const amount = getIncompletePenalty(rewardAmount);
-      const endTime = new Date().toISOString();
+      const endTime = now.toISOString();
       const actualStartTime = null;
       const durationSeconds = 0;
       const durationMinutes = 0;
@@ -542,13 +556,19 @@
           durationSeconds,
           durationMinutes,
           scheduledStart: task.scheduledStart || null,
-          scheduledEnd: task.scheduledEnd || null
+          scheduledEnd: task.scheduledEnd || null,
+          ...(automatic ? { reason: "slot_deadline", deadline: taskSlotDeadline(task).toISOString() } : {})
         }
       });
       const historyId = coinEvent.historyId;
       const memoSnapshot = typeof releaseMemoForTask === "function"
         ? releaseMemoForTask(task)
         : null;
+      if (automatic) {
+        ensureSettlementDayRecord("taskAutoFailures", today)[task.id] = historyId;
+        return { taskEntry: { historyId, taskId: task.id, date: today, amount, rewardAmount,
+          penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER, previousTask, memoSnapshot } };
+      }
       if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
       prepareActionCard(sourceEl);
@@ -680,13 +700,33 @@
       ));
     }
 
+    function settleTaskSlotDeadlines(now = new Date()) {
+      const taskEntries = [];
+      const habitEntries = [];
+      state.tasks.filter(task => !taskIsSettled(task) && taskSlotExpired(task, now)).forEach(task => {
+        // Reuse the existing failure mutation; the caller saves the entire batch atomically.
+        const result = failTask(task.id, null, { automatic: true, now });
+        if (result?.taskEntry) taskEntries.push(result.taskEntry);
+        if (result?.habitEntry) habitEntries.push(result.habitEntry);
+      });
+      return { taskEntries, habitEntries };
+    }
+
     function runAutomaticChecks(options = {}) {
       const before = JSON.stringify(state);
       const { showToast: shouldShowToast = true } = options;
-      const settlementResult = runPendingSettlements();
+      const now = options.now instanceof Date ? options.now : new Date();
+      const deadlines = settleTaskSlotDeadlines(now);
+      const settlementResult = runPendingSettlements({ now });
       const habitResult = settlementResult.habitFailures;
       const taskResult = settlementResult.taskFailures;
       const priorityResult = settlementResult.priorityFailures;
+      for (const [result, entries] of [[habitResult, deadlines.habitEntries], [taskResult, deadlines.taskEntries]]) {
+        result.entries.push(...entries);
+        result.count += entries.length;
+        result.totalPenalty = parseCoinAmount(result.totalPenalty + entries.reduce((sum, entry) => sum + entry.amount, 0));
+        if (entries.length) settlementResult.changed = true;
+      }
       if (!settlementResult.changed) return false;
 
       if (!saveTaskAction(before)) return false;
@@ -720,7 +760,7 @@
         ];
         const totalPenalty = parseCoinAmount(taskResult.totalPenalty + habitResult.totalPenalty + priorityResult.totalPenalty);
         const reasons = [
-          taskResult.count > 0 ? "任务当天未完成" : "",
+          taskResult.count > 0 ? "任务未完成" : "",
           habitResult.count > 0 ? "习惯未完成" : "",
           priorityResult.count > 0 ? "今天最重要的一件事未完成" : ""
         ].filter(Boolean).join(" / ");

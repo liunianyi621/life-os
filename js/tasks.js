@@ -243,6 +243,16 @@
       return Number.isNaN(start.getTime()) ? null : start;
     }
 
+    function taskSlotDeadline(task) {
+      const start = taskScheduledStartDate(task);
+      return start ? getHourlyRangeFromStart(start).end : null;
+    }
+
+    function taskSlotExpired(task, now = new Date()) {
+      const deadline = taskSlotDeadline(task);
+      return Boolean(deadline && deadline.getTime() <= now.getTime());
+    }
+
     function hourlyTimelineLabel(value, reference = new Date()) {
       const date = new Date(value);
       const now = new Date(reference);
@@ -313,7 +323,7 @@
       if (!scheduledSlotStart) return false;
       const task = state.tasks.find(item => item.id === taskId);
       const range = getHourlyRangeFromStart(scheduledSlotStart);
-      if (!task || taskIsSettled(task) || !range) return false;
+      if (!task || taskIsSettled(task) || taskSlotExpired(task) || !range) return false;
       const previousTasks = state.tasks;
       const timeStart = minutesToClockLabel(range.start.getHours() * 60);
       const timeEnd = minutesToClockLabel(range.end.getHours() * 60);

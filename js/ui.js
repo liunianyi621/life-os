@@ -775,6 +775,7 @@
     }
 
     function render() {
+      scheduleTaskDeadlineCheck();
       updatePrimaryReadouts();
       renderActiveView();
       if (!els.memoBackdrop.classList.contains("hidden")) renderMemos();
@@ -969,6 +970,7 @@
     }
 
     function renderTasks() {
+      scheduleTaskDeadlineCheck();
       // Keep the active touch target mounted until drag cleanup.
       if (activeHabitDrag?.dragging) return;
       const tasksForToday = todayTasks();
@@ -1223,7 +1225,7 @@
       if (!state.rewards.length) {
         els.rewardList.innerHTML = `
           <div class="empty-state">
-            <strong>没有奖励</strong>
+            <strong>还没有基金</strong>
             <p>添加一个值得长期投入的主线基金。</p>
             ${iconActionButtonHtml({
               className: "button icon-only-button empty-action",
@@ -1243,29 +1245,30 @@
         const completed = fundCompleted(reward);
         return swipeRowHtml({
           attrs: `data-reward-card="${escapeAttr(reward.id)}"`,
-          extraClass: completed ? "fund-completed" : "",
+          extraClass: completed ? "fund-completed" : percent >= 90 ? "fund-near-goal" : "",
           editType: "reward",
           editId: reward.id,
           actions: actionButtonHtml({
             tone: completed ? "green" : "blue",
-            icon: completed ? "checkmark.circle" : "plus.circle",
-            label: completed ? "已完成" : "注入金币",
+            icon: completed ? "checkmark.circle" : "plus",
+            label: completed ? "已达成" : `存入「${reward.name}」`,
             attrs: completed ? "" : `data-deposit-fund="${escapeAttr(reward.id)}"`,
             disabled: completed
           }),
           content: `
-            ${rowTileHtml(actionIconHtml(completed ? "checkmark.circle" : "target"), completed ? "green" : "blue", "reward-row-tile")}
             <div class="card-main">
               <div class="title-wrap">
-                <h3>${escapeHtml(reward.name)}</h3>
-                <div class="fund-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${escapeAttr(totalCoins)}" aria-valuenow="${escapeAttr(currentCoins)}" aria-label="${escapeAttr(`${reward.name} 进度`)}">
-                  <span class="fund-progress-fill" style="width: ${percent}%;"></span>
+                <div class="fund-heading">
+                  <h3>${escapeHtml(reward.name)}</h3>
+                  <strong class="fund-percentage">${formatNumber(percent)}%</strong>
                 </div>
                 <div class="fund-progress-meta">
                   <span>${formatFundCoins(currentCoins)} / ${formatFundCoins(totalCoins)} 金币</span>
-                  <strong>${formatNumber(percent)}%</strong>
                 </div>
-                ${completed ? `<span class="fund-complete-pill">已完成</span>` : ""}
+                <div class="fund-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${escapeAttr(totalCoins)}" aria-valuenow="${escapeAttr(currentCoins)}" aria-label="${escapeAttr(`${reward.name} 进度`)}">
+                  <span class="fund-progress-fill" style="width: ${percent}%;"></span>
+                </div>
+                <span class="fund-goal-status">${completed ? "已达成" : `还差 ${formatFundCoins(Math.max(0, totalCoins - currentCoins))} 金币`}</span>
               </div>
             </div>
           `
@@ -1702,20 +1705,48 @@
       }
     });
 
+    let taskDeadlineTimer = null;
+
+    function scheduleTaskDeadlineCheck({ retry = false } = {}) {
+      clearTimeout(taskDeadlineTimer);
+      taskDeadlineTimer = null;
+      if (document.visibilityState !== "visible") return;
+      const deadlines = state.tasks.filter(task => !taskIsSettled(task)).map(taskSlotDeadline).filter(Boolean);
+      if (!deadlines.length) return;
+      const remaining = Math.min(...deadlines.map(deadline => deadline.getTime())) - Date.now();
+      // Retry a failed save gently; this is one deadline wake-up, not a running task timer.
+      const delay = remaining <= 0 ? (retry ? 30000 : 0) : Math.min(remaining, 2147483647);
+      taskDeadlineTimer = window.setTimeout(() => {
+        if (document.visibilityState !== "visible") return;
+        const changed = runAutomaticChecks();
+        if (changed && activeViewName() !== "review") render();
+        else scheduleTaskDeadlineCheck({ retry: !changed });
+      }, delay);
+    }
+
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState !== "visible") {
         clearHabitDrag();
+        clearTimeout(taskDeadlineTimer);
         return;
       }
       const dateChanged = syncLocalDateContext();
-      if (runAutomaticChecks() || dateChanged) render();
+      if ((runAutomaticChecks() && activeViewName() !== "review") || dateChanged) render();
+      scheduleTaskDeadlineCheck();
     });
     window.addEventListener("focus", () => {
       const dateChanged = syncLocalDateContext();
-      if (runAutomaticChecks() || dateChanged) render();
+      if ((runAutomaticChecks() && activeViewName() !== "review") || dateChanged) render();
+      scheduleTaskDeadlineCheck();
     });
     window.addEventListener("blur", clearHabitDrag);
     window.addEventListener("pagehide", clearHabitDrag);
+    window.addEventListener("pagehide", () => clearTimeout(taskDeadlineTimer));
+    window.addEventListener("pageshow", () => {
+      const dateChanged = syncLocalDateContext();
+      if ((runAutomaticChecks() && activeViewName() !== "review") || dateChanged) render();
+      scheduleTaskDeadlineCheck();
+    });
 
     document.addEventListener("selectstart", event => {
       if (event.target.closest?.("[data-habit-card], [data-reschedule-task]")) event.preventDefault();
