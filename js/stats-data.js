@@ -183,7 +183,7 @@
           key,
           label: `${monthDate.getMonth() + 1}月`,
           score: scores.length
-            ? Math.round((scores.reduce((total, score) => total + score, 0) / scores.length) * 10) / 10
+            ? scores.reduce((total, score) => total + score, 0) / scores.length
             : null,
           ratedCount: scores.length
         };

@@ -515,10 +515,24 @@
       `;
     }
 
-    function dailyScoreTrendWidth(trend) {
-      if (trend.range === "month") return 660;
-      if (trend.range === "year") return 480;
-      return 320;
+    function dailyScoreTickIndexes(rows, range) {
+      const count = range === "week" ? rows.length : Math.min(5, rows.length);
+      return Array.from({ length: count }, (_, index) => Math.round(index * (rows.length - 1) / Math.max(1, count - 1)));
+    }
+
+    function dailyScoreSegments(rows) {
+      const segments = [];
+      let segment = [];
+      rows.forEach((row, index) => {
+        if (row.score === null) {
+          if (segment.length) segments.push(segment);
+          segment = [];
+        } else {
+          segment.push({ x: (index + 0.5) / rows.length * 100, y: (10 - row.score) / 9 * 100 });
+        }
+      });
+      if (segment.length) segments.push(segment);
+      return segments;
     }
 
     function dailyScorePointLabel(row, range) {
@@ -529,46 +543,48 @@
     function dailyScoreTooltipHtml(row, range) {
       if (!row) return "";
       const label = dailyScorePointLabel(row, range);
-      const score = row.score === null ? "未评分" : `${formatNumber(row.score)} / 10`;
+      const score = row.score === null ? "未评分" : `${range === "year" ? row.score.toFixed(1) : formatNumber(row.score)} / 10`;
       const scoreLabel = range === "year" ? "月平均评分" : "今日评分";
-      return `<div class="daily-score-tooltip" id="dailyScoreTrendTooltip"><strong>${escapeHtml(label)}</strong><span>${scoreLabel}：${escapeHtml(score)}</span></div>`;
+      return `<div class="daily-score-tooltip" id="dailyScoreTrendTooltip"><strong>${escapeHtml(label)}</strong><span>${scoreLabel}：${escapeHtml(score)}${range === "year" ? ` · ${row.ratedCount} 天` : ""}</span></div>`;
     }
 
     function renderDailyScoreTrend(trend) {
       if (!els.dailyScoreTrendChart) return;
-      const width = dailyScoreTrendWidth(trend);
       const rows = trend.rows || [];
-      const ticks = new Set(trendDateTickIndexes(rows));
+      const ticks = new Set(dailyScoreTickIndexes(rows, trend.range));
       const selectedRow = rows.find(row => row.key === selectedDailyScoreTrendKey) || null;
-      const gridTemplate = `repeat(${rows.length}, minmax(${trend.range === "month" ? 12 : 18}px, 1fr))`;
+      const gridTemplate = `repeat(${rows.length}, minmax(0, 1fr))`;
       const summary = trend.ratedCount
-        ? `<div class="daily-score-summary"><strong>平均评分：${Number(trend.average).toFixed(1)}</strong><span>已评分：${trend.ratedCount} 天</span></div>`
+        ? `<div class="daily-score-summary"><strong>平均 ${Number(trend.average).toFixed(1)}</strong><span>已评分 ${trend.ratedCount}${trend.range === "week" ? "/7" : ""} 天</span></div>`
         : `<div class="daily-score-summary empty">该周期暂无评分</div>`;
 
       els.dailyScoreTrendChart.innerHTML = `
-        <div class="daily-score-chart" style="--trend-width: ${width}px;" aria-label="每日评分趋势">
-          <div class="daily-score-plot" role="img" aria-label="每日评分趋势，满分 10 分">
-            <span class="daily-score-reference daily-score-reference--ten" aria-hidden="true"><i></i><b>10</b></span>
-            <span class="daily-score-reference daily-score-reference--five" aria-hidden="true"><i></i><b>5</b></span>
-            <div class="daily-score-bars" style="grid-template-columns: ${gridTemplate};">
+        <div class="daily-score-chart" aria-label="每日评分趋势">
+          <div class="daily-score-plot" role="group" aria-label="每日评分趋势，固定 1 到 10 分，缺失评分保留空白">
+            ${[10, 5, 1].map(score => `<span class="daily-score-reference" style="top: ${(10 - score) / 9 * 100}%;" aria-hidden="true"><b>${score}</b><i></i></span>`).join("")}
+            <svg class="daily-score-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              ${dailyScoreSegments(rows).filter(segment => segment.length > 1).map(segment => `<polyline points="${segment.map(point => `${point.x},${point.y}`).join(" ")}" />`).join("")}
+            </svg>
+            <div class="daily-score-points" style="grid-template-columns: ${gridTemplate};">
               ${rows.map(row => {
                 const score = row.score;
-                const scoreText = score === null ? "未评分" : `${formatNumber(score)} / 10`;
+                const displayScore = score === null ? "" : trend.range === "year" ? score.toFixed(1) : formatNumber(score);
+                const scoreText = score === null ? "未评分" : `${displayScore} / 10`;
                 const label = dailyScorePointLabel(row, trend.range);
                 const selected = row.key === selectedDailyScoreTrendKey;
-                const today = trend.range !== "year" && row.key === dateKey();
                 return `
-                  <button class="daily-score-point${selected ? " selected" : ""}${today ? " today" : ""}${score === null ? " unscored" : ""}" type="button" data-score-trend-point data-score-key="${escapeAttr(row.key)}" data-score-label="${escapeAttr(label)}" data-score-name="${trend.range === "year" ? "月平均评分" : "今日评分"}" data-score-value="${score === null ? "" : escapeAttr(score)}" aria-label="${escapeAttr(`${label}，${trend.range === "year" ? "月平均评分" : "今日评分"}：${scoreText}`)}" title="${escapeAttr(`${label}：${scoreText}`)}">
-                    ${score === null ? "" : `<span class="daily-score-bar" style="height: ${(score / trend.maxScore * 100).toFixed(1)}%;"></span>`}
+                  <button class="daily-score-point${selected ? " selected" : ""}${score === null ? " unscored" : ""}" type="button" data-score-trend-point data-score-key="${escapeAttr(row.key)}" data-score-label="${escapeAttr(label)}" data-score-count="${trend.range === "year" ? row.ratedCount : ""}" data-score-name="${trend.range === "year" ? "月平均评分" : "今日评分"}" data-score-value="${escapeAttr(displayScore)}" aria-pressed="${selected}" aria-label="${escapeAttr(`${label}，${trend.range === "year" ? "月平均评分" : "今日评分"}：${scoreText}`)}">
+                    ${score === null ? "" : `<span class="daily-score-dot" style="top: ${(10 - score) / 9 * 100}%;"></span>`}
                   </button>
                 `;
               }).join("")}
             </div>
           </div>
-          <div class="daily-score-axis" style="grid-template-columns: ${gridTemplate};" aria-label="评分日期">
-            ${rows.map((row, index) => `<span>${ticks.has(index) ? escapeHtml(row.label) : ""}</span>`).join("")}
+          ${!trend.ratedCount ? `<span class="daily-score-empty">暂无评分</span>` : ""}
+          <div class="daily-score-axis" aria-label="评分日期">
+            ${rows.map((row, index) => ticks.has(index) ? `<span style="left: ${(index + 0.5) / rows.length * 100}%;">${escapeHtml(row.label)}</span>` : "").join("")}
           </div>
-          <div class="daily-score-tooltip-slot">${dailyScoreTooltipHtml(selectedRow, trend.range)}</div>
+          <div class="daily-score-tooltip-slot" aria-live="polite">${dailyScoreTooltipHtml(selectedRow, trend.range)}</div>
           ${summary}
         </div>
       `;
@@ -579,12 +595,13 @@
       selectedDailyScoreTrendKey = button.dataset.scoreKey || null;
       els.dailyScoreTrendChart.querySelectorAll("[data-score-trend-point]").forEach(point => {
         point.classList.toggle("selected", point === button);
+        point.setAttribute("aria-pressed", String(point === button));
       });
       const value = button.dataset.scoreValue;
       const tooltip = `
         <div class="daily-score-tooltip" id="dailyScoreTrendTooltip">
           <strong>${escapeHtml(button.dataset.scoreLabel || "")}</strong>
-          <span>${escapeHtml(button.dataset.scoreName || "今日评分")}：${value === "" ? "未评分" : `${escapeHtml(value)} / 10`}</span>
+          <span>${escapeHtml(button.dataset.scoreName || "今日评分")}：${value === "" ? "未评分" : `${escapeHtml(value)} / 10`}${button.dataset.scoreCount ? ` · ${escapeHtml(button.dataset.scoreCount)} 天` : ""}</span>
         </div>
       `;
       const slot = els.dailyScoreTrendChart.querySelector(".daily-score-tooltip-slot");

@@ -235,9 +235,10 @@ test("评分趋势按日保留缺失值，按月忽略未评分并固定 10 分�
 
   value(context, `renderDailyScoreTrend(buildDailyScoreTrend("week", state.dailyReviews, new Date("${FIXED_NOW}")))`);
   assert.match(context.els.dailyScoreTrendChart.innerHTML, /每日评分趋势/);
-  assert.match(context.els.dailyScoreTrendChart.innerHTML, /平均评分：5\.5/);
-  assert.match(context.els.dailyScoreTrendChart.innerHTML, /daily-score-reference--ten/);
-  assert.match(context.els.dailyScoreTrendChart.innerHTML, /height: 100\.0%;/);
+  assert.match(context.els.dailyScoreTrendChart.innerHTML, /平均 5\.5/);
+  assert.match(context.els.dailyScoreTrendChart.innerHTML, /固定 1 到 10 分/);
+  assert.match(context.els.dailyScoreTrendChart.innerHTML, /daily-score-dot/);
+  assert.doesNotMatch(context.els.dailyScoreTrendChart.innerHTML, /<polyline/);
   assert.doesNotMatch(context.els.dailyScoreTrendChart.innerHTML, /完成|坏习惯|专注/);
 });
 
@@ -251,8 +252,38 @@ test("统计页只挂载每日评分趋势，不再挂载旧习惯趋势模块",
 test("保存评分后会立即刷新已挂载的评分图", () => {
   const { context } = createRuntime(createState(), { withStats: true });
   value(context, `saveDailyReview({ best: "完成", dailyScore: 9 }, "${TODAY}")`);
-  assert.match(context.els.dailyScoreTrendChart.innerHTML, /平均评分：9\.0/);
-  assert.match(context.els.dailyScoreTrendChart.innerHTML, /已评分：1 天/);
+  assert.match(context.els.dailyScoreTrendChart.innerHTML, /平均 9\.0/);
+  assert.match(context.els.dailyScoreTrendChart.innerHTML, /已评分 1\/7 天/);
+});
+
+test("评分折线只连接相邻真实评分，单点和缺失月份保持独立", () => {
+  const { context } = createRuntime(createState(), { withStats: true });
+  const segments = JSON.parse(JSON.stringify(value(context, `dailyScoreSegments([
+    {score: 1}, {score: 10}, {score: null}, {score: 7}, {score: null}
+  ])`)));
+  assert.deepEqual(segments.map(segment => segment.length), [2, 1]);
+  assert.equal(segments[0][0].y, 100);
+  assert.equal(segments[0][1].y, 0);
+  assert.equal(value(context, `dailyScoreTickIndexes(Array(30).fill({}), "month").length`), 5);
+  assert.equal(value(context, `dailyScoreTickIndexes(Array(12).fill({}), "year").length`), 5);
+  assert.equal(value(context, `dailyScoreTickIndexes(Array(7).fill({}), "week").length`), 7);
+});
+
+test("月均分保留精度，全年平均按真实评分天数加权，编辑后重算且不写历史", () => {
+  const reviews = {
+    "2026-07-01": {dailyScore: 1}, "2026-07-02": {dailyScore: 1},
+    "2026-07-03": {dailyScore: 2}, "2026-08-01": {dailyScore: 2},
+    "2026-08-02": {}, "2026-08-03": {dailyScore: null}
+  };
+  const { context } = createRuntime(createState({dailyReviews: reviews}), {withStats: true});
+  assert.equal(value(context, `buildDailyScoreTrend("year", state.dailyReviews, new Date("${FIXED_NOW}")).average`), 1.5);
+  assert.equal(value(context, `buildDailyScoreTrend("year", state.dailyReviews, new Date("${FIXED_NOW}")).ratedCount`), 4);
+  assert.equal(value(context, `buildDailyScoreTrend("year", state.dailyReviews, new Date("${FIXED_NOW}")).rows.find(r => r.key === "2026-07").score`), 4 / 3);
+  const before = value(context, `JSON.stringify(state)`);
+  value(context, `renderDailyScoreTrend(buildDailyScoreTrend("year", state.dailyReviews, new Date("${FIXED_NOW}")))`);
+  assert.equal(value(context, `JSON.stringify(state)`), before);
+  value(context, `state.dailyReviews["2026-08-01"].dailyScore = 10`);
+  assert.equal(value(context, `buildDailyScoreTrend("year", state.dailyReviews, new Date("${FIXED_NOW}")).average`), 3.5);
 });
 
 test("本地日期 helper 跨夏令时边界仍写入正确次日", () => {

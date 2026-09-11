@@ -13,7 +13,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20260911-deadline-funds">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20260911-score-trend">
 </head>
 <body>
   <div class="app q-app">
@@ -235,14 +235,13 @@
         <section class="card chart-card q-chart-section" aria-label="每日评分趋势">
           <div class="chart-title">
             <h2>每日评分趋势</h2>
-            <span>1–10 分</span>
           </div>
           <div class="segmented trend-range" aria-label="统计范围">
             <button class="segment-button active" data-stats-range="week" type="button">最近一周</button>
             <button class="segment-button" data-stats-range="month" type="button">最近一月</button>
             <button class="segment-button" data-stats-range="year" type="button">最近一年</button>
           </div>
-          <div class="chart-scroll" id="dailyScoreTrendChart"></div>
+          <div class="daily-score-container" id="dailyScoreTrendChart"></div>
         </section>
 
         <section class="q-tool-row" aria-label="数据备份">
@@ -376,8 +375,8 @@
   <script src="js/habits.js?v=20260910-fixed-rewards"></script>
   <script src="js/economy.js?v=20260911-deadline-funds"></script>
   <script src="js/settlement.js?v=20260910-fixed-rewards"></script>
-  <script src="js/stats-data.js"></script>
-  <script src="js/stats.js"></script>
+  <script src="js/stats-data.js?v=20260911-score-trend"></script>
+  <script src="js/stats.js?v=20260911-score-trend"></script>
   <script src="js/ui/elements.js?v=20260828-memo-task-chips"></script>
   <script src="js/ui/feedback.js?v=20260910-execution"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>

@@ -1902,36 +1902,39 @@ body.review-editing .screen {
   font-size: 12px;
 }
 
+.daily-score-container,
 .daily-score-chart {
-  width: max(100%, var(--trend-width, 320px));
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .daily-score-plot {
   position: relative;
-  height: 172px;
-  margin-top: 4px;
-  border-bottom: 1px solid var(--color-border);
+  height: 144px;
+  margin: 16px 12px 0 28px;
 }
 
 .daily-score-reference {
   position: absolute;
-  right: 8px;
-  left: 24px;
+  right: 0;
+  left: -28px;
   display: flex;
   align-items: center;
   gap: 7px;
   color: var(--color-text-tertiary);
-  font-size: 10px;
+  font-size: 12px;
+  transform: translateY(-50%);
   pointer-events: none;
 }
-
-.daily-score-reference--ten { top: 8px; }
-.daily-score-reference--five { top: 50%; }
 
 .daily-score-reference i {
   flex: 1;
   height: 1px;
-  background: #ededed;
+  background: var(--color-border);
+  opacity: 0.5;
 }
 
 .daily-score-reference b {
@@ -1940,71 +1943,107 @@ body.review-editing .screen {
   text-align: right;
 }
 
-.daily-score-bars {
+.daily-score-lines,
+.daily-score-points {
   position: absolute;
-  inset: 8px 30px 0 24px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.daily-score-lines {
+  pointer-events: none;
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 1.5px;
+}
+
+.daily-score-lines polyline {
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.daily-score-points {
   display: grid;
-  align-items: end;
 }
 
 .daily-score-point {
-  display: flex;
+  position: relative;
   min-width: 0;
   height: 100%;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0 2px;
+  padding: 0;
   border: 0;
   background: transparent;
+  touch-action: manipulation;
 }
 
-.daily-score-bar {
-  width: min(13px, 72%);
-  min-height: 5px;
-  border-radius: 5px 5px 1px 1px;
-  background: #667784;
-  transition: background 160ms ease, opacity 160ms ease;
+.daily-score-dot {
+  position: absolute;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-success);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
-.daily-score-point.today .daily-score-bar {
-  background: #2f80ed;
-}
-
-.daily-score-point.selected .daily-score-bar {
-  background: #171717;
+.daily-score-point.selected .daily-score-dot {
+  outline: 2px solid var(--color-success);
+  outline-offset: 2px;
 }
 
 .daily-score-point:focus-visible {
-  outline: 2px solid #2b2b2b;
+  outline: 2px solid var(--color-success);
   outline-offset: -2px;
 }
 
 .daily-score-axis {
-  display: grid;
+  position: relative;
   min-height: 31px;
-  margin: 0 30px 0 24px;
+  margin: 0 12px 0 28px;
   color: var(--color-text-tertiary);
-  font-size: 10px;
+  font-size: 12px;
   text-align: center;
 }
 
 .daily-score-axis span {
+  position: absolute;
   overflow: visible;
-  padding-top: 7px;
+  padding-top: 10px;
   white-space: nowrap;
+  transform: translateX(-50%);
 }
 
-.daily-score-tooltip-slot:empty {
-  display: none;
+.daily-score-axis span:first-child { transform: none; }
+.daily-score-axis span:last-child { transform: translateX(-100%); }
+
+.daily-score-tooltip-slot {
+  min-height: 42px;
+}
+
+.daily-score-empty {
+  position: absolute;
+  top: 70px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  pointer-events: none;
 }
 
 .daily-score-tooltip {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px;
+  flex-wrap: wrap;
   border-radius: var(--radius-sm);
   background: var(--color-surface-muted);
   color: var(--color-text-secondary);
@@ -2020,8 +2059,9 @@ body.review-editing .screen {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
   color: var(--color-text-secondary);
   font-size: 13px;
 }
