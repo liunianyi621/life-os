@@ -221,7 +221,7 @@
       const category = normalizeCalendarCategory(event || defaults);
       sheetMode = "calendar-event";
       editingId = event?.id || null;
-      els.sheetTitle.textContent = event ? "编辑计划" : "新增计划";
+      els.sheetTitle.textContent = event ? "编辑计划" : "新建计划";
       els.sheetForm.innerHTML = keyboardFormSheetHtml({
         bodyHtml: `
           <label class="calendar-title-field">
@@ -230,23 +230,28 @@
           <div class="calendar-date-fields calendar-date-fields-compact">
             <label class="field">
               <span class="field-label">开始日期</span>
-              <input name="startDate" type="date" value="${escapeAttr(startDate)}" required>
+              <span class="calendar-native-date"><span data-calendar-date-label="startDate">${escapeHtml(journalDateLabel(startDate).split(" · ")[0])}</span><input name="startDate" type="date" value="${escapeAttr(startDate)}" aria-label="开始日期" required></span>
             </label>
             <label class="field">
               <span class="field-label">结束日期</span>
-              <input name="endDate" type="date" value="${escapeAttr(endDate)}" required>
+              <span class="calendar-native-date"><span data-calendar-date-label="endDate">${escapeHtml(journalDateLabel(endDate).split(" · ")[0])}</span><input name="endDate" type="date" value="${escapeAttr(endDate)}" aria-label="结束日期" required></span>
             </label>
           </div>
           ${calendarCategoryControlHtml(category)}
         `,
-        submitLabel: event ? "保存计划" : "创建计划",
+        submitLabel: "保存计划",
         dangerHtml: event
           ? deleteSheetButtonHtml({ action: "calendar-event", id: event.id, label: "删除计划" })
           : ""
       });
-      openSheet({ position: "top", kind: "calendar-event", keyboardForm: true });
-      focusSheetField("input[name='title']");
+      openSheet({ position: "bottom", kind: "calendar-event", keyboardForm: true });
     }
+
+    document.addEventListener("change", event => {
+      if (sheetMode !== "calendar-event" || !event.target.matches("input[type='date']")) return;
+      const label = els.sheetForm.querySelector(`[data-calendar-date-label="${event.target.name}"]`);
+      if (label && event.target.value) label.textContent = journalDateLabel(event.target.value).split(" · ")[0];
+    });
 
     function openCalendarEventActionSheet(eventId) {
       const event = calendarEventById(eventId);

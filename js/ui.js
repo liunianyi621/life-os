@@ -664,6 +664,7 @@
       }
       if (Math.abs(deltaX) < 42 || Math.abs(deltaX) < Math.abs(deltaY)) return;
       currentCalendarMonth = shiftMonthKey(currentCalendarMonth, deltaX < 0 ? 1 : -1);
+      calendarHasSelection = false;
       selectedCalendarDate = dateKey(monthDateFromKey(currentCalendarMonth));
       suppressCalendarEventTap = true;
       renderCalendar();
@@ -1037,67 +1038,57 @@
         month: "long",
         day: "numeric"
       }).format(dateFromKey(day));
-      if (day < dateKey()) return `${dateLabel}，已有${eventCount}个计划，查看当日计划`;
-      return eventCount
-        ? `${dateLabel}，已有${eventCount}个计划，点击空白区域新增计划`
-        : `${dateLabel}，点击新增计划`;
+      return `${dateLabel}，已有${eventCount}个计划，${calendarHasSelection && day === selectedCalendarDate ? "再次点击新增计划" : "选择日期"}`;
     }
 
+    let calendarHasSelection = false;
     function openCalendarDateForCreate(day) {
+      const create = calendarHasSelection && selectedCalendarDate === normalizeCalendarDate(day);
       selectedCalendarDate = normalizeCalendarDate(day);
+      calendarHasSelection = true;
       renderCalendar();
-      if (selectedCalendarDate >= dateKey()) openCalendarEventSheet(null, { date: selectedCalendarDate });
+      if (create) openCalendarEventSheet(null, { date: selectedCalendarDate });
     }
 
-    function calendarSegmentHtml(event, day) {
-      const startsHere = event.startDate === day;
-      const endsHere = event.endDate === day;
-      const weekStart = dateFromKey(day).getDay() === 1;
-      const weekEnd = dateFromKey(day).getDay() === 0;
-      const isRange = event.startDate !== event.endDate;
-      const classes = [
-        "calendar-event-segment",
-        `calendar-event-${event.category}`,
-        isRange ? "calendar-event-range" : "calendar-event-single",
-        startsHere || (isRange && weekStart) ? "segment-start" : "",
-        endsHere || (isRange && weekEnd) ? "segment-end" : "",
-        !startsHere && !endsHere && !weekStart && !weekEnd ? "segment-middle" : ""
-      ].filter(Boolean).join(" ");
-      const text = startsHere || weekStart ? escapeHtml(event.title) : "";
-      return `
-        <button
-          class="${classes}"
-          type="button"
-          data-calendar-event="${escapeAttr(event.id)}"
-          aria-label="编辑计划：${escapeAttr(event.title)}"
-          title="${escapeAttr(event.title)}"
-        >${text}</button>
-      `;
+    function buildWeeklyEventSegments(days, events) {
+      const occupied = [];
+      return events.filter(event => event.startDate <= days[6] && event.endDate >= days[0])
+        .slice().sort((a,b) => a.startDate.localeCompare(b.startDate) || b.endDate.localeCompare(a.endDate) || a.id.localeCompare(b.id))
+        .map(event => {
+          const start = Math.max(0, days.findIndex(day => day >= event.startDate));
+          const end = days.findLastIndex(day => day <= event.endDate);
+          let lane = 0;
+          while (occupied[lane]?.some(([a,b]) => start <= b && end >= a)) lane++;
+          (occupied[lane] ||= []).push([start,end]);
+          return {event,start,end,lane,startsHere:event.startDate === days[start]};
+        });
+    }
+
+    function renderCalendarWeek(days, activeMonth, eventsByDate) {
+      const events = [...new Map(days.flatMap(day => eventsByDate.get(day) || []).map(event => [event.id,event])).values()];
+      const segments = buildWeeklyEventSegments(days,events);
+      return `<div class="calendar-week">
+        <div class="calendar-week-days">${days.map(day => {
+          const events = eventsByDate.get(day) || [];
+          return `<article class="calendar-day-cell${day.slice(0,7) === activeMonth ? "" : " outside-month"}${day === dateKey() ? " today" : ""}${calendarHasSelection && day === selectedCalendarDate ? " selected" : ""}" data-calendar-day="${escapeAttr(day)}">
+            <button class="calendar-day-number" type="button" data-calendar-day="${escapeAttr(day)}" aria-label="${escapeAttr(calendarDayAccessibilityLabel(day, events.length))}" aria-pressed="${calendarHasSelection && day === selectedCalendarDate}">${Number(day.slice(-2))}</button>
+          </article>`;
+        }).join("")}</div>
+        <div class="calendar-week-events">${segments.filter(s => s.lane < 3).map(s => `<button type="button" class="calendar-event-segment calendar-event-range calendar-event-${escapeAttr(s.event.category)}${s.startsHere ? " event-origin" : " event-continuation"}" style="grid-column:${s.start+1}/${s.end+2};grid-row:${s.lane+1}" data-calendar-event="${escapeAttr(s.event.id)}" aria-label="编辑计划：${escapeAttr(s.event.title)}">${escapeHtml(s.event.title)}</button>`).join("")}
+        ${days.map((day,col) => { const count=segments.filter(s=>s.lane>=3 && s.start<=col && s.end>=col).length;return count ? `<button class="calendar-more-events" style="grid-column:${col+1};grid-row:4" data-calendar-more="${escapeAttr(day)}" aria-label="查看其他${count}个计划">+${count}</button>` : ""; }).join("")}</div>
+      </div>`;
     }
 
     function renderCalendar() {
       if (!els.calendarGrid || !els.calendarMonthLabel) return;
       const activeMonth = currentCalendarMonth || monthKey();
-      const today = dateKey();
       const gridDays = calendarGridDays(activeMonth);
       const eventsByDate = calendarEventsForDates(gridDays);
       els.calendarMonthLabel.textContent = calendarMonthLabel(activeMonth);
       if (els.calendarYearLabel) els.calendarYearLabel.textContent = calendarYearLabel(activeMonth);
-      els.calendarGrid.innerHTML = gridDays.map(day => {
-        const inCurrentMonth = day.slice(0, 7) === activeMonth;
-        const isToday = day === today;
-        const isSelected = day === selectedCalendarDate;
-        const events = eventsByDate.get(day) || [];
-        return `
-          <article class="calendar-day-cell${inCurrentMonth ? "" : " outside-month"}${isToday ? " today" : ""}${isSelected ? " selected" : ""}" data-calendar-day="${escapeAttr(day)}">
-            <button class="calendar-day-number" type="button" data-calendar-day="${escapeAttr(day)}" aria-label="${escapeAttr(calendarDayAccessibilityLabel(day, events.length))}">${Number(day.slice(-2))}</button>
-            <div class="calendar-day-events">
-              ${events.slice(0, 3).map(event => calendarSegmentHtml(event, day)).join("")}
-              ${events.length > 3 ? `<button class="calendar-more-events" type="button" data-calendar-more="${escapeAttr(day)}" aria-label="查看${events.length}个计划">+${events.length - 3}</button>` : ""}
-            </div>
-          </article>
-        `;
-      }).join("");
+      const weeks = [];
+      for (let i=0;i<gridDays.length;i+=7) weeks.push(gridDays.slice(i,i+7));
+      els.calendarGrid.innerHTML = weeks.map(days => renderCalendarWeek(days,activeMonth,eventsByDate)).join("");
       renderSelectedCalendarPlans();
     }
 
@@ -1410,6 +1401,7 @@
         return;
       }
       if (calendarTodayButton) {
+        calendarHasSelection = true;
         currentCalendarMonth = monthKey();
         selectedCalendarDate = dateKey();
         renderCalendar();
@@ -1425,6 +1417,7 @@
         return;
       }
       if (calendarMonthButton) {
+        calendarHasSelection = false;
         currentCalendarMonth = shiftMonthKey(
           currentCalendarMonth,
           calendarMonthButton.dataset.calendarMonth === "next" ? 1 : -1
@@ -1448,6 +1441,7 @@
         return;
       }
       if (calendarAddSelectedButton) {
+        calendarHasSelection = true;
         openCalendarEventSheet(null, { date: selectedCalendarDate });
         return;
       }
@@ -1457,6 +1451,7 @@
         return;
       }
       if (calendarMoreButton) {
+        calendarHasSelection = true;
         selectedCalendarDate = normalizeCalendarDate(calendarMoreButton.dataset.calendarMore);
         renderCalendar();
         return;

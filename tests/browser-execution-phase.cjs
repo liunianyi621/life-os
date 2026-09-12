@@ -69,6 +69,8 @@ const server = http.createServer((req,res) => {
       assert.equal(await page.locator('#sheetBackdrop').isVisible(),true);
       await page.evaluate(() => closeSheet());
       await page.locator('button[data-calendar-day="2026-09-11"]').click();
+      assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
+      await page.locator('button[data-calendar-day="2026-09-11"]').click();
       assert.equal(await page.locator('#sheetBackdrop').isVisible(),true);
       await page.evaluate(() => closeSheet());
       await page.locator('[data-nav="review"]').click();
