@@ -2107,7 +2107,19 @@ body.review-editing .screen {
   justify-content: flex-start;
 }
 
-.settings-entry { color: var(--color-text-secondary); }
+.settings-entry {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  align-self: center;
+  padding: 11px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text-secondary);
+}
+.settings-entry .sf-icon { width: 22px; height: 22px; }
+.settings-entry .sf-icon path:last-child { transform: translate(1px, .5px); }
 
 .q-settings-page .q-page-header { align-items: center; gap: 16px; }
 .q-settings-page .q-page-header h1 { min-width: 0; font-size: 30px; }
@@ -3657,6 +3669,33 @@ body.keyboard-open .keyboard-form-sheet__footer .q-primary-button {
 .contextual-undo-host.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+.contextual-undo-host.is-task-completion {
+  top: calc(env(safe-area-inset-top) + 8px);
+  right: 0;
+  left: 0;
+  max-width: none;
+  display: flex;
+  justify-content: center;
+}
+.is-task-completion .contextual-undo-capsule {
+  min-height: 44px;
+  gap: 12px;
+  padding: 0 14px;
+  box-shadow: none;
+  font-weight: 500;
+}
+.is-task-completion [data-contextual-undo] {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
 }
 
 .contextual-undo-capsule {

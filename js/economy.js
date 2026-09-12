@@ -274,10 +274,7 @@
       clearNextStepForTask(taskId);
       if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
-      prepareActionCard(sourceEl);
-      if (sourceEl) sourceEl.classList.add("task-exit-success");
-      showCoinFeedback(earnedCoins, "positive", sourceEl, { flash: false });
-      scheduleRender(sourceEl ? 380 : 0);
+      scheduleRender(0);
       showTaskRewardToast({
         earnedCoins,
         undoData: {
@@ -1508,7 +1505,7 @@
     }
 
     function undoTaskAnchor(undoData = {}) {
-      const taskTypes = new Set(["task_completed", "task_failed"]);
+      const taskTypes = new Set(["task_failed"]);
       if (!taskTypes.has(undoData.type) || !undoData.taskId) return null;
       const task = state.tasks.find(item => item.id === undoData.taskId);
       return task ? { kind: "task", id: task.id, task: { ...task } } : null;

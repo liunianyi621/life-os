@@ -133,14 +133,14 @@
       }, 180);
     }
 
-    function renderTopNotice({ message, tone = "neutral", undo = false }) {
+    function renderTopNotice({ message, tone = "neutral", undo = false, completed = false }) {
       if (!els.toast) return;
       clearTimeout(hideTopNotice.timer);
       syncContextualUndoPosition();
       els.toast.textContent = "";
-      els.toast.className = "contextual-undo-host";
-      const capsule = document.createElement(undo ? "button" : "div");
-      if (undo) {
+      els.toast.className = `contextual-undo-host${completed ? " is-task-completion" : ""}`;
+      const capsule = document.createElement(undo && !completed ? "button" : "div");
+      if (undo && !completed) {
         capsule.type = "button";
         capsule.dataset.contextualUndo = "";
         capsule.setAttribute("aria-label", "撤回上一步操作");
@@ -149,6 +149,14 @@
       }
       capsule.className = `contextual-undo-capsule${undo ? " is-undo" : " is-notice"}${tone === "error" ? " is-error" : ""}`;
       capsule.textContent = message;
+      if (completed) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.contextualUndo = "";
+        button.setAttribute("aria-label", "撤回上一步操作");
+        button.textContent = "撤回";
+        capsule.append(button);
+      }
       els.toast.append(capsule);
       window.requestAnimationFrame(() => els.toast.classList.add("show"));
     }
@@ -174,7 +182,8 @@
       function renderGlobal() {
         if (!current || current.mode !== "global") return;
         const label = current.amountLabel ? `${current.amountLabel} · 撤回` : "撤回";
-        renderTopNotice({ message: label, undo: true });
+        const completed = current.actionId.startsWith("task_completed:");
+        renderTopNotice({ message: completed ? "已完成" : label, undo: true, completed });
         els.toast.classList.toggle("is-exiting", Boolean(current.exiting));
       }
 
