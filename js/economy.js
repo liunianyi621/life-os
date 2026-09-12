@@ -184,7 +184,7 @@
       const totals = summaryTotals();
       setCoinReadouts(state.coins);
       if (els.homeStreak) els.homeStreak.textContent = formatNumber(streak);
-      els.todayTaskCount.textContent = `${activeCount} 项`;
+      if (els.todayTaskCount) els.todayTaskCount.textContent = `${activeCount} 项`;
       if (els.statStreak) els.statStreak.textContent = formatNumber(streak);
       if (els.statCompleted) els.statCompleted.textContent = formatNumber(totals.completedTasks);
       if (els.statCoins) els.statCoins.textContent = formatCoinAmount(state.coins);

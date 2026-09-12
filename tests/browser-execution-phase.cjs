@@ -22,7 +22,7 @@ const server = http.createServer((req,res) => {
     browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined});
     const evidence = path.join(root,'outputs/life-rpg/test-evidence');
     fs.mkdirSync(evidence,{recursive:true});
-    for (const [width,height] of [[375,667],[390,844],[430,932]]) {
+    for (const [width,height] of [[375,667],[390,844],[393,852],[430,932]]) {
       const context = await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true,timezoneId:'Europe/London'});
       const page = await context.newPage();
       const errors = [];
@@ -44,7 +44,8 @@ const server = http.createServer((req,res) => {
       assert.equal(task.status,'pending');
       assert.equal(task.startedAt,null);
       assert.equal(await page.locator('[data-habit-card="h0"]').count(),0);
-      assert.match(await page.locator('#habitCount').innerText(),/8/);
+      assert.equal(await page.locator('#habitCount').count(),0);
+      assert.equal(await page.evaluate(() => state.habits.filter(h => !habitCompletedToday(h.id)).length),8);
       await page.waitForTimeout(400);
       const complete = page.locator(`[data-complete-task="${task.id}"]`);
       const box = await complete.boundingBox();
@@ -53,7 +54,7 @@ const server = http.createServer((req,res) => {
       await page.waitForTimeout(500);
       assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
       assert.equal(await page.evaluate(() => state.coins),5);
-      assert.match(await page.locator('#habitCount').innerText(),/7/);
+      assert.equal(await page.evaluate(() => state.habits.filter(h => !habitCompletedToday(h.id)).length),7);
       await page.locator('[data-memo-card="m0"]').click();
       await page.locator('[data-arrange-memo="m0"]').click();
       await page.locator('[data-arrange-slot]').first().click();

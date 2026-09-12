@@ -1409,7 +1409,6 @@
         renderDailyScoreTrend(buildDailyScoreTrend(currentStatsRange));
       }
       showReviewSavedStatus();
-      showToast("复盘已保存", 2000);
       return state.dailyReviews[reviewDate];
     }
 

@@ -743,12 +743,10 @@
 
     function renderActiveView(view = activeViewName()) {
       if (view === "today") {
-        const activeCount = activeTasksToday().length;
-        els.todayDate.textContent = formatDate();
+        els.todayDate.textContent = journalDateLabel(dateKey());
         renderMemoSummary();
         renderPriorityTask();
         renderNextStepCard();
-        els.todayTaskCount.textContent = `${activeCount} 项`;
         renderHabits();
         renderTasks();
         return;
@@ -797,8 +795,8 @@
         els.priorityTaskCard.innerHTML = `
           <section class="priority-card priority-empty q-feature-card">
             <div>
-              <h2>今天最重要的一件事</h2>
-              <p>+${priorityTaskSettlementAmount("done")} · 未完成 −${priorityTaskSettlementAmount("failed")}</p>
+              <h2>今日重点</h2>
+              <p>+${priorityTaskSettlementAmount("done")} / −${priorityTaskSettlementAmount("failed")}</p>
             </div>
             <button class="button priority-set-button" type="button" data-open-priority>设定</button>
           </section>
@@ -838,10 +836,10 @@
         content: `
           <div class="card-main priority-main">
             <div class="title-wrap">
-              <span class="priority-label">今天最重要的一件事</span>
+              <span class="priority-label">今日重点</span>
               <h3>${escapeHtml(task.title)}</h3>
               <div class="meta-row">
-                <span class="pill">+${priorityTaskSettlementAmount("done")} · 未完成 −${priorityTaskSettlementAmount("failed")}</span>
+                <span class="pill">+${priorityTaskSettlementAmount("done")} / −${priorityTaskSettlementAmount("failed")}</span>
                 ${done ? `<span class="pill green">已完成</span>` : ""}
                 ${failed ? `<span class="pill red">已扣除</span>` : ""}
               </div>
@@ -852,7 +850,6 @@
     }
 
     function renderHabits() {
-      els.habitCount.textContent = `还剩 ${state.habits.filter(habit => habitActiveOnDate(habit, dateKey()) && !habitCompletedToday(habit.id) && !habitFailedOnDate(habit.id, dateKey())).length} 项`;
       if (!state.habits.length) {
         els.habitList.innerHTML = `
           <div class="empty-state">
@@ -886,7 +883,7 @@
     }
 
     function taskMetaHtml(task) {
-      return `<span class="pill coin-pill">+${formatCoinAmount(taskRewardAmount(task))} 金币</span>`;
+      return `<span class="pill coin-pill">+${Number(taskRewardAmount(task))}</span>`;
     }
 
     function taskActionsHtml(task) {
@@ -1170,7 +1167,7 @@
       const dailyScore = normalizeDailyScore(selectedReview.dailyScore);
       const scoreHasValue = dailyScore !== null || !storedReview;
 
-      els.reviewDate.textContent = formatReviewDateLabel(reviewDate);
+      els.reviewDate.textContent = journalDateLabel(reviewDate);
       if (els.reviewDateInput) {
         els.reviewDateInput.value = reviewDate;
         els.reviewDateInput.max = today;
@@ -1180,7 +1177,6 @@
       els.reviewPriority.value = shouldClearInputs ? "" : reviewPriorityInputValue(reviewDate, selectedReview);
       els.reviewDailyScore.value = String(dailyScore ?? 5);
       syncDailyScoreControl(els.reviewDailyScore, scoreHasValue);
-      els.reviewHistoryCount.textContent = `${history.length} 条`;
 
       if (!history.length) {
         els.reviewHistoryList.innerHTML = `
@@ -1193,22 +1189,29 @@
       }
 
       els.reviewHistoryList.innerHTML = history.map(([day, review]) => {
-        const summary = review.best || review.priority || review.mistake || "未填写";
+        const summary = review.best || review.mistake || "未填写";
         const score = normalizeDailyScore(review.dailyScore);
         return `
         <article class="card review-card q-list-row" data-review-card="${escapeAttr(day)}" data-edit-card="review" data-edit-id="${escapeAttr(day)}" role="button" tabindex="0" aria-label="打开复盘">
           <div class="review-card-header">
             <div class="review-date">
-              <span class="review-date-main">${escapeHtml(day === today ? "今天" : formatFullDateKey(day))}</span>
+              <span class="review-date-main">${escapeHtml(journalDateLabel(day))}</span>
               <span class="review-row-summary ${summary === "未填写" ? "empty" : ""}">${escapeHtml(summary)}</span>
-              <span class="review-row-score"><b>今日评分</b>${score === null ? "未评分" : `${score} / 10`}</span>
+              ${review.priority ? `<span class="review-row-next">明日 → ${escapeHtml(review.priority)}</span>` : ""}
             </div>
-            ${day === today ? `<span class="review-today-pill">今天</span>` : ""}
+            <span class="review-row-score ${score === null ? "missing" : score >= 8 ? "positive" : score <= 4 ? "negative" : "neutral"}" aria-label="${score === null ? "未评分" : `评分 ${score} / 10`}">${score === null ? "—" : score}</span>
             <span class="review-row-chevron" aria-hidden="true">›</span>
           </div>
         </article>
       `;
       }).join("");
+    }
+
+    function journalDateLabel(day) {
+      const date = dateFromKey(day);
+      const year = date.getFullYear() === new Date().getFullYear() ? "" : `${date.getFullYear()}年`;
+      const weekday = new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(date);
+      return `${year}${date.getMonth() + 1}月${date.getDate()}日 · ${weekday}`;
     }
 
     function syncDailyScoreControl(input, hasValue = true) {

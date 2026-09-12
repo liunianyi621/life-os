@@ -71,7 +71,7 @@ const server = http.createServer((req, res) => {
         assert.equal(task.isRunning, false);
         assert.equal(task.elapsedSeconds, 0);
         const row = page.locator(`[data-task-card="${task.id}"]`);
-        assert.match(await row.innerText(), /5.*金币/);
+        assert.match(await row.innerText(), /\+5/);
         assert.doesNotMatch(await row.innerText(), /等待开始|预计|开始于|进行中|小时/);
         assert.doesNotMatch(await row.innerText(), /已安排|撤回/);
         assert.equal(await row.locator('[data-complete-task]').count(), 1);

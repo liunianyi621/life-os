@@ -41,10 +41,9 @@
     }
 
     function renderMemoSummary() {
-      if (!els.homeMemoCount) return;
       const allMemos = sortedMemos();
       const activeMemos = allMemos.filter(memoIsActive);
-      els.homeMemoCount.textContent = `${formatNumber(activeMemos.length)} 项`;
+      if (els.homeMemoCount) els.homeMemoCount.textContent = `${formatNumber(activeMemos.length)} 项`;
 
       if (!els.homeMemoList) return;
       if (!activeMemos.length) {

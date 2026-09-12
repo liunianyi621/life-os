@@ -13,7 +13,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20260912-settings">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20260912-journal">
 </head>
 <body>
   <div class="app q-app">
@@ -21,14 +21,14 @@
       <section class="view active today-page" data-view="today">
         <header class="header today-header q-page-header home-header">
           <div class="home-header__title">
+            <h1>今天</h1>
             <span class="eyebrow" id="todayDate">今天</span>
-            <h1>自律系统</h1>
           </div>
           <div class="home-coin-balance" aria-label="当前金币">
-            <span class="home-coin-balance__label">当前金币</span>
             <span class="home-coin-balance__amount">
               <strong id="homeCoins">0</strong>
             </span>
+            <span class="home-coin-balance__label">金币</span>
           </div>
         </header>
 
@@ -38,7 +38,6 @@
           <div class="section-heading q-section-header">
             <h2>今日任务</h2>
             <div class="section-heading-actions">
-              <span id="todayTaskCount">0 项</span>
               <button class="icon-button q-icon-button section-add-button" type="button" data-open-task aria-label="新建任务" data-icon-button="plus"></button>
             </div>
           </div>
@@ -51,9 +50,8 @@
 
         <section class="today-section today-habit-section">
           <div class="section-heading q-section-header">
-            <h2>今天的习惯</h2>
+            <h2>习惯</h2>
             <div class="section-heading-actions">
-              <span id="habitCount">0 项</span>
               <button class="icon-button q-icon-button habit-add-button" type="button" data-open-habit aria-label="添加习惯" data-icon-button="plus"></button>
             </div>
           </div>
@@ -63,7 +61,6 @@
           <div class="section-heading q-section-header">
             <h2>备忘录</h2>
             <div class="section-heading-actions">
-              <span id="homeMemoCount">0 项</span>
               <button class="icon-button q-icon-button section-add-button" type="button" data-open-memo aria-label="新增备忘录" data-icon-button="plus"></button>
             </div>
           </div>
@@ -120,6 +117,7 @@
       <section class="view q-review-page" data-view="review">
         <header class="header q-page-header">
           <div>
+            <h1>每日复盘</h1>
             <div class="review-date-control">
               <button class="review-date-button" type="button" id="reviewDateButton" aria-label="切换复盘日期">
                 <span id="reviewDate">今天</span>
@@ -127,34 +125,31 @@
               </button>
               <input class="review-date-input" id="reviewDateInput" type="date" aria-label="选择复盘日期">
             </div>
-            <h1>每日复盘</h1>
           </div>
         </header>
 
         <form class="review-form q-form-section review-keyboard-form keyboard-form-sheet__form" id="dailyReviewForm">
           <div class="keyboard-form-sheet__body review-keyboard-form__body">
             <label class="review-question">
-              <span class="field-label">今天做得最好的事情是什么？</span>
-              <textarea id="reviewBest" name="best" maxlength="500" placeholder="写下今天最值得保留的一件事"></textarea>
+              <span class="field-label">做得好</span>
+              <textarea id="reviewBest" name="best" maxlength="500" placeholder="今天什么值得保留？"></textarea>
             </label>
             <label class="review-question">
-              <span class="field-label">今天最大的失误是什么？</span>
-              <textarea id="reviewMistake" name="mistake" maxlength="500" placeholder="写下今天最需要修正的地方"></textarea>
+              <span class="field-label">需要改进</span>
+              <textarea id="reviewMistake" name="mistake" maxlength="500" placeholder="哪里可以做得更好？"></textarea>
             </label>
             <div class="review-question review-score-field">
               <div class="review-score-heading">
-                <label class="field-label" for="reviewDailyScore">今天给自己打几分？</label>
+                <label class="field-label" for="reviewDailyScore">今日评分</label>
                 <output id="reviewDailyScoreValue" for="reviewDailyScore">5 / 10</output>
               </div>
               <div class="review-score-control">
-                <span aria-hidden="true">1</span>
                 <input id="reviewDailyScore" name="dailyScore" type="range" min="1" max="10" step="1" value="5" data-daily-score data-score-output="reviewDailyScoreValue" aria-label="今天给自己打几分，1 到 10 分">
-                <span aria-hidden="true">10</span>
               </div>
             </div>
             <label class="review-question">
-              <span class="field-label">明天最重要的一件事是什么？</span>
-              <textarea id="reviewPriority" name="priority" maxlength="500" placeholder="只选一件最重要的事"></textarea>
+              <span class="field-label">明日重点</span>
+              <textarea id="reviewPriority" name="priority" maxlength="500" placeholder="明天只做一件事，会是什么？"></textarea>
             </label>
           </div>
           <div class="review-save-row keyboard-form-sheet__footer">
@@ -165,7 +160,6 @@
 
         <div class="section-heading q-section-header">
           <h2>历史复盘</h2>
-          <span id="reviewHistoryCount">0 条</span>
         </div>
         <div class="review-history-list q-list-section" id="reviewHistoryList"></div>
       </section>
@@ -419,11 +413,11 @@
 
   <div class="contextual-undo-host" id="toast" aria-live="polite"></div>
 
-  <script src="js/storage.js?v=20260912-settings"></script>
+  <script src="js/storage.js?v=20260912-journal"></script>
   <script src="js/backup.js?v=20260912-settings"></script>
   <script src="js/tasks.js?v=20260912-settings"></script>
   <script src="js/habits.js?v=20260912-settings"></script>
-  <script src="js/economy.js?v=20260912-settings"></script>
+  <script src="js/economy.js?v=20260912-journal"></script>
   <script src="js/settlement.js?v=20260912-settings"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
   <script src="js/stats.js?v=20260911-score-trend"></script>
@@ -431,8 +425,8 @@
   <script src="js/ui/feedback.js?v=20260912-settings"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
   <script src="js/ui/sheets.js?v=20260912-settings"></script>
-  <script src="js/memos.js?v=20260912-settings"></script>
+  <script src="js/memos.js?v=20260912-journal"></script>
   <script src="js/ui/settings.js?v=20260912-settings"></script>
-  <script src="js/ui.js?v=20260912-settings"></script>
+  <script src="js/ui.js?v=20260912-journal"></script>
 </body>
 </html>
