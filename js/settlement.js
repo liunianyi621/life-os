@@ -108,6 +108,9 @@
         return { count: 0, totalPenalty: 0, entries };
       }
       state.habits.filter(habit => habitActiveOnDate(habit, day)).forEach(habit => {
+        // A reversed slot failure leaves this day's obligation available for completion.
+        if (state.tasks.some(task => taskHabitId(task) === habit.id && taskSettlementDay(task) === day
+          && !taskIsSettled(task) && taskDeadlineFailureReversed(task))) return;
         const entry = settleHabitFailure(habit, day, settledEventKeys, now);
         if (entry) entries.push(entry);
       });

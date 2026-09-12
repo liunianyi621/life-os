@@ -889,8 +889,7 @@
 
     function taskActionsHtml(task) {
       const taskId = escapeAttr(task.id);
-      return actionButtonHtml({ tone: "green", icon: "checkmark.circle", label: "完成任务", attrs: `data-complete-task="${taskId}"` })
-        + actionButtonHtml({ tone: "red", icon: "xmark.circle", label: "任务未完成", attrs: `data-fail-task="${taskId}"` });
+      return actionButtonHtml({ tone: "green", icon: "checkmark.circle", label: "完成任务", attrs: `data-complete-task="${taskId}"` });
     }
 
     function taskTimelineRowsHtml(tasks, { showPlan = false } = {}) {
@@ -1348,7 +1347,6 @@
       const completePriorityButton = event.target.closest("[data-complete-priority]");
       const failPriorityButton = event.target.closest("[data-fail-priority]");
       const scheduleHabitButton = event.target.closest("[data-schedule-habit]");
-      const failTaskButton = event.target.closest("[data-fail-task]");
       const depositFundButton = event.target.closest("[data-deposit-fund]");
       const statsRangeButton = event.target.closest("[data-stats-range]");
       const heatMonthButton = event.target.closest("[data-heat-month]");
@@ -1533,9 +1531,6 @@
       if (scheduleHabitButton) {
         openArrangementSheet("HABIT", scheduleHabitButton.dataset.scheduleHabit);
         return;
-      }
-      if (failTaskButton) {
-        failTask(failTaskButton.dataset.failTask, failTaskButton.closest("[data-task-card]"));
       }
       if (depositFundButton) {
         depositFund(

@@ -102,9 +102,10 @@ const server = http.createServer((req,res) => {
       await page.locator('[data-contextual-undo]').focus();
       await page.keyboard.press('Enter');
       assert.equal(await page.evaluate(()=>state.coins),0);
-      await page.locator('[data-fail-task="move-me"]').click();
+      assert.equal(await page.locator('[data-fail-task]').count(),0);
+      await page.locator('[data-complete-task="move-me"]').click();
       await page.waitForTimeout(450);
-      assert.equal(await page.evaluate(()=>state.coins),-50);
+      assert.equal(await page.evaluate(()=>state.coins),5);
       assert.deepEqual(errors,[]);
       console.log(JSON.stringify({width,before,after,result,buttonsWork:true,errors}));
       await context.close();

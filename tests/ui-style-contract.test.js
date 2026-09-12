@@ -28,9 +28,9 @@ test("Today 完成按钮复用语义绿色，并保留移动端点击尺寸", ()
   assert.match(completion, /height:\s*48px/);
   assert.match(completion, /background:\s*var\(--color-success-soft\)/);
   assert.match(completion, /color:\s*var\(--color-success\)/);
-  const failure = productionCss.match(/\.today-task-section \.swipe-action\[data-fail-task\]\s*\{[^}]*\}/)[0];
-  assert.match(failure, /background:\s*transparent/);
-  assert.match(failure, /color:\s*var\(--color-text-secondary\)/);
+  assert.doesNotMatch(uiSource, /data-fail-task|failTaskButton/);
+  assert.match(uiSource, /data-fail-priority/);
+  assert.match(uiSource, /failPriorityTask\(failPriorityButton/);
 });
 
 test("生产样式覆盖全部热力图状态 class", () => {

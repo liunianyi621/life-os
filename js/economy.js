@@ -1607,6 +1607,12 @@
         entries.forEach(entry => {
           removeDayValue("taskResults", entry.date, entry.taskId);
           restoreTaskState(entry.taskId, entry.previousTask);
+          const restoredTask = state.tasks.find(task => task.id === entry.taskId);
+          const failure = undoHistoryById.get(entry.historyId);
+          if (failure?.reason === "slot_deadline" && restoredTask) {
+            restoredTask.reversedFailureDeadline = failure.deadline;
+            removeDayValue("taskAutoFailures", entry.date, entry.taskId);
+          }
           if (entry.memoSnapshot && typeof restoreMemoSnapshot === "function") {
             restoreMemoSnapshot(entry.memoSnapshot);
           }
@@ -1625,8 +1631,16 @@
           (entry.taskEntries || []).forEach(taskEntry => {
             removeDayValue("taskResults", taskEntry.date, taskEntry.taskId);
             restoreTaskState(taskEntry.taskId, taskEntry.previousTask);
+            const failure = undoHistoryById.get(entry.historyId);
+            if (failure?.reason === "slot_deadline") {
+              const restoredTask = state.tasks.find(task => task.id === taskEntry.taskId);
+              if (restoredTask) restoredTask.reversedFailureDeadline = taskSlotDeadline(restoredTask)?.toISOString();
+              removeDayValue("taskAutoFailures", taskEntry.date, taskEntry.taskId);
+            }
           });
-          if (entry.automatic === false) removeDayValue("habitFailures", entry.date, entry.habitId);
+          if (entry.automatic === false || undoHistoryById.get(entry.historyId)?.reason === "slot_deadline") {
+            removeDayValue("habitFailures", entry.date, entry.habitId);
+          }
         });
         const restoredAmount = entries.reduce((total, entry) => {
           const historyEntry = undoHistoryById.get(entry.historyId);

@@ -26,6 +26,53 @@ function runtime() {
   return {context,run,set,at,storage};
 }
 
+for (const source of ['MANUAL', 'HABIT', 'MEMO']) {
+  test(`${source}: timeout Undo restores settlement, survives reload and completes only once`, () => {
+    const {run, at} = runtime();
+    run(`hideToast=()=>{};
+      ${source === 'HABIT' ? "scheduleHabitAsTask('h')" : source === 'MEMO'
+        ? "state.habits=[];state.memos=[{id:'m',text:'买书',status:'ACTIVE'}];scheduleMemoAsTask('m')"
+        : "state.habits=[];saveTask({name:'任务',coins:5,date:dateKey(),timeStart:'11:00',timeEnd:'12:00'})"}`);
+    at(11,12);run('runAutomaticChecks()');
+    assert.equal(run('state.coins'),1950);
+    run('undoLastAction()');
+    assert.equal(run('state.coins'),2000);
+    assert.equal(run('taskIsSettled(state.tasks[0])'),false);
+    assert.equal(run('state.tasks[0].failedAt'),null);
+    assert.equal(run('taskAutomaticFailureEnabled(state.tasks[0])'),false);
+    run('runAutomaticChecks();state=loadState();runAutomaticChecks()');
+    assert.equal(run('state.coins'),2000);
+    if (source === 'HABIT') {
+      at(12,9);run('runAutomaticChecks()');
+      assert.equal(run('state.coins'),2000,'old obligation is still actionable after midnight');
+    }
+    if (source === 'MEMO') assert.equal(run('state.memos[0].status'),'SCHEDULED');
+    run('completeTask(state.tasks[0].id);completeTask(state.tasks[0].id);saveState();state=loadState();runAutomaticChecks()');
+    assert.equal(run('state.coins'),2005);
+    assert.equal(run('taskIsSettled(state.tasks[0])'),true);
+    assert.equal(run('state.history.filter(e=>e.type==="task_completed").length'),1);
+    assert.equal(run('state.history.filter(e=>e.type==="task_failed"||e.type==="habit_failed").length'),0);
+    if (source === 'MEMO') assert.equal(run('state.memos.length'),0);
+  });
+
+  test(`${source}: Undo exempts only old deadline, rescheduling arms new deadline`, () => {
+    const {run,at}=runtime();
+    run(`hideToast=()=>{};
+      ${source === 'HABIT' ? "scheduleHabitAsTask('h')" : source === 'MEMO'
+        ? "state.habits=[];state.memos=[{id:'m',text:'买书',status:'ACTIVE'}];scheduleMemoAsTask('m')"
+        : "state.habits=[];saveTask({name:'任务',coins:5,date:dateKey(),timeStart:'11:00',timeEnd:'12:00'})"}`);
+    at(11,12);run('runAutomaticChecks();undoLastAction()');
+    const id=run('state.tasks[0].id');
+    assert.equal(run('rescheduleTask(state.tasks[0].id,new Date(2026,8,11,14))'),true);
+    run('runAutomaticChecks()');assert.equal(run('state.coins'),2000);
+    at(11,15);run('runAutomaticChecks();state=loadState();runAutomaticChecks()');
+    assert.equal(run('state.coins'),1950);
+    assert.equal(run('state.tasks.length'),1);
+    assert.equal(run('state.tasks[0].id'),id);
+    assert.equal(run('state.history.length'),1);
+  });
+}
+
 test('Settings 默认值、旧用户 fallback 和无效值不会生成 NaN 或零奖励',()=>{
   const {run}=runtime();
   assert.deepEqual(JSON.parse(run('JSON.stringify(currentSettings().economy)')),{defaultTaskReward:5,habitReward:5,penaltyMultiplier:10,priorityReward:100,priorityPenalty:500});

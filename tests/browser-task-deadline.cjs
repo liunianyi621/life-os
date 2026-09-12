@@ -37,6 +37,29 @@ const server=http.createServer((req,res)=>{
       }
       state.tasks=[record];saveState();render();
     },mode);
+    for (const [width,height] of [[390,844],[393,852],[430,932]]) {
+      await page.setViewportSize({width,height});
+      for (const source of ['manual','habit','memo']) {
+        await page.clock.setSystemTime(new Date('2026-09-11T09:59:59Z'));
+        await seed(source);
+        assert.equal(await page.locator('[data-fail-task]').count(),0);
+        const button=await page.locator('[data-complete-task]').boundingBox();
+        assert.ok(button.width>=44 && button.height>=44);
+        await page.clock.runFor(1000);
+        assert.equal(await page.evaluate(()=>state.coins),950);
+        await page.locator('[data-contextual-undo]').click();
+        assert.equal(await page.evaluate(()=>state.coins),1000);
+        await page.reload();
+        await page.evaluate(()=>runAutomaticChecks());
+        assert.equal(await page.evaluate(()=>state.coins),1000);
+        await page.locator('[data-complete-task]').click();
+        await page.clock.runFor(50);
+        assert.equal(await page.evaluate(()=>state.coins),1005);
+        assert.equal(await page.locator('[data-complete-task]').count(),0);
+        assert.equal(await page.locator('[data-fail-task]').count(),0);
+      }
+    }
+    await page.clock.setSystemTime(new Date('2026-09-11T09:59:59Z'));
     await seed();
     assert.equal(await page.evaluate(()=>state.tasks[0].status),'pending');
     await page.clock.runFor(1000);

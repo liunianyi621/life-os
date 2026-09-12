@@ -1027,13 +1027,6 @@ body.habit-dragging .habit-template-chip {
   margin-top: 2px;
 }
 
-.today-task-section .swipe-action[data-fail-task] {
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  color: var(--color-text-secondary);
-}
-
 body.habit-dragging .task-hour-slot[data-task-timeline-slot] {
   margin: 2px 0;
   border-color: var(--color-border-strong);

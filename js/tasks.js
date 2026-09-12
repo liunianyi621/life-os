@@ -254,9 +254,14 @@
       return Boolean(deadline && deadline.getTime() <= now.getTime());
     }
 
+    function taskDeadlineFailureReversed(task) {
+      const deadline = taskSlotDeadline(task);
+      return Boolean(deadline && task.reversedFailureDeadline === deadline.toISOString());
+    }
+
     function taskAutomaticFailureEnabled(task) {
       const deadline = taskSlotDeadline(task) || settlementDayEnd(taskSettlementDay(task));
-      return currentSettings().settlement.autoFailTimedTasks
+      return !taskDeadlineFailureReversed(task) && currentSettings().settlement.autoFailTimedTasks
         && settingsAt(deadline).settlement.autoFailTimedTasks;
     }
 
