@@ -8,7 +8,72 @@
     const PAST_COIN_HISTORY_SCALE_FACTOR = 10;
     const PAST_COIN_HISTORY_SCALE_BACKUP_KEY = `${STORAGE_KEY}-backup-before-past-coin-scale-v1`;
 
+    const SETTINGS_DEFAULTS = Object.freeze({
+      economy: Object.freeze({ defaultTaskReward: 5, habitReward: 5, penaltyMultiplier: 10, priorityReward: 100, priorityPenalty: 500 }),
+      settlement: Object.freeze({ autoFailTimedTasks: true, autoFailHabitsDaily: true })
+    });
+    const SETTINGS_CHOICES = Object.freeze({
+      defaultTaskReward: [5, 10, 20], habitReward: [5, 10, 20], penaltyMultiplier: [5, 10, 20],
+      priorityReward: [50, 100, 200], priorityPenalty: [250, 500, 1000]
+    });
+
+    function normalizeRuleValues(raw = {}) {
+      const economy = {}, settlement = {};
+      Object.entries(SETTINGS_DEFAULTS.economy).forEach(([key, fallback]) => {
+        economy[key] = SETTINGS_CHOICES[key].includes(raw?.economy?.[key]) ? raw.economy[key] : fallback;
+      });
+      Object.entries(SETTINGS_DEFAULTS.settlement).forEach(([key, fallback]) => {
+        settlement[key] = typeof raw?.settlement?.[key] === "boolean" ? raw.settlement[key] : fallback;
+      });
+      return { economy, settlement };
+    }
+
+    function normalizeSettings(raw) {
+      const source = raw?.version === 1 ? raw : {};
+      return { version: 1, ...normalizeRuleValues(source), changes: (Array.isArray(source.changes) ? source.changes : [])
+        .filter(change => Number.isFinite(Date.parse(change?.effectiveAt)))
+        .map(change => ({ effectiveAt: change.effectiveAt, ...normalizeRuleValues(change) }))
+        .sort((a, b) => Date.parse(a.effectiveAt) - Date.parse(b.effectiveAt)) };
+    }
+
+    function currentSettings() { return normalizeSettings(state.settings); }
+
+    function settingsAt(timestamp = new Date()) {
+      const settings = currentSettings();
+      if (!settings.changes.length) return settings;
+      const time = new Date(timestamp).getTime();
+      const change = settings.changes.filter(item => Date.parse(item.effectiveAt) <= time).at(-1);
+      return change || SETTINGS_DEFAULTS;
+    }
+
+    function settlementDayEnd(day) {
+      const end = dateFromKey(day);
+      end.setDate(end.getDate() + 1);
+      end.setHours(0, 0, 0, 0);
+      return end;
+    }
+
+    function economyRules(timestamp = new Date()) { return settingsAt(timestamp).economy; }
+    function defaultTaskReward() { return currentSettings().economy.defaultTaskReward; }
+    function penaltyMultiplier(timestamp = new Date()) { return economyRules(timestamp).penaltyMultiplier; }
+
+    function updateLifeOSSetting(section, key, value, now = new Date()) {
+      if (!(section in SETTINGS_DEFAULTS) || !(key in SETTINGS_DEFAULTS[section])) return false;
+      if (section === "economy" ? !SETTINGS_CHOICES[key].includes(value) : typeof value !== "boolean") return false;
+      const previous = state.settings;
+      const next = currentSettings();
+      if (next[section][key] === value) return true;
+      // Keep the rule in force at a missed deadline, including periods with automatic failure disabled.
+      if (!next.changes.length) next.changes.push({ effectiveAt: new Date(0).toISOString(), ...normalizeRuleValues(next) });
+      next[section][key] = value;
+      next.changes.push({ effectiveAt: now.toISOString(), ...normalizeRuleValues(next) });
+      state.settings = next;
+      try { saveState(); return true; }
+      catch { state.settings = previous; return false; }
+    }
+
     const emptyState = {
+      settings: normalizeSettings(),
       pastCoinHistoryScaleMigrationVersion: PAST_COIN_HISTORY_SCALE_MIGRATION_VERSION,
       coins: 0,
       streak: 0,
@@ -693,6 +758,7 @@
         const merged = saved ? {
           ...cloneEmptyState(),
           ...saved,
+          settings: normalizeSettings(saved.settings),
           totals: { ...cloneEmptyState().totals, ...(saved.totals || {}) },
           tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
           habits: Array.isArray(saved.habits) ? saved.habits : [],
@@ -1189,17 +1255,22 @@
     }
 
     function resetAllData() {
-      localStorage.removeItem(STORAGE_KEY);
-      OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      const previous = state;
       state = cloneEmptyState();
       state.rewards = defaultFundRewards();
       state.settledThroughDate = yesterdayKey();
+      state.fixedRewardRulesSince = dateKey();
+      try { saveState(); }
+      catch { state = previous; showToast("重置失败，原数据未更改"); return false; }
+      OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      pendingUndo = null;
+      if (typeof UndoController !== "undefined") UndoController.clear({ refresh: false });
       currentCalendarMonth = monthKey();
       selectedCalendarDate = dateKey();
       selectedReviewDate = dateKey();
-      saveState();
       render();
       showToast("所有数据已重置");
+      return true;
     }
 
     function normalizeReviewDateKey(key) {

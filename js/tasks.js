@@ -1,6 +1,6 @@
-    const DEFAULT_TASK_REWARD = 5;
+    const DEFAULT_TASK_REWARD = SETTINGS_DEFAULTS.economy.defaultTaskReward;
     const FIXED_TASK_REWARDS = Object.freeze([5, 10, 20]);
-    const INCOMPLETE_PENALTY_MULTIPLIER = 10;
+    const INCOMPLETE_PENALTY_MULTIPLIER = SETTINGS_DEFAULTS.economy.penaltyMultiplier;
     const TASK_FAILURE_MULTIPLIER = INCOMPLETE_PENALTY_MULTIPLIER;
     const TASK_STATUS = Object.freeze({
       WAITING: "waiting",
@@ -14,10 +14,10 @@
       RESUMED: "TASK_RESUMED"
     });
 
-    function getIncompletePenalty(rewardAmount) {
+    function getIncompletePenalty(rewardAmount, timestamp = new Date()) {
       const reward = Number(rewardAmount);
       if (!Number.isFinite(reward) || reward <= 0) return 0;
-      return parseCoinAmount(reward * INCOMPLETE_PENALTY_MULTIPLIER);
+      return parseCoinAmount(reward * penaltyMultiplier(timestamp));
     }
 
     function firstPresentValue(values) {
@@ -87,12 +87,13 @@
     }
 
     function taskRewardInputValue(task) {
+      if (!task) return defaultTaskReward();
       const value = taskRewardAmount(task);
       return FIXED_TASK_REWARDS.includes(value) ? value : DEFAULT_TASK_REWARD;
     }
 
     function taskRewardAmount(task) {
-      if (taskHabitId(task)) return 5;
+      if (taskHabitId(task)) return FIXED_TASK_REWARDS.includes(task.habitRuleReward) ? task.habitRuleReward : SETTINGS_DEFAULTS.economy.habitReward;
       const value = Number(firstPresentValue([task?.reward, task?.coins, task?.hourlyReward]));
       return Number.isFinite(value) && value >= 0 ? parseCoinAmount(value) : DEFAULT_TASK_REWARD;
     }
@@ -253,6 +254,12 @@
       return Boolean(deadline && deadline.getTime() <= now.getTime());
     }
 
+    function taskAutomaticFailureEnabled(task) {
+      const deadline = taskSlotDeadline(task) || settlementDayEnd(taskSettlementDay(task));
+      return currentSettings().settlement.autoFailTimedTasks
+        && settingsAt(deadline).settlement.autoFailTimedTasks;
+    }
+
     function hourlyTimelineLabel(value, reference = new Date()) {
       const date = new Date(value);
       const now = new Date(reference);
@@ -323,7 +330,7 @@
       if (!scheduledSlotStart) return false;
       const task = state.tasks.find(item => item.id === taskId);
       const range = getHourlyRangeFromStart(scheduledSlotStart);
-      if (!task || taskIsSettled(task) || taskSlotExpired(task) || !range) return false;
+      if (!task || taskIsSettled(task) || (taskAutomaticFailureEnabled(task) && taskSlotExpired(task)) || !range) return false;
       const previousTasks = state.tasks;
       const timeStart = minutesToClockLabel(range.start.getHours() * 60);
       const timeEnd = minutesToClockLabel(range.end.getHours() * 60);
@@ -390,7 +397,7 @@
     }
 
     function habitTaskRewardAmount(habit) {
-      return 5;
+      return habitRewardAmount(habit);
     }
 
     function saveTask(taskData) {
@@ -399,8 +406,9 @@
         return null;
       }
       const habitTask = taskHabitId(taskData) || taskHabitId(state.tasks.find(task => task.id === editingId) || {});
-      const reward = !habitTask && FIXED_TASK_REWARDS.includes(Number(taskData.reward ?? taskData.coins))
-        ? Number(taskData.reward ?? taskData.coins) : DEFAULT_TASK_REWARD;
+      const reward = habitTask ? taskRewardAmount(state.tasks.find(task => task.id === editingId) || taskData)
+        : FIXED_TASK_REWARDS.includes(Number(taskData.reward ?? taskData.coins))
+          ? Number(taskData.reward ?? taskData.coins) : defaultTaskReward();
       taskData = { ...taskData, coins: reward, reward };
       const createData = !editingId
         ? {
@@ -460,6 +468,7 @@
           name: habit.name,
           coins: rewardAmount,
           reward: rewardAmount,
+          habitRuleReward: rewardAmount,
           source: "HABIT",
           originId: habit.id,
           sourceHabitScheduledDate: habitScheduleDate,

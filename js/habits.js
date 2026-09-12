@@ -1,9 +1,11 @@
-    function habitRewardAmount(habit) {
-      return 5;
+    function habitRewardAmount(habit, day = dateKey(), now = new Date()) {
+      const linked = state.tasks.find(task => taskHabitId(task) === habit?.id && taskSettlementDay(task) === day);
+      if (linked) return taskRewardAmount(linked);
+      return economyRules(new Date(Math.min(now.getTime(), settlementDayEnd(day).getTime()))).habitReward;
     }
 
     function saveHabit(habitData) {
-      habitData = { ...habitData, coins: 5 };
+      habitData = { ...habitData, coins: currentSettings().economy.habitReward };
       if (!habitData.name) {
         showToast("请输入习惯名称");
         return;

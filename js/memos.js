@@ -303,8 +303,8 @@
       const task = {
         ...createTaskRecord({
           name: memo.text,
-          coins: DEFAULT_TASK_REWARD,
-          reward: DEFAULT_TASK_REWARD,
+          coins: defaultTaskReward(),
+          reward: defaultTaskReward(),
           source: "MEMO",
           originId: memo.id,
           sourceMemoId: memo.id,

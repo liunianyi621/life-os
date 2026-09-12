@@ -84,7 +84,7 @@
           <div class="field task-reward-field">
             <span class="field-label">奖励金币</span>
             <div class="task-fixed-rewards" role="group" aria-label="固定奖励金币">
-              ${(taskHabitId(task) ? [5] : FIXED_TASK_REWARDS).map(amount => `
+              ${(taskHabitId(task) ? [taskRewardAmount(task)] : FIXED_TASK_REWARDS).map(amount => `
                 <label><input type="radio" name="coins" value="${amount}" ${amount === taskRewardInputValue(task) ? "checked" : ""}><span>${amount}</span></label>
               `).join("")}
             </div>
@@ -336,7 +336,7 @@
             <span class="field-label">习惯名称</span>
             <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入习惯名称" required>
           </label>
-          <p class="field-help">每天完成 +5 金币，当天未完成 -50 金币。</p>
+          <p class="field-help">完成 +${habitRewardAmount(habit)} 金币，未完成惩罚为奖励的 ${penaltyMultiplier()} 倍。</p>
           ${habit ? `
             <button class="q-secondary-button habit-template-sheet-action" type="button" data-schedule-habit="${escapeAttr(habit.id)}">
               安排到…
@@ -549,7 +549,7 @@
       if (sheetMode === "habit") {
         saveHabit({
           name: String(formData.get("name") || "").trim(),
-          coins: 5
+          coins: currentSettings().economy.habitReward
         });
       }
       if (sheetMode === "note") {

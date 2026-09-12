@@ -13,7 +13,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20260911-score-trend">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20260912-settings">
 </head>
 <body>
   <div class="app q-app">
@@ -197,6 +197,7 @@
             <span class="eyebrow">只看必要信息</span>
             <h1>统计</h1>
           </div>
+          <button class="icon-button q-icon-button settings-entry" type="button" data-open-settings aria-label="设置" title="设置" data-icon-button="gearshape"></button>
         </header>
 
         <div class="stats-grid q-summary-grid">
@@ -244,33 +245,82 @@
           <div class="daily-score-container" id="dailyScoreTrendChart"></div>
         </section>
 
-        <section class="q-tool-row" aria-label="数据备份">
-          <h2>数据备份</h2>
+      </section>
+
+      <section class="view q-settings-page" data-view="settings">
+        <header class="header q-page-header">
+          <h1 id="settingsTitle">设置</h1>
+          <button class="icon-button q-icon-button" type="button" data-settings-back aria-label="返回统计" title="返回" data-icon-button="arrow.left"></button>
+        </header>
+        <div data-settings-panel="home">
+          <section class="settings-group"><h2>规则</h2>
+            <button class="settings-row" type="button" data-settings-page="economy"><span>金币与惩罚</span><span class="settings-chevron" aria-hidden="true">›</span></button>
+            <button class="settings-row" type="button" data-settings-page="settlement"><span>每日结算</span><span class="settings-chevron" aria-hidden="true">›</span></button>
+          </section>
+          <section class="settings-group"><h2>数据</h2>
+            <button class="settings-row" type="button" data-settings-page="data"><span>数据与备份</span><span class="settings-chevron" aria-hidden="true">›</span></button>
+          </section>
+          <section class="settings-group"><h2>高级</h2>
+            <button class="settings-row" type="button" data-settings-page="advanced"><span>高级</span><span class="settings-chevron" aria-hidden="true">›</span></button>
+          </section>
+        </div>
+        <div data-settings-panel="economy" hidden>
+          <section class="settings-group"><h2>普通任务</h2>
+            <button class="settings-row" type="button" data-setting-select="defaultTaskReward"><span>默认奖励</span><span class="settings-value" data-setting-readout="defaultTaskReward"></span></button>
+          </section>
+          <section class="settings-group"><h2>习惯</h2>
+            <button class="settings-row" type="button" data-setting-select="habitReward"><span>完成奖励</span><span class="settings-value" data-setting-readout="habitReward"></span></button>
+          </section>
+          <section class="settings-group"><h2>失败</h2>
+            <button class="settings-row" type="button" data-setting-select="penaltyMultiplier"><span>未完成惩罚</span><span class="settings-value" data-setting-readout="penaltyMultiplier"></span></button>
+          </section>
+          <section class="settings-group"><h2>最重要的一件事</h2>
+            <button class="settings-row" type="button" data-settings-page="priority"><span>完成与未完成</span><span class="settings-value" data-priority-rules></span></button>
+          </section>
+        </div>
+        <div data-settings-panel="priority" hidden>
+          <section class="settings-group"><h2>独立规则</h2>
+            <button class="settings-row" type="button" data-setting-select="priorityReward"><span>完成奖励</span><span class="settings-value" data-setting-readout="priorityReward"></span></button>
+            <button class="settings-row" type="button" data-setting-select="priorityPenalty"><span>未完成惩罚</span><span class="settings-value" data-setting-readout="priorityPenalty"></span></button>
+          </section>
+        </div>
+        <div data-settings-panel="settlement" hidden>
+          <section class="settings-group"><h2>任务</h2>
+            <label class="settings-row settings-toggle-row"><span>时间槽结束自动失败<small>任务超过安排的一小时仍未完成时自动失败</small></span><input type="checkbox" role="switch" data-settlement-toggle="autoFailTimedTasks" aria-label="时间槽结束自动失败"></label>
+          </section>
+          <section class="settings-group"><h2>习惯</h2>
+            <label class="settings-row settings-toggle-row"><span>未完成习惯自动失败<small>当天结束后仍未完成的习惯自动失败</small></span><input type="checkbox" role="switch" data-settlement-toggle="autoFailHabitsDaily" aria-label="未完成习惯自动失败"></label>
+          </section>
+          <p class="settings-note">自动失败后的金币惩罚由“金币与惩罚”规则决定。</p>
+        </div>
+        <section class="settings-group settings-data" data-settings-panel="data" aria-label="数据与备份" hidden>
           <div class="backup-actions">
-            <button type="button" class="q-secondary-button" data-export-backup>导出 LifeOS Backup</button>
-            <button type="button" class="q-secondary-button" data-import-backup>导入 LifeOS Backup</button>
+            <button type="button" class="settings-row" data-export-backup><span>导出备份<small>保存当前 LifeOS 数据，用于以后恢复。</small></span></button>
+            <button type="button" class="settings-row" data-import-backup><span>导入备份<small>从之前保存的 LifeOS Backup 恢复数据。</small></span></button>
           </div>
           <input type="file" id="lifeosBackupFile" accept="application/json,.json" hidden>
         </section>
-        <section class="reset-card debug-export-card q-tool-row" data-export-debug>
+        <div data-settings-panel="advanced" hidden>
+        <section class="settings-group">
           <div class="reset-row">
             <div>
               <h2>导出调试数据</h2>
-              <p>导出当前 LifeOS 的本地数据，用于排查统计和历史记录问题。</p>
+              <p>用于排查 LifeOS 数据、统计或历史记录问题。</p>
             </div>
-            <button class="icon-button q-icon-button" type="button" id="exportDebugBtn" aria-label="导出调试数据" data-icon-button="arrow.down.circle"></button>
+            <button class="icon-button q-icon-button" type="button" id="exportDebugBtn" data-export-debug aria-label="导出调试数据" data-icon-button="arrow.down.circle"></button>
           </div>
         </section>
 
-        <section class="reset-card q-tool-row">
+        <section class="settings-group settings-danger">
           <div class="reset-row">
             <div>
               <h2>重置所有数据</h2>
-              <p>清空任务、习惯、坏习惯、笔记和金币记录。</p>
+              <p>永久清除当前设备上的数据，建议先导出备份。</p>
             </div>
             <button class="danger-button icon-only-button" id="resetAllBtn" aria-label="重置所有数据" data-icon-button="trash"></button>
           </div>
         </section>
+        </div>
       </section>
 
     </main>
@@ -369,19 +419,20 @@
 
   <div class="contextual-undo-host" id="toast" aria-live="polite"></div>
 
-  <script src="js/storage.js?v=20260827-habit-visibility"></script>
-  <script src="js/backup.js?v=20260910-execution"></script>
-  <script src="js/tasks.js?v=20260911-deadline-funds"></script>
-  <script src="js/habits.js?v=20260910-fixed-rewards"></script>
-  <script src="js/economy.js?v=20260911-deadline-funds"></script>
-  <script src="js/settlement.js?v=20260910-fixed-rewards"></script>
+  <script src="js/storage.js?v=20260912-settings"></script>
+  <script src="js/backup.js?v=20260912-settings"></script>
+  <script src="js/tasks.js?v=20260912-settings"></script>
+  <script src="js/habits.js?v=20260912-settings"></script>
+  <script src="js/economy.js?v=20260912-settings"></script>
+  <script src="js/settlement.js?v=20260912-settings"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
   <script src="js/stats.js?v=20260911-score-trend"></script>
-  <script src="js/ui/elements.js?v=20260828-memo-task-chips"></script>
-  <script src="js/ui/feedback.js?v=20260910-execution"></script>
+  <script src="js/ui/elements.js?v=20260912-settings"></script>
+  <script src="js/ui/feedback.js?v=20260912-settings"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
-  <script src="js/ui/sheets.js?v=20260910-execution"></script>
-  <script src="js/memos.js?v=20260910-compact"></script>
-  <script src="js/ui.js?v=20260911-deadline-funds"></script>
+  <script src="js/ui/sheets.js?v=20260912-settings"></script>
+  <script src="js/memos.js?v=20260912-settings"></script>
+  <script src="js/ui/settings.js?v=20260912-settings"></script>
+  <script src="js/ui.js?v=20260912-settings"></script>
 </body>
 </html>

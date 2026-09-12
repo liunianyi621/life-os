@@ -96,6 +96,8 @@ const server = http.createServer((req,res) => {
       }
       await page.evaluate(() => { document.activeElement.blur(); delete window.visualViewport.height; delete window.visualViewport.offsetTop; syncSheetViewport(); });
       await page.locator('[data-nav="stats"]').click();
+      await page.locator('[data-open-settings]').click();
+      await page.locator('[data-settings-page="data"]').click();
       const [download] = await Promise.all([page.waitForEvent('download'),page.locator('[data-export-backup]').click()]);
       const backup = JSON.parse(fs.readFileSync(await download.path(),'utf8'));
       assert.equal(backup.version,1);

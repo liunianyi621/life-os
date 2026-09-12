@@ -334,7 +334,7 @@
       });
     }
 
-    function switchView(view) {
+    function switchView(view, options = {}) {
       const activeElement = document.activeElement;
       if (view !== "review" && activeElement?.closest?.(".review-keyboard-form")) {
         activeElement.blur();
@@ -343,12 +343,12 @@
         node.classList.toggle("active", node.dataset.view === view);
       });
       document.querySelectorAll(".nav-button").forEach(button => {
-        button.classList.toggle("active", button.dataset.nav === view);
+        button.classList.toggle("active", button.dataset.nav === (view === "settings" ? "stats" : view));
       });
       document.body.classList.toggle("review-editing", view === "review");
       UndoController.onViewChange(view);
       syncSheetViewport();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: options.scrollTop ?? 0, behavior: options.scrollTop === undefined ? "smooth" : "instant" });
     }
 
     function closeConfirm(result = false) {

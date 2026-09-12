@@ -15,6 +15,7 @@
         || data.pastCoinHistoryScaleMigrationVersion !== PAST_COIN_HISTORY_SCALE_MIGRATION_VERSION) invalid();
       // Require every current state container, including settlement markers; never fill missing history.
       for (const [key, value] of Object.entries(emptyState)) {
+        if (key === "settings" && !(key in data)) continue; // Version 1 backups predate Settings.
         if (!(key in data)) invalid();
         if (Array.isArray(value) && !Array.isArray(data[key])) invalid();
         if (backupObject(value) && !backupObject(data[key])) invalid();
@@ -29,6 +30,17 @@
         }
       };
       visit(data);
+      if (data.settings !== undefined) {
+        const rulesValid = rules => backupObject(rules)
+          && backupObject(rules.economy) && backupObject(rules.settlement)
+          && Object.entries(SETTINGS_CHOICES).every(([key, values]) => values.includes(rules.economy[key]))
+          && Object.keys(SETTINGS_DEFAULTS.settlement).every(key => typeof rules.settlement[key] === "boolean");
+        if (data.settings.version !== 1 || !rulesValid(data.settings) || !Array.isArray(data.settings.changes)
+          || data.settings.changes.some(change => !rulesValid(change) || !Number.isFinite(Date.parse(change.effectiveAt)))) invalid();
+        const changes = data.settings.changes;
+        if (changes.some((change, index) => index > 0 && Date.parse(change.effectiveAt) < Date.parse(changes[index - 1].effectiveAt))) invalid();
+        if (changes.length && JSON.stringify(normalizeRuleValues(changes.at(-1))) !== JSON.stringify(normalizeRuleValues(data.settings))) invalid();
+      }
       for (const key of ["tasks", "habits", "badHabits", "calendarEvents", "notes", "memos", "rewards", "achievements", "history"]) {
         const ids = new Set();
         for (const record of data[key]) {
@@ -56,14 +68,16 @@
         if (["best", "mistake", "priority"].some(key => review[key] != null && typeof review[key] !== "string")) invalid();
       }
       if (Object.values(data.scheduledHabitIdsByDate).some(ids => !Array.isArray(ids) || ids.some(id => typeof id !== "string"))) invalid();
-      return JSON.parse(JSON.stringify(data));
+      const candidate = JSON.parse(JSON.stringify(data));
+      candidate.settings = normalizeSettings(candidate.settings);
+      return candidate;
     }
 
     function createLifeOSBackup() {
       return {
         app: "LifeOS", version: LIFEOS_BACKUP_VERSION, schemaVersion: 1,
         appVersion: "0.1.0", exportedAt: new Date().toISOString(),
-        data: JSON.parse(JSON.stringify(state))
+        data: JSON.parse(JSON.stringify({ ...state, settings: currentSettings() }))
       };
     }
 

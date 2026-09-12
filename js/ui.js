@@ -772,6 +772,7 @@
         return;
       }
       if (view === "stats") renderStatsVisuals();
+      if (view === "settings") renderSettings();
     }
 
     function render() {
@@ -797,7 +798,7 @@
           <section class="priority-card priority-empty q-feature-card">
             <div>
               <h2>今天最重要的一件事</h2>
-              <p>+100 · 未完成 −500</p>
+              <p>+${priorityTaskSettlementAmount("done")} · 未完成 −${priorityTaskSettlementAmount("failed")}</p>
             </div>
             <button class="button priority-set-button" type="button" data-open-priority>设定</button>
           </section>
@@ -840,7 +841,7 @@
               <span class="priority-label">今天最重要的一件事</span>
               <h3>${escapeHtml(task.title)}</h3>
               <div class="meta-row">
-                <span class="pill">+100 · 未完成 −500</span>
+                <span class="pill">+${priorityTaskSettlementAmount("done")} · 未完成 −${priorityTaskSettlementAmount("failed")}</span>
                 ${done ? `<span class="pill green">已完成</span>` : ""}
                 ${failed ? `<span class="pill red">已扣除</span>` : ""}
               </div>
@@ -1641,8 +1642,8 @@
     els.resetAllBtn.addEventListener("click", async () => {
       const confirmed = await askForConfirmation({
         title: "重置所有数据",
-        message: "此操作会清空当前浏览器中的全部记录。",
-        confirmText: "确认重置"
+        message: "这会永久清除当前设备上的 LifeOS 数据。建议先导出备份。",
+        confirmText: "重置所有数据"
       });
       if (confirmed) resetAllData();
     });
@@ -1711,15 +1712,21 @@
       clearTimeout(taskDeadlineTimer);
       taskDeadlineTimer = null;
       if (document.visibilityState !== "visible") return;
-      const deadlines = state.tasks.filter(task => !taskIsSettled(task)).map(taskSlotDeadline).filter(Boolean);
+      const deadlines = state.tasks.filter(task => !taskIsSettled(task) && taskAutomaticFailureEnabled(task)).map(taskSlotDeadline).filter(Boolean);
+      const today = dateKey();
+      if (currentSettings().settlement.autoFailHabitsDaily && state.habits.some(habit =>
+        habitActiveOnDate(habit, today) && !habitCompletedOnDate(habit.id, today) && !habitFailedOnDate(habit.id, today))) {
+        deadlines.push(settlementDayEnd(today));
+      }
       if (!deadlines.length) return;
       const remaining = Math.min(...deadlines.map(deadline => deadline.getTime())) - Date.now();
       // Retry a failed save gently; this is one deadline wake-up, not a running task timer.
       const delay = remaining <= 0 ? (retry ? 30000 : 0) : Math.min(remaining, 2147483647);
       taskDeadlineTimer = window.setTimeout(() => {
         if (document.visibilityState !== "visible") return;
+        const dateChanged = syncLocalDateContext();
         const changed = runAutomaticChecks();
-        if (changed && activeViewName() !== "review") render();
+        if ((changed && activeViewName() !== "review") || dateChanged) render();
         else scheduleTaskDeadlineCheck({ retry: !changed });
       }, delay);
     }

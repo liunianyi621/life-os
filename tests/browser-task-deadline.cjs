@@ -81,8 +81,27 @@ const server=http.createServer((req,res)=>{
     await page.clock.runFor(1000);
     assert.equal(await page.evaluate(()=>state.coins),950);
     assert.equal(await page.locator('#reviewBest').inputValue(),'未保存的复盘草稿');
+    await page.clock.setSystemTime(new Date('2026-09-11T22:59:59Z'));
+    await page.evaluate(()=>{
+      state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();state.coins=1000;
+      state.habits=[{id:'midnight',name:'看书',createdDate:dateKey()}];
+      updateLifeOSSetting('economy','habitReward',10);render();
+    });
+    await page.clock.runFor(1000);
+    assert.equal(await page.evaluate(()=>state.coins),900,'a standalone habit settles at local midnight');
+    await page.reload();
+    assert.equal(await page.evaluate(()=>state.coins),900,'midnight failure is not repeated on reload');
+    await page.clock.setSystemTime(new Date('2026-09-11T22:59:59Z'));
+    await page.evaluate(()=>{
+      state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();state.coins=1000;
+      state.habits=[{id:'disabled',name:'看书',createdDate:dateKey()}];
+      updateLifeOSSetting('settlement','autoFailHabitsDaily',false);render();
+    });
+    assert.equal(await page.evaluate(()=>taskDeadlineTimer),null);
+    await page.clock.runFor(1000);await page.reload();
+    assert.equal(await page.evaluate(()=>state.coins),1000,'OFF prevents foreground and startup daily failures');
     assert.deepEqual(errors,[]);
-    console.log(JSON.stringify({foregroundDeadline:true,refreshIdempotent:true,rescheduleCancelsOldDeadline:true,habitSinglePenalty:true,resumeCatchesMemoDeadline:true,threeSlots:true,errors}));
+    console.log(JSON.stringify({foregroundDeadline:true,refreshIdempotent:true,rescheduleCancelsOldDeadline:true,habitSinglePenalty:true,resumeCatchesMemoDeadline:true,habitMidnight:true,habitOff:true,threeSlots:true,errors}));
     await context.close();
   }finally{await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

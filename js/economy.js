@@ -1,9 +1,9 @@
-    const PRIORITY_TASK_REWARD = 100;
-    const PRIORITY_TASK_PENALTY = 500;
+    const PRIORITY_TASK_REWARD = SETTINGS_DEFAULTS.economy.priorityReward;
+    const PRIORITY_TASK_PENALTY = SETTINGS_DEFAULTS.economy.priorityPenalty;
 
-    function priorityTaskSettlementAmount(status) {
-      if (status === "done") return parseCoinAmount(PRIORITY_TASK_REWARD);
-      if (status === "failed") return parseCoinAmount(PRIORITY_TASK_PENALTY);
+    function priorityTaskSettlementAmount(status, timestamp = new Date()) {
+      if (status === "done") return parseCoinAmount(economyRules(timestamp).priorityReward);
+      if (status === "failed") return parseCoinAmount(economyRules(timestamp).priorityPenalty);
       return 0;
     }
 
@@ -212,7 +212,7 @@
     function completeTask(taskId, sourceEl = null) {
       if (runAutomaticChecks({ showToast: false })) render();
       const task = todayTasks().find(item => item.id === taskId);
-      if (!task || taskIsSettled(task) || taskSlotExpired(task)) return;
+      if (!task || taskIsSettled(task) || (taskAutomaticFailureEnabled(task) && taskSlotExpired(task))) return;
       const habitId = taskHabitId(task);
       const habitDate = taskSettlementDay(task);
       if (habitId && (habitCompletedOnDate(habitId, habitDate) || habitFailedOnDate(habitId, habitDate))) return;
@@ -305,7 +305,8 @@
 
       const completedAt = new Date().toISOString();
       const previousTask = priorityTaskSnapshot(task);
-      const amount = priorityTaskSettlementAmount("done");
+      const ruleTime = new Date(Math.min(Date.now(), settlementDayEnd(date).getTime()));
+      const amount = priorityTaskSettlementAmount("done", ruleTime);
       ensurePriorityTasks()[date] = {
         ...task,
         status: "done",
@@ -363,7 +364,8 @@
 
       const failedAt = new Date().toISOString();
       const previousTask = priorityTaskSnapshot(task);
-      const amount = priorityTaskSettlementAmount("failed");
+      const ruleTime = new Date(Math.min(Date.now(), settlementDayEnd(date).getTime()));
+      const amount = priorityTaskSettlementAmount("failed", ruleTime);
       ensurePriorityTasks()[date] = {
         ...task,
         status: "failed",
@@ -384,7 +386,7 @@
         history: {
           name: task.title,
           coins: amount,
-          rewardAmount: PRIORITY_TASK_REWARD,
+          rewardAmount: economyRules(ruleTime).priorityReward,
           penaltyAmount: amount,
           settlementRule: "fixed_priority_penalty"
         }
@@ -474,12 +476,14 @@
       if (!automatic && runAutomaticChecks({ showToast: false })) render();
       const task = (automatic ? state.tasks : todayTasks()).find(item => item.id === taskId);
       if (!task || taskIsSettled(task)) return;
+      if (automatic && !taskAutomaticFailureEnabled(task)) return;
       if (automatic && taskAutoFailedOnDate(task.id, taskSettlementDay(task), buildSettledEventKeys())) return;
       const before = automatic ? null : JSON.stringify(state);
       const habitId = taskHabitId(task);
       if (habitId) {
         const habit = state.habits.find(item => item.id === habitId) || { id: habitId, name: task.name };
-        const entry = settleHabitFailure(habit, taskSettlementDay(task), buildSettledEventKeys(), now, automatic);
+        const entry = settleHabitFailure(habit, taskSettlementDay(task), buildSettledEventKeys(), now, automatic,
+          automatic ? taskSlotDeadline(task) : now);
         if (automatic) {
           if (entry) {
             const history = state.history.find(item => item.id === entry.historyId);
@@ -495,7 +499,8 @@
 
       const today = automatic ? taskSettlementDay(task) : dateKey();
       const rewardAmount = taskRewardAmount(task);
-      const amount = getIncompletePenalty(rewardAmount);
+      const ruleTime = automatic ? taskSlotDeadline(task) : now;
+      const amount = getIncompletePenalty(rewardAmount, ruleTime);
       const endTime = now.toISOString();
       const actualStartTime = null;
       const durationSeconds = 0;
@@ -547,7 +552,7 @@
           name: task.name,
           coins: amount,
           rewardAmount,
-          penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER,
+          penaltyMultiplier: penaltyMultiplier(ruleTime),
           penaltyAmount: amount,
           startTime: actualStartTime,
           actualStartTime,
@@ -567,7 +572,7 @@
       if (automatic) {
         ensureSettlementDayRecord("taskAutoFailures", today)[task.id] = historyId;
         return { taskEntry: { historyId, taskId: task.id, date: today, amount, rewardAmount,
-          penaltyMultiplier: INCOMPLETE_PENALTY_MULTIPLIER, previousTask, memoSnapshot } };
+          penaltyMultiplier: penaltyMultiplier(ruleTime), previousTask, memoSnapshot } };
       }
       if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
@@ -703,7 +708,7 @@
     function settleTaskSlotDeadlines(now = new Date()) {
       const taskEntries = [];
       const habitEntries = [];
-      state.tasks.filter(task => !taskIsSettled(task) && taskSlotExpired(task, now)).forEach(task => {
+      state.tasks.filter(task => !taskIsSettled(task) && taskAutomaticFailureEnabled(task) && taskSlotExpired(task, now)).forEach(task => {
         // Reuse the existing failure mutation; the caller saves the entire batch atomically.
         const result = failTask(task.id, null, { automatic: true, now });
         if (result?.taskEntry) taskEntries.push(result.taskEntry);

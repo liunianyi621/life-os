@@ -2075,6 +2075,85 @@ body.review-editing .screen {
   justify-content: flex-start;
 }
 
+.settings-entry { color: var(--color-text-secondary); }
+
+.q-settings-page .q-page-header { align-items: center; gap: 16px; }
+.q-settings-page .q-page-header h1 { min-width: 0; font-size: 30px; }
+.q-settings-page .q-page-header button { flex: 0 0 44px; }
+.q-settings-page [hidden] { display: none !important; }
+.settings-group { margin: 0 0 28px; }
+.settings-group h2 { margin: 0 0 8px; color: var(--color-text-secondary); font-size: 13px; font-weight: 560; }
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 58px;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+}
+.settings-row > span:first-child { min-width: 0; }
+.settings-value { color: var(--color-text-secondary); font-size: 14px; white-space: nowrap; }
+.settings-chevron { color: var(--color-text-tertiary); font-size: 22px; }
+.settings-row small, .settings-group p, .settings-note {
+  display: block;
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.settings-note { margin-top: 8px; }
+.settings-toggle-row input {
+  appearance: none;
+  position: relative;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.settings-toggle-row input::before {
+  content: "";
+  position: absolute;
+  inset: 8px 0;
+  background: var(--color-border);
+  border-radius: 16px;
+}
+.settings-toggle-row input::after {
+  content: "";
+  position: absolute;
+  top: 11px; left: 3px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  transition: transform 150ms ease;
+}
+.settings-toggle-row input:checked::before { background: var(--color-success); }
+.settings-toggle-row input:checked::after { transform: translateX(20px); }
+.settings-data .backup-actions { display: block; }
+.settings-danger h2, .settings-danger button { color: var(--danger-muted, #95615f); }
+.settings-danger button { background: transparent; min-width: 44px; min-height: 44px; }
+.settings-selector { display: grid; gap: 8px; padding: 8px 0 16px; }
+.settings-choice {
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  font: inherit;
+}
+.settings-choice[aria-pressed="true"] { color: var(--color-surface); background: var(--color-text-primary); border-color: var(--color-text-primary); }
+.settings-choice:focus-visible, .settings-row:focus-visible, .settings-toggle-row input:focus-visible { outline: 2px solid var(--color-success); outline-offset: 3px; }
+
 body.keyboard-open .keyboard-form-sheet .review-score-heading {
   margin-bottom: 2px;
 }
