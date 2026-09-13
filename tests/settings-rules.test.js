@@ -14,6 +14,7 @@ function runtime() {
   for (const file of ['storage','backup','tasks','habits','economy','settlement','memos','ui/time-picker']) {
     vm.runInContext(fs.readFileSync(path.join(root,`js/${file}.js`),'utf8'),context);
   }
+  vm.runInContext(fs.readFileSync(path.join(root,"tests/fixtures/legacy-memo-task.js"),"utf8"),context);
   const run = code => vm.runInContext(code,context);
   run(`state = cloneEmptyState(); state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();state.coins=2000;
     render=()=>{};renderTasks=()=>{};closeSheet=()=>{};updatePrimaryReadouts=()=>{};prepareActionCard=()=>{};
@@ -31,7 +32,7 @@ for (const source of ['MANUAL', 'HABIT', 'MEMO']) {
     const {run, at} = runtime();
     run(`hideToast=()=>{};
       ${source === 'HABIT' ? "scheduleHabitAsTask('h')" : source === 'MEMO'
-        ? "state.habits=[];state.memos=[{id:'m',text:'买书',status:'ACTIVE'}];scheduleMemoAsTask('m')"
+        ? "state.habits=[];state.memos=[{id:'m',text:'买书',status:'ACTIVE'}];createLegacyMemoTask('m')"
         : "state.habits=[];saveTask({name:'任务',coins:5,date:dateKey(),timeStart:'11:00',timeEnd:'12:00'})"}`);
     at(11,12);run('runAutomaticChecks()');
     assert.equal(run('state.coins'),1950);
@@ -59,7 +60,7 @@ for (const source of ['MANUAL', 'HABIT', 'MEMO']) {
     const {run,at}=runtime();
     run(`hideToast=()=>{};
       ${source === 'HABIT' ? "scheduleHabitAsTask('h')" : source === 'MEMO'
-        ? "state.habits=[];state.memos=[{id:'m',text:'买书',status:'ACTIVE'}];scheduleMemoAsTask('m')"
+        ? "state.habits=[];state.memos=[{id:'m',text:'买书',status:'ACTIVE'}];createLegacyMemoTask('m')"
         : "state.habits=[];saveTask({name:'任务',coins:5,date:dateKey(),timeStart:'11:00',timeEnd:'12:00'})"}`);
     at(11,12);run('runAutomaticChecks();undoLastAction()');
     const id=run('state.tasks[0].id');
@@ -127,7 +128,7 @@ test('任务默认值只影响新建，用户选择和已有任务奖励不变�
   const {run,set}=runtime();
   run("saveTask({name:'旧任务',coins:5})");set('economy','defaultTaskReward',20);
   assert.equal(run('taskRewardInputValue(null)'),20);
-  run("saveTask({name:'默认任务'});saveTask({name:'自选任务',coins:10});state.memos=[{id:'m',text:'买书',status:'ACTIVE'}];scheduleMemoAsTask('m')");
+  run("saveTask({name:'默认任务'});saveTask({name:'自选任务',coins:10});state.memos=[{id:'m',text:'买书',status:'ACTIVE'}];createLegacyMemoTask('m')");
   assert.deepEqual(JSON.parse(run('JSON.stringify(state.tasks.map(task=>task.reward))')),[5,20,10,20]);
 });
 

@@ -486,8 +486,7 @@ textarea:focus-visible {
   background: transparent;
 }
 
-.today-page #habitList.habit-template-grid,
-.today-page #homeMemoList.memo-template-grid {
+.today-page #habitList.habit-template-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
@@ -498,8 +497,7 @@ textarea:focus-visible {
   box-shadow: none;
 }
 
-.today-page #habitList.habit-template-grid .empty-state,
-.today-page #homeMemoList.memo-template-grid .memo-template-empty {
+.today-page #habitList.habit-template-grid .empty-state {
   width: 100%;
 }
 
@@ -549,10 +547,6 @@ textarea:focus-visible {
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.memo-template-chip {
-  max-width: min(100%, 260px);
 }
 
 .habit-template-chip.habit-drag-source {
@@ -1185,7 +1179,6 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 .today-page .section-add-button,
 .today-page .habit-add-button { background: transparent; box-shadow: none; border: 0; width: 44px; height: 44px; }
 .today-page .home-memo-section h2 { color: var(--color-text-secondary); font-size: 17px; }
-.today-page .home-memo-section .habit-template-chip { color: var(--color-text-secondary); background: transparent; border-color: var(--color-border); font-size: 14px; }
 .priority-task-slot [data-complete-priority] { background: var(--color-success-soft); color: var(--color-success); }
 .priority-task-slot [data-fail-priority] { background: transparent; color: var(--color-text-secondary); }
 .priority-main h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; line-height: 1.35; }
@@ -2736,112 +2729,80 @@ body.keyboard-open .review-keyboard-form .q-primary-button {
   line-height: 1.45;
 }
 
-.memo-form {
+.memo-reminder-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  min-height: 56px;
 }
-
+.memo-complete {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.memo-circle {
+  width: 21px;
+  height: 21px;
+  border: 1.5px solid var(--color-text-tertiary);
+  border-radius: 50%;
+}
+.memo-complete:active .memo-circle {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+.memo-reminder-row.is-completing { opacity: 0.4; transition: opacity 180ms ease; }
+.is-completing .memo-circle { border: 0; color: var(--color-success); }
+.memo-circle .action-icon { width: 21px; height: 21px; }
+.memo-reminder-text {
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.home-memo-section .memo-reminder-row { min-height: 44px; }
+.home-memo-section .memo-reminder-text {
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.memo-heading-button, .memo-more, .memo-new, .memo-submit-button, .memo-edit-delete {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.memo-heading-button { font: inherit; }
+.memo-more { margin-left: 44px; color: var(--color-text-secondary); font-size: 13px; }
+.memo-new { margin: 12px 0 0 10px; font-size: 16px; color: var(--color-success); }
+.memo-sheet__body { padding: 0 22px 16px; }
+.memo-list { margin: 0; }
+.memo-list .memo-reminder-row + .memo-reminder-row { border-top: 1px solid var(--color-border); }
+.memo-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .memo-form input {
   min-width: 0;
   min-height: 48px;
-  padding: 0 15px;
+  padding: 0 12px;
   border: 0;
   border-radius: var(--radius-sm);
-  outline: 0;
   background: var(--color-surface-muted);
-  color: var(--color-text-primary);
 }
-
-.memo-submit-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.memo-submit-button .action-icon {
-  width: 19px;
-  height: 19px;
-}
-
-.memo-sheet__body {
-  padding: 4px 22px 12px;
-}
-
-.memo-list {
-  margin: 0;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.memo-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 62px;
-  padding: 10px 0;
-}
-
-.memo-body {
-  min-width: 0;
-}
-
-.memo-item > [data-arrange-memo] {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: start;
-  min-height: 44px;
-}
-
-.memo-item > .memo-delete {
-  grid-column: 3;
-  grid-row: 1;
-}
-
-.memo-text {
-  margin: 0;
-  overflow: hidden;
-  color: var(--color-text-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.memo-item.completed .memo-text {
-  color: var(--color-text-tertiary);
-  text-decoration: line-through;
-}
-
-.memo-item-scheduled {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.memo-scheduled-label {
-  display: block;
-  margin-top: 5px;
-  color: var(--color-text-tertiary);
-  font-size: 13px;
-  font-weight: 540;
-}
-
-.memo-action {
-  width: 38px;
-  height: 38px;
-  border: 0;
-  box-shadow: none;
-}
-
-.memo-action.completed {
-  background: var(--color-success-soft);
-  color: var(--color-success);
-}
-
-.memo-action.memo-delete {
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
-}
+.memo-submit-button { padding: 0 8px; color: var(--color-success); }
+.memo-edit-delete { grid-column: 1 / -1; color: var(--color-danger); font-size: 14px; }
 
 /* Sheets and forms */
 .sheet-backdrop,

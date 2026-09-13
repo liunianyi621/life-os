@@ -183,7 +183,7 @@ function createRuntime(state, clock = null) {
     clearTimeout
   };
   vm.createContext(context);
-  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/settlement.js", "js/stats-data.js", "js/stats.js", "js/ui/time-picker.js", "js/memos.js"].forEach(file => {
+  ["js/storage.js", "js/tasks.js", "js/habits.js", "js/economy.js", "js/settlement.js", "js/stats-data.js", "js/stats.js", "js/ui/time-picker.js", "js/memos.js", "tests/fixtures/legacy-memo-task.js"].forEach(file => {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), "utf8"), context, { filename: file });
   });
   vm.runInContext(`
@@ -380,7 +380,7 @@ test('完成保存失败不消耗 Memo，也不奖励金币', () => {
   const initial = emptyState();
   initial.memos = [{id:'memo',text:'买书',completed:false}];
   const runtime = createRuntime(initial);
-  value(runtime.context, "scheduleMemoAsTask('memo', new Date()); originalSave = saveState; saveState = () => { throw new Error('storage full'); }; completeTask(state.tasks[0].id)");
+  value(runtime.context, "createLegacyMemoTask('memo', new Date()); originalSave = saveState; saveState = () => { throw new Error('storage full'); }; completeTask(state.tasks[0].id)");
   assert.equal(value(runtime.context, 'state.coins'), 1000);
   assert.equal(value(runtime.context, 'state.memos.length'), 1);
   assert.equal(value(runtime.context, 'state.tasks[0].status'), 'pending');
@@ -812,7 +812,7 @@ test("习惯和备忘录都能保存到用户指定的整点槽且保持 WAITING
     new Date(2026, 6, 16, 12, 30),
     new Date(2026, 6, 16, 15, 0)
   )`);
-  const memoTask = value(context, `scheduleMemoAsTask(
+  const memoTask = value(context, `createLegacyMemoTask(
     "memo-slot",
     new Date(2026, 6, 16, 12, 35),
     new Date(2026, 6, 16, 16, 0)
@@ -1091,7 +1091,7 @@ test("旧备忘录拖入后创建 MEMO 来源的下一个整点 WAITING 任务",
   state.memos = [{ id: "memo-1", text: "牙刷充电", completed: false, createdAt: FIXED_NOW }];
   const { context, storage } = createRuntime(state);
 
-  const created = value(context, `scheduleMemoAsTask("memo-1", new Date(2026, 6, 16, 13, 18))`);
+  const created = value(context, `createLegacyMemoTask("memo-1", new Date(2026, 6, 16, 13, 18))`);
   assert.equal(created.source, "MEMO");
   assert.equal(created.originId, "memo-1");
   assert.equal(created.sourceMemoId, "memo-1");
@@ -1111,7 +1111,7 @@ test("旧备忘录拖入后创建 MEMO 来源的下一个整点 WAITING 任务",
   const persisted = JSON.parse(storage.get("minimal-discipline-v1"));
   assert.equal(persisted.memos[0].status, "SCHEDULED");
   assert.equal(persisted.memos[0].linkedTaskId, created.id);
-  assert.equal(value(context, `scheduleMemoAsTask("memo-1", new Date(2026, 6, 16, 13, 20))`), null);
+  assert.equal(value(context, `createLegacyMemoTask("memo-1", new Date(2026, 6, 16, 13, 20))`), null);
   assert.equal(value(context, "state.coins"), 2000);
   assert.equal(value(context, "state.history.length"), 0);
 });
@@ -1124,7 +1124,7 @@ test("MEMO 任务保存失败时不会隐藏或删除原备忘录", () => {
   const result = value(context, `(() => {
     const originalSaveState = saveState;
     saveState = () => { throw new Error("save failed"); };
-    const created = scheduleMemoAsTask("memo-save-fail", new Date(2026, 6, 16, 13, 18));
+    const created = createLegacyMemoTask("memo-save-fail", new Date(2026, 6, 16, 13, 18));
     saveState = originalSaveState;
     return created;
   })()`);
@@ -1141,13 +1141,13 @@ test("撤回或删除未完成 MEMO 任务会恢复原备忘录", () => {
   state.memos = [{ id: "memo-undo", text: "买转换插头", completed: false, createdAt: FIXED_NOW }];
   const { context } = createRuntime(state);
 
-  value(context, `scheduleMemoAsTask("memo-undo", new Date(2026, 6, 16, 13, 18))`);
+  value(context, `createLegacyMemoTask("memo-undo", new Date(2026, 6, 16, 13, 18))`);
   value(context, "undoLastAction()");
   assert.equal(value(context, "state.tasks.length"), 0);
   assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
   assert.equal(value(context, "state.memos[0].linkedTaskId"), null);
 
-  value(context, `scheduleMemoAsTask("memo-undo", new Date(2026, 6, 16, 13, 18))`);
+  value(context, `createLegacyMemoTask("memo-undo", new Date(2026, 6, 16, 13, 18))`);
   value(context, "closeSheet = () => {}; deleteTask(state.tasks[0].id)");
   assert.equal(value(context, "state.tasks.length"), 0);
   assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
@@ -1158,7 +1158,7 @@ test("MEMO 任务失败后恢复备忘录，撤回失败后重新关联", () => 
   state.memos = [{ id: "memo-fail", text: "整理签证材料", completed: false, createdAt: FIXED_NOW }];
   const { context } = createRuntime(state);
 
-  const taskId = value(context, `scheduleMemoAsTask("memo-fail", new Date(2026, 6, 16, 13, 0)).id`);
+  const taskId = value(context, `createLegacyMemoTask("memo-fail", new Date(2026, 6, 16, 13, 0)).id`);
   value(context, `failTask("${taskId}")`);
   assert.equal(value(context, "state.coins"), 1950);
   assert.equal(value(context, `memoStatus(state.memos[0])`), "ACTIVE");
@@ -1176,7 +1176,7 @@ test("MEMO 任务完成后永久删除备忘录，删除已完成任务不会恢
   state.memos = [{ id: "memo-done", text: "给 Raphael 回消息", completed: false, createdAt: FIXED_NOW }];
   const { context } = createRuntime(state);
 
-  const taskId = value(context, `scheduleMemoAsTask("memo-done", new Date(2026, 6, 16, 13, 0)).id`);
+  const taskId = value(context, `createLegacyMemoTask("memo-done", new Date(2026, 6, 16, 13, 0)).id`);
   value(context, `startTask("${taskId}")`);
   value(context, `state.tasks[0].startedAt = "2026-07-16T11:00:00.000Z";
     state.tasks[0].actualStartTime = "2026-07-16T11:00:00.000Z";

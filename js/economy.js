@@ -1513,7 +1513,7 @@
 
     function contextualUndoLabel(undoData = {}) {
       if (undoData.type === "habit_task_scheduled" || undoData.type === "memo_task_scheduled") return "已安排";
-      if (undoData.type === "task_completed") return "已完成";
+      if (undoData.type === "task_completed" || undoData.type === "memo_completed") return "已完成";
       if (undoData.type === "task_failed") return "未完成";
       return "操作已完成";
     }
@@ -1554,6 +1554,11 @@
       const undo = pendingUndo;
       clearPendingUndo(true);
       clearTimeout(scheduleRender.timer);
+
+      if (undo.type === "memo_completed") {
+        if (!undoMemoCompletion(undo.memoSnapshot)) showUndoToast(undo, { message: "撤回失败，请重试" });
+        return;
+      }
 
       if (undo.type === "habit_task_scheduled") {
         const task = state.tasks.find(item => item.id === undo.taskId);

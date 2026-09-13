@@ -17,12 +17,13 @@ const server=http.createServer((req,res)=>{
       await page.clock.install({time:new Date('2026-09-12T10:30:00Z')});
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       await page.addStyleTag({content:'* { animation: none !important; transition: none !important; }'});
+      await page.addScriptTag({path:path.join(root,'tests/fixtures/legacy-memo-task.js')});
       for(const source of ['MANUAL','HABIT','MEMO']){
         const id=await page.evaluate(source=>{
           UndoController.clear();state=cloneEmptyState();state.coins=100;state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();
           state.habits=[{id:'h',name:'看书',createdDate:dateKey()}];state.memos=[{id:'m',text:'存照片',createdAt:new Date().toISOString()}];
           if(source==='HABIT')scheduleHabitAsTask('h');
-          else if(source==='MEMO')scheduleMemoAsTask('m');
+          else if(source==='MEMO')createLegacyMemoTask('m');
           else saveTask({name:'普通任务',coins:20,timeStart:'12:00',timeEnd:'13:00',date:dateKey()});
           UndoController.clear();pendingUndo=null;render();return state.tasks[0].id;
         },source);

@@ -60,9 +60,9 @@ const server = http.createServer((req, res) => {
         assert.equal(await page.locator('[data-task-timeline-slot]').count(),3);
         assert.equal(metrics.horizontalScroll,false);
         if (version==='after' && !process.env.BASELINE_ONLY) {
-          assert.equal(metrics.scroll,false);
+          assert.ok(metrics.pageHeight <= height + 88, 'reminder rows allow only a small natural scroll');
           assert.equal(metrics.habitVisible,true);
-          assert.equal(metrics.memoVisible,true);
+          assert.equal(await page.locator('#homeMemoList [data-toggle-memo]').count(),height < 900 ? 2 : 3);
           assert.equal(await page.getByText('接下来',{exact:true}).count(),0);
           assert.equal(await page.getByText('今天只放一件最重要的事',{exact:true}).count(),0);
           for (const button of await page.locator('[data-complete-task]').all()) {
@@ -84,7 +84,8 @@ const server = http.createServer((req, res) => {
             const priority=document.querySelector('#priorityTaskCard').getBoundingClientRect();
             return {height:priority.height,memoBottom:document.querySelector('.home-memo-section').getBoundingClientRect().bottom,navTop:document.querySelector('.bottom-nav').getBoundingClientRect().top};
           });
-          assert.ok(populated.memoBottom<=populated.navTop);
+          await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+          assert.ok(await page.evaluate(()=>document.querySelector('.home-memo-section').getBoundingClientRect().bottom<=document.querySelector('.bottom-nav').getBoundingClientRect().top));
           await page.screenshot({path:path.join(evidence,`today-priority-${width}.png`),fullPage:true});
           // A late-night label may wrap, but must stay in its own time column.
           await page.clock.setFixedTime(new Date('2026-09-10T21:30:00Z'));

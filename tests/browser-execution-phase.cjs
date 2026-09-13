@@ -35,7 +35,7 @@ const server = http.createServer((req,res) => {
         state.memos = Array.from({length:8},(_,i) => ({id:'m'+i,text:'以后要做的事情'+i,createdAt:new Date().toISOString()}));
         saveState(); render();
       });
-      assert.equal(await page.locator('#homeMemoList [data-memo-card]').count(),3);
+      assert.equal(await page.locator('#homeMemoList [data-toggle-memo]').count(),height < 900 ? 2 : 3);
       await page.locator('[data-habit-card="h0"]').click();
       await page.locator('[data-schedule-habit="h0"]').click();
       await page.locator('[data-arrange-slot]').nth(2).click();
@@ -55,12 +55,11 @@ const server = http.createServer((req,res) => {
       assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
       assert.equal(await page.evaluate(() => state.coins),5);
       assert.equal(await page.evaluate(() => state.habits.filter(h => !habitCompletedToday(h.id)).length),7);
-      await page.locator('[data-memo-card="m0"]').click();
-      await page.locator('[data-arrange-memo="m0"]').click();
-      await page.locator('[data-arrange-slot]').first().click();
-      assert.equal(await page.evaluate(() => state.memos[0].status),'SCHEDULED');
+      await page.locator('#homeMemoList [data-toggle-memo="m0"]').click();
+      await page.waitForTimeout(200);
+      assert.equal(await page.evaluate(() => state.memos[0].status),'COMPLETED');
       await page.locator('#toast [data-contextual-undo]').click();
-      assert.equal(await page.locator('[data-memo-card="m0"]').count(),1);
+      assert.equal(await page.locator('#homeMemoList [data-toggle-memo="m0"]').count(),1);
       await page.locator('[data-nav="calendar"]').click();
       await page.locator('button[data-calendar-day="2026-09-09"]').click();
       assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);

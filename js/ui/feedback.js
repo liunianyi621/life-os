@@ -182,7 +182,7 @@
       function renderGlobal() {
         if (!current || current.mode !== "global") return;
         const label = current.amountLabel ? `${current.amountLabel} · 撤回` : "撤回";
-        const completed = current.actionId.startsWith("task_completed:");
+        const completed = current.actionId.startsWith("task_completed:") || current.actionId.startsWith("memo_completed:");
         renderTopNotice({ message: completed ? "已完成" : label, undo: true, completed });
         els.toast.classList.toggle("is-exiting", Boolean(current.exiting));
       }

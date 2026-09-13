@@ -47,7 +47,7 @@ const server = http.createServer((req, res) => {
       assert.deepEqual(await slots.locator('time').allTextContents(), ['20:00', '21:00', '22:00']);
 
       const cdp = await context.newCDPSession(page);
-      for (const [selector, source] of [['[data-habit-card="test-habit"]', 'HABIT'], ['[data-memo-card="test-memo"]', 'MEMO']]) {
+      for (const [selector, source] of [['[data-habit-card="test-habit"]', 'HABIT']]) {
         const chip = page.locator(selector);
         await chip.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
         await page.waitForTimeout(200);
@@ -80,10 +80,6 @@ const server = http.createServer((req, res) => {
         assert.equal(await page.locator('#toast [data-contextual-undo]').count(), 1);
         await page.screenshot({ path: path.join(imageDir, `waiting-${source}-${width}.png`), fullPage: true });
         console.log(JSON.stringify({ width, source, before, after, status: task.status }));
-        if (source === 'MEMO') {
-          await page.locator('#toast [data-contextual-undo]').click();
-          assert.equal(await page.locator('[data-memo-card="test-memo"]').count(), 1);
-        }
       }
 
       await page.reload();
@@ -138,7 +134,8 @@ const server = http.createServer((req, res) => {
       await page.waitForTimeout(100);
       await page.evaluate(() => closeSheet());
       assert.equal(await page.evaluate(() => state.coins), beforeManual + chosenReward);
-      await page.evaluate(() => { scheduleMemoAsTask('test-memo'); });
+      await page.addScriptTag({path:path.join(root,'tests/fixtures/legacy-memo-task.js')});
+      await page.evaluate(() => { createLegacyMemoTask('test-memo'); });
       const memoTask = await page.evaluate(() => state.tasks.find(task => task.source === 'MEMO'));
       const beforeMemo = await page.evaluate(() => state.coins);
       await page.locator('[data-complete-task="' + memoTask.id + '"]').click();

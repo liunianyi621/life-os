@@ -359,9 +359,8 @@
     }
 
     function openArrangementSheet(source, originId) {
-      const item = source === "HABIT"
-        ? state.habits.find(habit => habit.id === originId)
-        : memoItems().find(memo => memo.id === originId && memoIsActive(memo));
+      if (source !== "HABIT") return;
+      const item = state.habits.find(habit => habit.id === originId);
       if (!item) return;
       closeMemoSheet();
       sheetMode = "arrangement";

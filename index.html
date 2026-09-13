@@ -13,7 +13,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20260912-timeout-undo">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20260913-reminders">
 </head>
 <body>
   <div class="app q-app">
@@ -59,12 +59,12 @@
         </section>
         <section class="today-section home-memo-section" aria-label="备忘录">
           <div class="section-heading q-section-header">
-            <h2>备忘录</h2>
+            <h2><button class="memo-heading-button" type="button" data-open-memo>备忘录</button></h2>
             <div class="section-heading-actions">
-              <button class="icon-button q-icon-button section-add-button" type="button" data-open-memo aria-label="新增备忘录" data-icon-button="plus"></button>
+              <button class="icon-button q-icon-button section-add-button" type="button" data-add-memo aria-label="新提醒" data-icon-button="plus"></button>
             </div>
           </div>
-          <div class="memo-template-grid" id="homeMemoList"></div>
+          <div class="memo-reminders" id="homeMemoList"></div>
         </section>
       </section>
 
@@ -368,18 +368,17 @@
       <div class="sheet-header q-sheet-header">
         <button class="icon-button q-icon-button sheet-close-button" type="button" id="closeMemoBtn" aria-label="关闭" data-icon-button="xmark"></button>
         <div>
-          <span class="eyebrow">临时待办</span>
           <h2 id="memoSheetTitle">备忘录</h2>
         </div>
       </div>
       <div class="keyboard-form-sheet__body memo-sheet__body">
         <div class="memo-list" id="memoList"></div>
+        <button class="memo-new" type="button" data-add-memo>＋ 新提醒</button>
       </div>
-      <form class="memo-form keyboard-form-sheet__footer" id="memoForm">
-        <input id="memoInput" name="memo" type="text" maxlength="120" placeholder="记下一件临时想到的事" autocomplete="off">
-        <button class="button q-primary-button memo-submit-button" type="submit" id="saveMemoBtn" aria-label="新增备忘录" data-icon-button="plus">
-          <span>新增备忘录</span>
-        </button>
+      <form class="memo-form keyboard-form-sheet__footer hidden" id="memoForm">
+        <input id="memoInput" name="memo" type="text" maxlength="120" placeholder="新提醒" autocomplete="off" enterkeyhint="done">
+        <button class="memo-submit-button" type="submit" id="saveMemoBtn" aria-label="保存备忘录">保存</button>
+        <button class="memo-edit-delete hidden" type="button" id="memoEditDelete">删除提醒</button>
       </form>
     </section>
   </div>
@@ -417,16 +416,16 @@
   <script src="js/backup.js?v=20260912-settings"></script>
   <script src="js/tasks.js?v=20260912-timeout-undo"></script>
   <script src="js/habits.js?v=20260912-settings"></script>
-  <script src="js/economy.js?v=20260912-timeout-undo"></script>
+  <script src="js/economy.js?v=20260913-reminders"></script>
   <script src="js/settlement.js?v=20260912-timeout-undo"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
   <script src="js/stats.js?v=20260911-score-trend"></script>
   <script src="js/ui/elements.js?v=20260912-settings"></script>
-  <script src="js/ui/feedback.js?v=20260912-completion"></script>
+  <script src="js/ui/feedback.js?v=20260913-reminders"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
-  <script src="js/ui/sheets.js?v=20260912-calendar"></script>
-  <script src="js/memos.js?v=20260912-journal"></script>
+  <script src="js/ui/sheets.js?v=20260913-reminders"></script>
+  <script src="js/memos.js?v=20260913-reminders"></script>
   <script src="js/ui/settings.js?v=20260912-settings"></script>
-  <script src="js/ui.js?v=20260912-timeout-undo"></script>
+  <script src="js/ui.js?v=20260913-reminders"></script>
 </body>
 </html>

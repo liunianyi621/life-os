@@ -146,19 +146,13 @@
     }
 
     function habitDragTargetFromEvent(event) {
-      const row = event.target.closest?.("[data-habit-card], [data-memo-card], [data-reschedule-task]");
+      const row = event.target.closest?.("[data-habit-card], [data-reschedule-task]");
       if (!row || event.target.closest?.("input, textarea, select, a")) return null;
       if (row.dataset.rescheduleTask) {
         if (event.target.closest?.("button, [role='button']")) return null;
         const task = state.tasks.find(item => item.id === row.dataset.rescheduleTask);
         return task && !taskIsSettled(task)
           ? { row, card: row, sourceType: "TASK", sourceId: task.id, sourceName: task.name }
-          : null;
-      }
-      if (row.dataset.memoCard) {
-        const memo = memoItems().find(item => item.id === row.dataset.memoCard);
-        return memo && memoIsActive(memo)
-          ? { row, card: row, sourceType: "MEMO", sourceId: memo.id, sourceName: memo.text, memo }
           : null;
       }
       const habit = state.habits.find(item => item.id === row.dataset.habitCard);
@@ -175,7 +169,6 @@
         sourceId: target.sourceId,
         sourceName: target.sourceName,
         habitId: target.habit?.id || null,
-        memoId: target.memo?.id || null,
         inputMode,
         pointerId: inputMode === "pointer" ? inputId : null,
         touchIdentifier: inputMode === "touch" ? inputId : null,
@@ -427,8 +420,7 @@
 
     function dropTaskMaterial(drag, scheduledSlotStart) {
       if (drag.sourceType === "TASK") return rescheduleTask(drag.sourceId, scheduledSlotStart);
-      if (drag.sourceType === "MEMO") return scheduleMemoAsTask(drag.memoId, new Date(), scheduledSlotStart);
-      return scheduleHabitAsTask(drag.habitId, new Date(), scheduledSlotStart);
+      if (drag.sourceType === "HABIT") return scheduleHabitAsTask(drag.habitId, new Date(), scheduledSlotStart);
     }
 
     function cancelHabitPointerDrag(event) {
@@ -1307,24 +1299,18 @@
         return;
       }
       const undoButton = event.target.closest("[data-contextual-undo]");
-      const arrangeMemoButton = event.target.closest("[data-arrange-memo]");
       const arrangeSlotButton = event.target.closest("[data-arrange-slot]");
-      if (arrangeMemoButton) {
-        openArrangementSheet("MEMO", arrangeMemoButton.dataset.arrangeMemo);
-        return;
-      }
       if (arrangeSlotButton) {
         const { arrangeSource, arrangeOrigin, arrangeSlot } = arrangeSlotButton.dataset;
-        const schedule = arrangeSource === "HABIT" ? scheduleHabitAsTask : scheduleMemoAsTask;
+        if (arrangeSource !== "HABIT") return;
         closeSheet();
-        schedule(arrangeOrigin, new Date(), arrangeSlot);
+        scheduleHabitAsTask(arrangeOrigin, new Date(), arrangeSlot);
         return;
       }
       const swipeActionButton = event.target.closest(".swipe-action");
       const swipeContent = event.target.closest("[data-swipe-content]");
       const editCard = event.target.closest("[data-edit-card]");
       const habitCard = event.target.closest("[data-habit-card]");
-      const memoCard = event.target.closest("[data-memo-card]");
       const reviewCard = event.target.closest("[data-review-card]");
       const navButton = event.target.closest("[data-nav]");
       const exportDebugTarget = event.target.closest("[data-export-debug]");
@@ -1334,10 +1320,9 @@
       const openNoteButton = event.target.closest("[data-open-note]");
       const openRewardButton = event.target.closest("[data-open-reward]");
       const openMemoButton = event.target.closest("[data-open-memo]");
-      const homeMemoCard = event.target.closest("[data-home-memo-card]");
+      const addMemoButton = event.target.closest("[data-add-memo]");
       const toggleMemoButton = event.target.closest("[data-toggle-memo]");
       const editMemoTarget = event.target.closest("[data-edit-memo]");
-      const deleteMemoButton = event.target.closest("[data-delete-memo]");
       const editTaskButton = event.target.closest("[data-edit-task]");
       const editHabitButton = event.target.closest("[data-edit-habit]");
       const editNoteButton = event.target.closest("[data-edit-note]");
@@ -1462,7 +1447,7 @@
       if (!event.target.closest("[data-swipe-row]")) {
         closeOpenSwipeRows();
       }
-      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard || memoCard)) {
+      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard)) {
         suppressNextCardTap = false;
         return;
       }
@@ -1490,8 +1475,8 @@
         openMemoSheet();
         return;
       }
-      if (homeMemoCard) {
-        openMemoSheet(homeMemoCard.dataset.homeMemoCard);
+      if (addMemoButton) {
+        openMemoSheet(null, true);
         return;
       }
       if (toggleMemoButton) {
@@ -1500,10 +1485,6 @@
       }
       if (editMemoTarget) {
         editMemo(editMemoTarget.dataset.editMemo);
-        return;
-      }
-      if (deleteMemoButton) {
-        deleteMemo(deleteMemoButton.dataset.deleteMemo);
         return;
       }
       if (editCard?.dataset.editCard === "note") handleEditCardTap(editCard);
@@ -1594,6 +1575,12 @@
     });
     els.sheetForm.addEventListener("submit", handleSheetSubmit);
     els.memoForm.addEventListener("submit", handleMemoSubmit);
+    document.getElementById("memoEditDelete")?.addEventListener("click", async () => {
+      const memoId = editingMemoId;
+      if (!memoId) return;
+      const confirmed = await askForConfirmation({ title: "删除提醒", message: "删除这条备忘录？", confirmText: "删除" });
+      if (confirmed) deleteMemo(memoId);
+    });
     els.reviewDateButton.addEventListener("click", () => {
       if (!els.reviewDateInput) return;
       els.reviewDateInput.value = selectedReviewDate;

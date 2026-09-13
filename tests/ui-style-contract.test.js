@@ -100,21 +100,15 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   assert.match(productionCss, /\.habit-drag-preview/);
   assert.match(productionCss, /\.habit-template-chip[\s\S]*?-webkit-user-select:\s*none;/);
   assert.match(productionCss, /\.habit-template-chip[\s\S]*?-webkit-touch-callout:\s*none;/);
-  assert.match(productionCss, /#habitList\.habit-template-grid,[\s\S]*?flex-wrap:\s*wrap;/);
+  assert.match(productionCss, /#habitList\.habit-template-grid[\s\S]*?flex-wrap:\s*wrap;/);
 });
 
-test("备忘录 Chip 复用拖拽通道并分流到 MEMO 任务入口", () => {
+test("备忘录为独立提醒，不提供拖拽或安排入口", () => {
   const memoSource = fs.readFileSync(path.join(ROOT, "js/memos.js"), "utf8");
-  const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
-  assert.match(indexHtml, /class="memo-template-grid" id="homeMemoList"/);
-  assert.match(memoSource, /class="habit-template-chip memo-template-chip"/);
-  assert.match(memoSource, /data-memo-card=/);
-  assert.match(memoSource, /source: "MEMO"/);
-  assert.match(memoSource, /originId: memo\.id/);
-  assert.match(memoSource, /status: "pending"/);
-  assert.match(uiSource, /\[data-habit-card\], \[data-memo-card\]/);
-  assert.match(uiSource, /drag\.sourceType === "MEMO"[\s\S]*?scheduleMemoAsTask/);
-  assert.match(productionCss, /#homeMemoList\.memo-template-grid/);
+  assert.match(indexHtml, /class="memo-reminders" id="homeMemoList"/);
+  assert.match(memoSource, /data-toggle-memo/);
+  assert.doesNotMatch(memoSource + uiSource + sheetSource, /scheduleMemoAsTask|data-arrange-memo|data-memo-card/);
+  assert.match(uiSource, /drag.sourceType === "HABIT"/);
 });
 
 test("任务可直接完成，不再有计时操作或小时奖励表单", () => {
