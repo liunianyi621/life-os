@@ -74,6 +74,7 @@
     }
 
     function createLifeOSBackup() {
+      if (storageReadBlocked) throw new Error("本机数据尚未成功读取，不能导出空白备份。原始数据仍保留。");
       return {
         app: "LifeOS", version: LIFEOS_BACKUP_VERSION, schemaVersion: 1,
         appVersion: "0.1.0", exportedAt: new Date().toISOString(),
@@ -95,11 +96,13 @@
     function restoreLifeOSBackup(backup) {
       const candidate = validateLifeOSBackup(backup);
       const serialized = JSON.stringify(candidate);
-      const previous = JSON.stringify(state);
+      const previous = storageReadBlocked ? localStorage.getItem(STORAGE_KEY) : JSON.stringify(state);
       // Both writes must succeed before memory changes. setItem is atomic for the main key.
       localStorage.setItem(LIFEOS_BEFORE_IMPORT_KEY, previous);
       localStorage.setItem(STORAGE_KEY, serialized);
       state = candidate;
+      storageReadBlocked = false;
+      storageRecoveryMessage = "";
     }
 
     async function importLifeOSBackup(file) {

@@ -714,10 +714,44 @@
       return Number(saved?.pastCoinHistoryScaleMigrationVersion) >= PAST_COIN_HISTORY_SCALE_MIGRATION_VERSION;
     }
 
+    let storageReadBlocked = false;
+    let storageRecoveryMessage = "";
+
+    function normalizeStoredCollections(saved) {
+      const result = { ...saved };
+      const recovered = [];
+      for (const key of ["tasks", "habits", "badHabits", "notes", "memos", "calendarEvents", "rewards", "achievements", "history"]) {
+        if (result[key] == null) continue;
+        if (!Array.isArray(result[key])) {
+          recovered.push({ collection: key, value: result[key] });
+          result[key] = [];
+          continue;
+        }
+        result[key] = result[key].filter((item, index) => {
+          const valid = item !== null && typeof item === "object" && !Array.isArray(item);
+          if (!valid) recovered.push({ collection: key, index, value: item });
+          return valid;
+        });
+      }
+      if (recovered.length) {
+        result.storageRecovery = [...(Array.isArray(saved.storageRecovery) ? saved.storageRecovery : []),
+          { version: 1, records: recovered }];
+        storageRecoveryMessage = "部分异常记录已隔离保留，其他数据可正常使用。";
+      }
+      return result;
+    }
+
     function loadState() {
+      storageReadBlocked = false;
+      storageRecoveryMessage = "";
       try {
         const savedRaw = localStorage.getItem(STORAGE_KEY);
         let saved = JSON.parse(savedRaw);
+        if (savedRaw && (!saved || typeof saved !== "object" || Array.isArray(saved))) {
+          throw new Error("Invalid saved state root");
+        }
+        if (saved) saved = normalizeStoredCollections(saved);
+        const needsRecoveryCleanup = Boolean(storageRecoveryMessage);
         let migrationApplied = false;
         if (saved) {
           if (!pastCoinHistoryScaleMigrationApplied(saved)) {
@@ -802,12 +836,17 @@
         if (!merged.settledThroughDate) {
           merged.settledThroughDate = yesterdayKey();
         }
-        if (needsLegacyCleanup || migrationApplied) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        if (needsLegacyCleanup || migrationApplied || needsRecoveryCleanup) {
+          // A write failure must never replace successfully read user data with an empty state.
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); }
+          catch (error) { storageRecoveryMessage = "数据已读取，但暂时无法保存。原数据仍保留。"; }
         }
 
         return merged;
-      } catch {
+      } catch (error) {
+        storageReadBlocked = true;
+        storageRecoveryMessage = "本机数据暂时无法读取，原始数据已保留，已停止写入。";
+        console.error("LifeOS storage read failed; original storage is protected", error);
         const fresh = cloneEmptyState();
         fresh.rewards = defaultFundRewards();
         fresh.settledThroughDate = yesterdayKey();
@@ -831,6 +870,7 @@
     let suppressNextCardTap = false;
 
     function saveState() {
+      if (storageReadBlocked) throw new Error("Storage is protected after a read failure");
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 

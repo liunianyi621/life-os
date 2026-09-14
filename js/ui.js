@@ -737,11 +737,11 @@
     function renderActiveView(view = activeViewName()) {
       if (view === "today") {
         els.todayDate.textContent = journalDateLabel(dateKey());
-        renderMemoSummary();
-        renderPriorityTask();
-        renderNextStepCard();
-        renderHabits();
-        renderTasks();
+        renderSafely(renderMemoSummary);
+        renderSafely(renderPriorityTask);
+        renderSafely(renderNextStepCard);
+        renderSafely(renderHabits);
+        renderSafely(renderTasks);
         return;
       }
       if (view === "calendar") {
@@ -766,10 +766,18 @@
       if (view === "settings") renderSettings();
     }
 
+    function renderSafely(renderSection) {
+      try { renderSection(); }
+      catch (error) {
+        console.error("LifeOS rendering failed", renderSection.name, error);
+        if (typeof reportAppFailure === "function") reportAppFailure("部分内容暂时无法显示，原数据未被清除。");
+      }
+    }
+
     function render() {
-      scheduleTaskDeadlineCheck();
-      updatePrimaryReadouts();
-      renderActiveView();
+      renderSafely(scheduleTaskDeadlineCheck);
+      renderSafely(updatePrimaryReadouts);
+      renderSafely(renderActiveView);
       if (!els.memoBackdrop.classList.contains("hidden")) renderMemos();
     }
 
@@ -1751,3 +1759,4 @@
     installSheetViewportSync();
     runAutomaticChecks({ renderAfter: false });
     render();
+    if (storageRecoveryMessage && typeof reportAppFailure === "function") reportAppFailure(storageRecoveryMessage);

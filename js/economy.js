@@ -715,11 +715,20 @@
     }
 
     function runAutomaticChecks(options = {}) {
+      if (storageReadBlocked) return false;
       const before = JSON.stringify(state);
       const { showToast: shouldShowToast = true } = options;
       const now = options.now instanceof Date ? options.now : new Date();
-      const deadlines = settleTaskSlotDeadlines(now);
-      const settlementResult = runPendingSettlements({ now });
+      let deadlines, settlementResult;
+      try {
+        deadlines = settleTaskSlotDeadlines(now);
+        settlementResult = runPendingSettlements({ now });
+      } catch (error) {
+        state = JSON.parse(before);
+        console.error("LifeOS automatic check failed before saving", error);
+        if (typeof reportAppFailure === "function") reportAppFailure("自动检查暂时未能完成，原数据未被重置。");
+        return false;
+      }
       const habitResult = settlementResult.habitFailures;
       const taskResult = settlementResult.taskFailures;
       const priorityResult = settlementResult.priorityFailures;
