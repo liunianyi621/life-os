@@ -3,11 +3,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const read = file => fs.readFileSync(path.join(__dirname,'..',file),'utf8');
-test('Today removes repeated counts and keeps task, habit and memo action hooks',()=>{
+test('Today focuses on daily habits and independent reminders, without a task timeline',()=>{
   const today=read('index.html').split('data-view="today"')[1].split('data-view="calendar"')[0];
   assert.match(today,/<h1>今天<\/h1>/);
   assert.doesNotMatch(today,/id="(?:todayTaskCount|habitCount|homeMemoCount)"/);
-  for(const action of ['data-open-task','data-open-habit','data-open-memo']) assert.ok(today.includes(action));
+  for(const action of ['data-open-habit','data-open-memo','habitProgress']) assert.ok(today.includes(action));
+  assert.doesNotMatch(today,/data-open-task|todayTaskList/);
 });
 test('Review journal retains data fields but removes repeated prompts and score endpoints',()=>{
   const review=read('index.html').split('data-view="review"')[1].split('data-view="rewards"')[0];

@@ -1300,6 +1300,7 @@
       state.rewards = defaultFundRewards();
       state.settledThroughDate = yesterdayKey();
       state.fixedRewardRulesSince = dateKey();
+      if (typeof activateDailyHabitSystem === "function") activateDailyHabitSystem();
       try { saveState(); }
       catch { state = previous; showToast("重置失败，原数据未更改"); return false; }
       OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));

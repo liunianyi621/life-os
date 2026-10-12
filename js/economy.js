@@ -418,9 +418,9 @@
     function completeHabit(habitId, sourceEl = null) {
       runAutomaticChecks({ showToast: false });
       const habit = state.habits.find(item => item.id === habitId);
-      if (!habit || habitCompletedToday(habitId) || habitFailedOnDate(habitId, dateKey())) return;
+      if (!habit || !habitActiveOnDate(habit, dateKey()) || habitCompletedToday(habitId) || habitFailedOnDate(habitId, dateKey())) return;
       const linkedTask = state.tasks.find(task => taskHabitId(task) === habitId && taskSettlementDay(task) === dateKey() && !taskIsSettled(task));
-      if (linkedTask) return completeTask(linkedTask.id, sourceEl);
+      if (linkedTask && !dailyHabitSystemEnabled()) return completeTask(linkedTask.id, sourceEl);
       const before = JSON.stringify(state);
 
       const today = dateKey();
@@ -442,10 +442,7 @@
       const historyId = coinEvent.historyId;
       if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
-      prepareActionCard(sourceEl);
-      if (sourceEl) sourceEl.classList.add("task-exit-success");
-      showCoinFeedback(amount, "positive", sourceEl, { flash: false });
-      scheduleRender(sourceEl ? 380 : 0);
+      render();
       showUndoToast({
         type: "habit_completed",
         name: habit.name,
@@ -716,13 +713,16 @@
 
     function runAutomaticChecks(options = {}) {
       if (storageReadBlocked) return false;
+      if (options.initializeDailyHabits) dailyHabitActivationRequested = true;
       const before = JSON.stringify(state);
       const { showToast: shouldShowToast = true } = options;
       const now = options.now instanceof Date ? options.now : new Date();
       let deadlines, settlementResult;
       try {
+        const activated = dailyHabitActivationRequested ? activateDailyHabitSystem(now) : false;
         deadlines = settleTaskSlotDeadlines(now);
         settlementResult = runPendingSettlements({ now });
+        settlementResult.changed ||= activated;
       } catch (error) {
         state = JSON.parse(before);
         console.error("LifeOS automatic check failed before saving", error);
@@ -1522,7 +1522,7 @@
 
     function contextualUndoLabel(undoData = {}) {
       if (undoData.type === "habit_task_scheduled" || undoData.type === "memo_task_scheduled") return "已安排";
-      if (undoData.type === "task_completed" || undoData.type === "memo_completed") return "已完成";
+      if (["task_completed", "memo_completed", "habit_completed"].includes(undoData.type)) return "已完成";
       if (undoData.type === "task_failed") return "未完成";
       return "操作已完成";
     }

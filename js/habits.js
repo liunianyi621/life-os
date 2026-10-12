@@ -1,19 +1,58 @@
+    let dailyHabitActivationRequested = false;
+
+    function dailyHabitSystemEnabled() {
+      return state.dailyHabitSystem?.version === 1;
+    }
+
+    function storedHabitReward(habit) {
+      const value = Number(habit?.coins ?? habit?.reward);
+      return Number.isFinite(value) && value >= 0 ? parseCoinAmount(value) : currentSettings().economy.habitReward;
+    }
+
+    function activateDailyHabitSystem(now = new Date()) {
+      if (dailyHabitSystemEnabled()) return false;
+      const day = dateKey(now);
+      state.dailyHabitSystem = { version: 1, activatedOn: day };
+      state.habits.forEach(habit => {
+        habit.dailyRewardHistory = [{ effectiveDate: day, coins: storedHabitReward(habit) }];
+      });
+      // The new commitment period starts today, never by back-charging old templates.
+      if (!state.fixedRewardRulesSince) state.fixedRewardRulesSince = day;
+      state.settledThroughDate = [state.settledThroughDate || "", shiftDateKey(day, -1)].sort().at(-1);
+      return true;
+    }
+
     function habitRewardAmount(habit, day = dateKey(), now = new Date()) {
+      if (dailyHabitSystemEnabled()) {
+        const revisions = Array.isArray(habit?.dailyRewardHistory) ? habit.dailyRewardHistory : [];
+        const revision = revisions.filter(item => item && item.effectiveDate <= day).at(-1);
+        return revision ? storedHabitReward(revision) : storedHabitReward(habit);
+      }
       const linked = state.tasks.find(task => taskHabitId(task) === habit?.id && taskSettlementDay(task) === day);
       if (linked) return taskRewardAmount(linked);
       return economyRules(new Date(Math.min(now.getTime(), settlementDayEnd(day).getTime()))).habitReward;
     }
 
     function saveHabit(habitData) {
-      habitData = { ...habitData, coins: currentSettings().economy.habitReward };
+      const coins = Number(habitData.coins);
+      if (!Number.isFinite(coins) || coins < 0 || coins * 10 > Number.MAX_SAFE_INTEGER) {
+        showToast("请输入有效的奖励金额"); return;
+      }
+      habitData = { ...habitData, coins: parseCoinAmount(coins) };
       if (!habitData.name) {
         showToast("请输入习惯名称");
         return;
       }
+      runAutomaticChecks({ showToast: false });
+      const before = JSON.stringify(state);
+      const today = dateKey();
       if (editingId) {
         state.habits = state.habits.map(habit => (
           habit.id === editingId
-            ? { ...habit, ...habitData, updatedAt: new Date().toISOString() }
+            ? { ...habit, ...habitData, updatedAt: new Date().toISOString(), dailyRewardHistory: [
+                ...(habit.dailyRewardHistory || []).filter(item => item.effectiveDate < today),
+                { effectiveDate: today, coins: habitData.coins }
+              ] }
             : habit
         ));
         showToast("习惯已更新");
@@ -21,12 +60,14 @@
         state.habits.push({
           id: createId("habit"),
           ...habitData,
+          createdDate: today,
+          dailyRewardHistory: [{ effectiveDate: today, coins: habitData.coins }],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
         showToast("习惯已创建");
       }
-      saveState();
+      if (!saveTaskAction(before)) return;
       closeSheet();
       render();
     }
@@ -81,7 +122,8 @@
     function habitActiveOnDate(habit, day) {
       const created = new Date(habit.createdAt || "");
       const createdDate = habit.createdDate || (!Number.isNaN(created.getTime()) ? dateKey(created) : "");
-      return habit.active !== false && habit.archived !== true && (!createdDate || createdDate <= day);
+      return habit.active !== false && habit.archived !== true && (!createdDate || createdDate <= day)
+        && (!habit.deletedDate || day < habit.deletedDate);
     }
 
     function scheduledHabitDateKey(day = dateKey()) {
@@ -122,6 +164,7 @@
 
     function visibleHabitsToday() {
       const today = dateKey();
+      if (dailyHabitSystemEnabled()) return state.habits.filter(habit => habitActiveOnDate(habit, today));
       return state.habits.filter(habit => (
         habitActiveOnDate(habit, today)
         && !habitCompletedOnDate(habit.id, today)
@@ -130,11 +173,33 @@
       ));
     }
     function deleteHabit(habitId) {
-      state.habits = state.habits.filter(habit => habit.id !== habitId);
-      saveState();
+      runAutomaticChecks({ showToast: false });
+      const before = JSON.stringify(state);
+      state.habits = state.habits.map(habit => habit.id === habitId ? { ...habit, deletedDate: dateKey() } : habit);
+      if (!saveTaskAction(before)) return;
       closeSheet();
       render();
       showToast("习惯已移除");
+    }
+
+    function reorderHabit(habitId, targetId, after = false) {
+      if (habitId === targetId) return false;
+      const habit = state.habits.find(item => item.id === habitId);
+      if (!habit || !state.habits.some(item => item.id === targetId)) return false;
+      const before = JSON.stringify(state);
+      const ordered = state.habits.filter(item => item.id !== habitId);
+      ordered.splice(ordered.findIndex(item => item.id === targetId) + (after ? 1 : 0), 0, habit);
+      state.habits = ordered;
+      if (!saveTaskAction(before)) return false;
+      render();
+      return true;
+    }
+
+    function moveHabit(habitId, direction) {
+      const habits = visibleHabitsToday();
+      const index = habits.findIndex(item => item.id === habitId);
+      const target = habits[index + direction];
+      if (target) reorderHabit(habitId, target.id, direction > 0);
     }
 
     function deleteBadHabit(habitId) {

@@ -486,20 +486,54 @@ textarea:focus-visible {
   background: transparent;
 }
 
-.today-page #habitList.habit-template-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+.daily-habit-list {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: 0 10px;
 }
 
-.today-page #habitList.habit-template-grid .empty-state {
-  width: 100%;
+.daily-habit-list > .memo-template-empty { padding: 18px 8px; }
+.habit-progress { color: var(--color-text-secondary); font-size: 14px; font-variant-numeric: tabular-nums; }
+.daily-habit-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 4px;
+  align-items: center;
+  min-height: 76px;
+  position: relative;
+  transition: opacity 180ms ease, background 180ms ease;
 }
+.daily-habit-row + .daily-habit-row { border-top: 1px solid var(--color-surface-muted); }
+.daily-habit-content {
+  display: grid; gap: 5px; min-width: 0; min-height: 64px;
+  align-content: center; padding: 10px 6px; border: 0; background: transparent;
+  font: inherit; text-align: left; color: var(--color-text-primary);
+}
+.daily-habit-name { font-size: 16px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.daily-habit-reward { font-size: 13px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.daily-habit-row.is-complete .daily-habit-name { color: var(--color-text-secondary); }
+.habit-order-handle, .habit-complete-control {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; background: transparent; padding: 0; cursor: pointer;
+}
+.habit-order-handle { color: var(--color-text-tertiary); font-size: 23px; touch-action: pan-y; }
+.habit-order-handle, .habit-order-handle * {
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.habit-empty-circle { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--color-border-strong); }
+.habit-complete-control:disabled { opacity: 1; cursor: default; }
+.habit-complete-control .sf-icon { width: 30px; height: 30px; color: var(--color-success); background: var(--color-success-soft); border-radius: 50%; }
+.habit-complete-control:not(:disabled):active .habit-empty-circle { background: var(--color-success-soft); border-color: var(--color-success); }
+.daily-habit-row.habit-drag-source { opacity: .4; }
+.habit-order-before::before, .habit-order-after::after {
+  content: ""; position: absolute; left: 44px; right: 0; height: 2px;
+  background: var(--color-success); border-radius: 1px; pointer-events: none;
+}
+.habit-order-before::before { top: 0; }
+.habit-order-after::after { bottom: 0; }
+.habit-order-actions { display: flex; gap: 12px; padding: 12px 0; }
+.habit-order-actions button { flex: 1; min-height: 48px; }
+body.habit-dragging .habit-order-handle { touch-action: none; }
 
 .memo-template-empty {
   padding: 4px 0;

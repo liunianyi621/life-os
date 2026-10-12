@@ -42,7 +42,7 @@ test("首页使用紧凑余额与独立提醒列表 区域", () => {
   assert.doesNotMatch(header, /data-open-task/);
   assert.match(header, /class="home-coin-balance"/);
   assert.match(header, /id="homeCoins"/);
-  assert.equal((indexHtml.match(/data-open-task/g) || []).length, 1);
+  assert.equal((indexHtml.match(/data-open-task/g) || []).length, 0);
   assert.match(indexHtml, /class="today-section home-memo-section"/);
   assert.match(indexHtml, /id="homeMemoList"/);
   assert.match(indexHtml, /data-open-memo/);

@@ -25,8 +25,8 @@ function runtime() {
 
 test('Today 将行动放在素材前；完成后不强制新建', () => {
   const html = source('index.html');
-  assert.ok(html.indexOf('id="priorityTaskCard"') < html.indexOf('id="todayTaskList"'));
-  assert.ok(html.indexOf('id="todayTaskList"') < html.indexOf('id="habitList"'));
+  assert.ok(html.indexOf('id="priorityTaskCard"') < html.indexOf('id="habitList"'));
+  assert.doesNotMatch(html, /id="todayTaskList"/);
   assert.ok(html.indexOf('id="habitList"') < html.indexOf('id="homeMemoList"'));
   assert.doesNotMatch(source('js/economy.js'), /promptNextStepAfterCompletion|setTimeout\(\(\) => openTaskSheet/);
 });

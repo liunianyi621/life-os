@@ -260,6 +260,7 @@
     }
 
     function taskAutomaticFailureEnabled(task) {
+      if (typeof dailyHabitSystemEnabled === "function" && dailyHabitSystemEnabled()) return false;
       const deadline = taskSlotDeadline(task) || settlementDayEnd(taskSettlementDay(task));
       return !taskDeadlineFailureReversed(task) && currentSettings().settlement.autoFailTimedTasks
         && settingsAt(deadline).settlement.autoFailTimedTasks;
@@ -449,6 +450,7 @@
     }
 
     function scheduleHabitAsTask(habitId, startTime = new Date(), scheduledSlotStart = null) {
+      if (dailyHabitSystemEnabled()) return null;
       const habit = state.habits.find(item => item.id === habitId);
       const arrangedAt = new Date(startTime);
       const range = scheduledSlotStart

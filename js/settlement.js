@@ -79,15 +79,16 @@
       const identity = habitFailureSettlementIdentity(habit.id, day);
       if (habitCompletedOnDate(habit.id, day) || habitFailedOnDate(habit.id, day) || settledEventKeys.has(identity)) return null;
       const rewardAmount = habitRewardAmount(habit, day, now);
-      const amount = getIncompletePenalty(rewardAmount, ruleTime);
-      const taskEntries = state.tasks.filter(task => taskHabitId(task) === habit.id
+      const multiplier = dailyHabitSystemEnabled() ? 10 : penaltyMultiplier(ruleTime);
+      const amount = parseCoinAmount(rewardAmount * multiplier);
+      const taskEntries = state.tasks.filter(task => !dailyHabitSystemEnabled() && taskHabitId(task) === habit.id
         && taskSettlementDay(task) === day && !taskIsSettled(task))
         .map(task => ({ taskId: task.id, date: day, previousTask: taskPreviousState(task) }));
       const failedAt = now.toISOString();
       const coinEvent = recordCoinEvent({
         type: "habit_failed", amount: -amount, date: day, timestamp: failedAt,
         history: { habitId: habit.id, name: habit.name, coins: amount, rewardAmount,
-          penaltyMultiplier: penaltyMultiplier(ruleTime), penaltyAmount: amount,
+          penaltyMultiplier: multiplier, penaltyAmount: amount,
           reason: automatic ? "day_end" : "manual", linkedTaskIds: taskEntries.map(entry => entry.taskId) }
       });
       ensureSettlementDayRecord("habitFailures", day)[habit.id] = coinEvent.historyId;
@@ -104,12 +105,13 @@
     function settleMissedHabits(day = yesterdayKey(), settledEventKeys = buildSettledEventKeys(), now = new Date()) {
       const entries = [];
       if (!state.fixedRewardRulesSince || day < state.fixedRewardRulesSince) return { count: 0, totalPenalty: 0, entries };
-      if (!currentSettings().settlement.autoFailHabitsDaily || !settingsAt(settlementDayEnd(day)).settlement.autoFailHabitsDaily) {
+      if (dailyHabitSystemEnabled() && day < state.dailyHabitSystem.activatedOn) return { count: 0, totalPenalty: 0, entries };
+      if (!dailyHabitSystemEnabled() && (!currentSettings().settlement.autoFailHabitsDaily || !settingsAt(settlementDayEnd(day)).settlement.autoFailHabitsDaily)) {
         return { count: 0, totalPenalty: 0, entries };
       }
       state.habits.filter(habit => habitActiveOnDate(habit, day)).forEach(habit => {
         // A reversed slot failure leaves this day's obligation available for completion.
-        if (state.tasks.some(task => taskHabitId(task) === habit.id && taskSettlementDay(task) === day
+        if (!dailyHabitSystemEnabled() && state.tasks.some(task => taskHabitId(task) === habit.id && taskSettlementDay(task) === day
           && !taskIsSettled(task) && taskDeadlineFailureReversed(task))) return;
         const entry = settleHabitFailure(habit, day, settledEventKeys, now);
         if (entry) entries.push(entry);

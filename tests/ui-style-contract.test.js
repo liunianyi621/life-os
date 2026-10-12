@@ -15,7 +15,7 @@ const statsSource = fs.readFileSync(path.join(ROOT, "js/stats.js"), "utf8");
 
 test("Today 紧凑布局删除冗余说明，导航空间只作用于当前首页", () => {
   assert.doesNotMatch(uiSource, /今天只放一件最重要的事|剩余习惯已安排，请在今日任务中完成/);
-  assert.match(uiSource, /已全部安排/);
+  assert.match(uiSource, /habitProgress/);
   const balance = indexHtml.match(/<div class="home-coin-balance"[\s\S]*?<\/div>/)[0];
   assert.match(balance, /当前金币/);
   assert.doesNotMatch(balance, /<span>金币<\/span>/);
@@ -77,20 +77,20 @@ test("日历日期格直接复用新建计划 Sheet，计划条保持独立编�
   assert.doesNotMatch(calendarDayEventsRule, /z-index\s*:/);
 });
 
-test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口", () => {
+test("每日习惯使用整行列表、手柄排序和直接完成入口", () => {
   const uiSource = fs.readFileSync(path.join(ROOT, "js/ui.js"), "utf8");
   const taskSource = fs.readFileSync(path.join(ROOT, "js/tasks.js"), "utf8");
   const habitRenderSource = uiSource.match(/function renderHabits\(\)\s*\{[\s\S]*?\n    \}\n\n    function taskMetaHtml/)?.[0] || "";
-  assert.match(indexHtml, /class="today-section today-task-section"[^>]*data-habit-task-drop-zone/);
-  assert.match(indexHtml, /class="habit-template-grid"[^>]*id="habitList"/);
+  assert.doesNotMatch(indexHtml, /data-habit-task-drop-zone/);
+  assert.match(indexHtml, /class="daily-habit-list"[^>]*id="habitList"/);
   assert.match(uiSource, /function beginHabitTouchDrag\(/);
   assert.match(uiSource, /function beginHabitPointerDrag\(/);
   assert.match(uiSource, /scheduleHabitAsTask\(drag\.habitId/);
-  assert.match(sheetSource, /data-schedule-habit/);
+  assert.doesNotMatch(sheetSource, /data-schedule-habit/);
   assert.match(taskSource, /function scheduleHabitAsTask\(habitId, startTime/);
-  assert.match(habitRenderSource, /habit-template-chip/);
+  assert.match(habitRenderSource, /daily-habit-row/);
   assert.match(habitRenderSource, /visibleHabitsToday\(\)/);
-  assert.doesNotMatch(habitRenderSource, /data-complete-habit/);
+  assert.match(habitRenderSource, /data-complete-habit/);
   assert.doesNotMatch(habitRenderSource, /data-schedule-habit/);
   assert.doesNotMatch(habitRenderSource, /habit-template-chip__tile/);
   assert.doesNotMatch(habitRenderSource, /金币/);
@@ -100,7 +100,7 @@ test("习惯模板使用可换行 Chip、局部拖拽保护和统一安排入口
   assert.match(productionCss, /\.habit-drag-preview/);
   assert.match(productionCss, /\.habit-template-chip[\s\S]*?-webkit-user-select:\s*none;/);
   assert.match(productionCss, /\.habit-template-chip[\s\S]*?-webkit-touch-callout:\s*none;/);
-  assert.match(productionCss, /#habitList\.habit-template-grid[\s\S]*?flex-wrap:\s*wrap;/);
+  assert.match(productionCss, /\.daily-habit-row[\s\S]*?grid-template-columns:\s*44px minmax\(0, 1fr\) 44px/);
 });
 
 test("备忘录为独立提醒，不提供拖拽或安排入口", () => {

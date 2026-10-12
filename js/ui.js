@@ -131,6 +131,18 @@
     }
 
     function updateHabitDropState(drag, x, y) {
+      if (drag.sourceType === "HABIT_ORDER") {
+        const rows = Array.from(document.querySelectorAll("[data-habit-row]"));
+        rows.forEach(row => row.classList.remove("habit-order-before", "habit-order-after"));
+        const target = rows.find(row => {
+          const rect = row.getBoundingClientRect();
+          return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        });
+        drag.orderTarget = target?.dataset.habitRow || null;
+        drag.orderAfter = target ? y > target.getBoundingClientRect().top + target.offsetHeight / 2 : false;
+        if (target && drag.orderTarget !== drag.sourceId) target.classList.add(drag.orderAfter ? "habit-order-after" : "habit-order-before");
+        return;
+      }
       const dropZone = habitTaskDropZone();
       const slot = taskTimelineSlotAt(x, y);
       drag.dropSlotStart = slot?.dataset.taskTimelineSlot || null;
@@ -146,6 +158,13 @@
     }
 
     function habitDragTargetFromEvent(event) {
+      const handle = event.target.closest?.("[data-habit-handle]");
+      if (handle) {
+        const row = handle.closest("[data-habit-row]");
+        const habit = state.habits.find(item => item.id === handle.dataset.habitHandle);
+        return habit && row ? { row, card: handle, sourceType: "HABIT_ORDER", sourceId: habit.id, sourceName: habit.name, habit } : null;
+      }
+      if (dailyHabitSystemEnabled()) return null;
       const row = event.target.closest?.("[data-habit-card], [data-reschedule-task]");
       if (!row || event.target.closest?.("input, textarea, select, a")) return null;
       if (row.dataset.rescheduleTask) {
@@ -256,7 +275,7 @@
       const preview = document.createElement("div");
       preview.className = "habit-drag-preview";
       preview.setAttribute("aria-hidden", "true");
-      preview.innerHTML = "<strong></strong><span>安排到今日任务</span>";
+      preview.innerHTML = drag.sourceType === "HABIT_ORDER" ? "<strong></strong>" : "<strong></strong><span>安排到今日任务</span>";
       preview.querySelector("strong").textContent = drag.sourceName;
       document.body.appendChild(preview);
       drag.preview = preview;
@@ -295,7 +314,8 @@
       const dropZone = habitTaskDropZone();
       dropZone?.classList.remove("habit-drop-available", "habit-drop-active");
       taskTimelineDropSlots().forEach(slot => slot.classList.remove("task-hour-slot-drop-active"));
-      if (drag.dragging) renderTasks();
+      document.querySelectorAll(".habit-order-before, .habit-order-after").forEach(row => row.classList.remove("habit-order-before", "habit-order-after"));
+      if (drag.dragging && drag.sourceType !== "HABIT_ORDER") renderTasks();
       return drag;
     }
 
@@ -384,6 +404,13 @@
       if (!activeHabitDrag || activeHabitDrag.inputMode !== "pointer") return;
       if (event.pointerId !== activeHabitDrag.pointerId) return;
       const drag = activeHabitDrag;
+      if (drag.sourceType === "HABIT_ORDER") {
+        updateHabitDropState(drag, event.clientX, event.clientY);
+        clearHabitDrag();
+        if (drag.dragging && !cancelled && drag.orderTarget) reorderHabit(drag.sourceId, drag.orderTarget, drag.orderAfter);
+        window.setTimeout(() => { suppressNextCardTap = false; }, 220);
+        return;
+      }
       const slot = drag.dragging && !cancelled ? taskTimelineSlotAt(event.clientX, event.clientY) : null;
       const scheduledSlotStart = slot?.dataset.taskTimelineSlot || null;
       const shouldSchedule = Boolean(drag.dragging && !cancelled && scheduledSlotStart);
@@ -403,6 +430,14 @@
       drag.lastX = touch.clientX;
       drag.lastY = touch.clientY;
       const wasDragging = drag.phase === "dragging";
+      if (drag.sourceType === "HABIT_ORDER") {
+        if (wasDragging && event.cancelable) event.preventDefault();
+        updateHabitDropState(drag, touch.clientX, touch.clientY);
+        clearHabitDrag();
+        if (wasDragging && !cancelled && drag.orderTarget) reorderHabit(drag.sourceId, drag.orderTarget, drag.orderAfter);
+        window.setTimeout(() => { suppressNextCardTap = false; }, 220);
+        return;
+      }
       const slot = wasDragging && !cancelled ? taskTimelineSlotAt(touch.clientX, touch.clientY) : null;
       const scheduledSlotStart = slot?.dataset.taskTimelineSlot || null;
       const shouldSchedule = Boolean(wasDragging && !cancelled && scheduledSlotStart);
@@ -419,6 +454,7 @@
     }
 
     function dropTaskMaterial(drag, scheduledSlotStart) {
+      if (dailyHabitSystemEnabled()) return;
       if (drag.sourceType === "TASK") return rescheduleTask(drag.sourceId, scheduledSlotStart);
       if (drag.sourceType === "HABIT") return scheduleHabitAsTask(drag.habitId, new Date(), scheduledSlotStart);
     }
@@ -739,9 +775,7 @@
         els.todayDate.textContent = journalDateLabel(dateKey());
         renderSafely(renderMemoSummary);
         renderSafely(renderPriorityTask);
-        renderSafely(renderNextStepCard);
         renderSafely(renderHabits);
-        renderSafely(renderTasks);
         return;
       }
       if (view === "calendar") {
@@ -851,36 +885,42 @@
     }
 
     function renderHabits() {
-      if (!state.habits.length) {
-        els.habitList.innerHTML = `
-          <div class="empty-state">
-            <strong>还没有习惯</strong>
-          </div>
-        `;
-        return;
-      }
-
       const habits = visibleHabitsToday();
+      const doneCount = habits.filter(habit => habitCompletedToday(habit.id)).length;
+      const progress = document.getElementById("habitProgress");
+      if (progress) progress.textContent = `${doneCount} / ${habits.length}`;
       if (!habits.length) {
-        els.habitList.innerHTML = `
-          <div class="empty-state">
-            <strong>${state.habits.some(habit => habitActiveOnDate(habit, dateKey()) && !habitCompletedToday(habit.id) && !habitFailedOnDate(habit.id, dateKey())) ? "已全部安排" : "今日已处理"}</strong>
-          </div>
-        `;
+        els.habitList.innerHTML = `<div class="memo-template-empty">暂无习惯</div>`;
         return;
       }
+      els.habitList.innerHTML = habits.map(habit => {
+        const done = habitCompletedToday(habit.id);
+        const failed = habitFailedOnDate(habit.id, dateKey());
+        const reward = habitRewardAmount(habit);
+        return `<div class="daily-habit-row${done ? " is-complete" : ""}" data-habit-row="${escapeAttr(habit.id)}">
+          <button class="habit-order-handle" type="button" data-habit-handle="${escapeAttr(habit.id)}" aria-label="调整${escapeAttr(habit.name)}的顺序" title="调整顺序"><span aria-hidden="true">≡</span></button>
+          <button type="button" class="daily-habit-content" data-edit-habit="${escapeAttr(habit.id)}">
+            <span class="daily-habit-name">${escapeHtml(habit.name)}</span>
+            <span class="daily-habit-reward">+${reward} / −${parseCoinAmount(reward * 10)}${failed ? " · 已结算" : ""}</span>
+          </button>
+          <button class="habit-complete-control" type="button" data-complete-habit="${escapeAttr(habit.id)}" aria-label="${done ? "已完成" : "完成"}${escapeAttr(habit.name)}" ${done || failed ? "disabled" : ""}>
+            ${done ? actionIcons["checkmark.circle"] : '<span class="habit-empty-circle" aria-hidden="true"></span>'}
+          </button>
+        </div>`;
+      }).join("");
+    }
 
-      els.habitList.innerHTML = habits.map(habit => `
-        <button
-          class="habit-template-chip"
-          type="button"
-          data-habit-card="${escapeAttr(habit.id)}"
-          data-edit-habit="${escapeAttr(habit.id)}"
-          aria-label="待完成习惯「${escapeAttr(habit.name)}」，点击查看或安排"
-        >
-          <span class="habit-template-chip__name">${escapeHtml(habit.name)}</span>
-        </button>
-      `).join("");
+    function openHabitOrderSheet(habitId) {
+      const habits = visibleHabitsToday();
+      const index = habits.findIndex(habit => habit.id === habitId);
+      if (index < 0) return;
+      sheetMode = "habit-order";
+      els.sheetTitle.textContent = habits[index].name;
+      els.sheetForm.innerHTML = `<div class="habit-order-actions">
+        <button type="button" class="q-secondary-button" data-move-habit="${escapeAttr(habitId)}" data-direction="-1" ${index === 0 ? "disabled" : ""}>上移</button>
+        <button type="button" class="q-secondary-button" data-move-habit="${escapeAttr(habitId)}" data-direction="1" ${index === habits.length - 1 ? "disabled" : ""}>下移</button>
+      </div>`;
+      openSheet({ position: "top", kind: "habit-order" });
     }
 
     function taskMetaHtml(task) {
@@ -968,6 +1008,7 @@
     }
 
     function renderTasks() {
+      if (!els.todayTaskList) return;
       scheduleTaskDeadlineCheck();
       // Keep the active touch target mounted until drag cleanup.
       if (activeHabitDrag?.dragging) return;
@@ -1109,7 +1150,7 @@
               ${calendarEventRangeLabel(event) ? `<small>${escapeHtml(calendarEventRangeLabel(event))}</small>` : ""}
             </span>
           </button>
-          ${selectedDay === dateKey() ? iconActionButtonHtml({
+          ${selectedDay === dateKey() && !dailyHabitSystemEnabled() ? iconActionButtonHtml({
             className: "calendar-to-task-button icon-only-button",
             icon: "checklist",
             label: "加入今日任务",
@@ -1455,8 +1496,16 @@
       if (!event.target.closest("[data-swipe-row]")) {
         closeOpenSwipeRows();
       }
-      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard)) {
+      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard || event.target.closest("[data-habit-row]"))) {
         suppressNextCardTap = false;
+        return;
+      }
+      const orderHandle = event.target.closest("[data-habit-handle]");
+      if (orderHandle) { openHabitOrderSheet(orderHandle.dataset.habitHandle); return; }
+      const orderMove = event.target.closest("[data-move-habit]");
+      if (orderMove) {
+        moveHabit(orderMove.dataset.moveHabit, Number(orderMove.dataset.direction));
+        openHabitOrderSheet(orderMove.dataset.moveHabit);
         return;
       }
       if (navButton) {
@@ -1700,10 +1749,11 @@
       clearTimeout(taskDeadlineTimer);
       taskDeadlineTimer = null;
       if (document.visibilityState !== "visible") return;
+      if (storageReadBlocked || !dailyHabitSystemEnabled()) return;
       const deadlines = state.tasks.filter(task => !taskIsSettled(task) && taskAutomaticFailureEnabled(task)).map(taskSlotDeadline).filter(Boolean);
       const today = dateKey();
-      if (currentSettings().settlement.autoFailHabitsDaily && state.habits.some(habit =>
-        habitActiveOnDate(habit, today) && !habitCompletedOnDate(habit.id, today) && !habitFailedOnDate(habit.id, today))) {
+      if (dailyHabitSystemEnabled() || (currentSettings().settlement.autoFailHabitsDaily && state.habits.some(habit =>
+        habitActiveOnDate(habit, today) && !habitCompletedOnDate(habit.id, today) && !habitFailedOnDate(habit.id, today)))) {
         deadlines.push(settlementDayEnd(today));
       }
       if (!deadlines.length) return;
@@ -1744,19 +1794,19 @@
     });
 
     document.addEventListener("selectstart", event => {
-      if (event.target.closest?.("[data-habit-card], [data-reschedule-task]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle]")) event.preventDefault();
     });
     document.addEventListener("selectionchange", () => {
       if (activeHabitDrag?.phase === "dragging") document.getSelection?.()?.removeAllRanges();
     });
     document.addEventListener("contextmenu", event => {
-      if (event.target.closest?.("[data-habit-card], [data-reschedule-task]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle]")) event.preventDefault();
     });
     document.addEventListener("dragstart", event => {
-      if (event.target.closest?.("[data-habit-card], [data-reschedule-task]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle]")) event.preventDefault();
     });
 
     installSheetViewportSync();
-    runAutomaticChecks({ renderAfter: false });
+    runAutomaticChecks({ renderAfter: false, initializeDailyHabits: true });
     render();
     if (storageRecoveryMessage && typeof reportAppFailure === "function") reportAppFailure(storageRecoveryMessage);

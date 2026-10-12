@@ -30,6 +30,19 @@
         }
       };
       visit(data);
+      if (data.dailyHabitSystem !== undefined) {
+        const marker = data.dailyHabitSystem;
+        if (!backupObject(marker) || marker.version !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(marker.activatedOn)
+          || dateKey(dateFromKey(marker.activatedOn)) !== marker.activatedOn) invalid();
+      }
+      for (const habit of data.habits) {
+        if (habit?.dailyRewardHistory !== undefined && (!Array.isArray(habit.dailyRewardHistory)
+          || habit.dailyRewardHistory.some((revision, index, list) => !backupObject(revision)
+            || !Number.isFinite(revision.coins) || revision.coins < 0
+            || !/^\d{4}-\d{2}-\d{2}$/.test(revision.effectiveDate)
+            || dateKey(dateFromKey(revision.effectiveDate)) !== revision.effectiveDate
+            || (index > 0 && revision.effectiveDate < list[index - 1].effectiveDate)))) invalid();
+      }
       if (data.settings !== undefined) {
         const rulesValid = rules => backupObject(rules)
           && backupObject(rules.economy) && backupObject(rules.settlement)
@@ -118,6 +131,7 @@
         });
         if (!confirmed) return;
         restoreLifeOSBackup(backup);
+        runAutomaticChecks({ initializeDailyHabits: true, showToast: false });
         pendingUndo = null;
         UndoController.clear({ refresh: false });
         render();

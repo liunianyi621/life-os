@@ -324,6 +324,7 @@
     }
 
     function addCalendarEventToTodayTask(eventId) {
+      if (dailyHabitSystemEnabled()) return;
       const event = calendarEventById(eventId);
       if (!event) return;
       closeSheet();
@@ -341,13 +342,11 @@
             <span class="field-label">习惯名称</span>
             <input name="name" type="text" maxlength="80" value="${escapeAttr(habit?.name || "")}" placeholder="输入习惯名称" required>
           </label>
-          <p class="field-help">完成 +${habitRewardAmount(habit)} 金币，未完成惩罚为奖励的 ${penaltyMultiplier()} 倍。</p>
-          ${habit ? `
-            <button class="q-secondary-button habit-template-sheet-action" type="button" data-schedule-habit="${escapeAttr(habit.id)}">
-              安排到…
-            </button>
-            <button class="q-secondary-button habit-template-sheet-action" type="button" data-complete-habit="${escapeAttr(habit.id)}">完成今日习惯</button>
-          ` : ""}
+          <label class="field">
+            <span class="field-label">完成奖励</span>
+            <input name="coins" type="number" inputmode="decimal" min="0" step="0.01" value="${storedHabitReward(habit)}" required>
+          </label>
+          <p class="field-help">未完成扣除奖励的 10 倍。</p>
         `,
         submitLabel: habit ? "保存习惯" : "创建习惯",
         dangerHtml: habit
@@ -359,6 +358,7 @@
     }
 
     function openArrangementSheet(source, originId) {
+      if (dailyHabitSystemEnabled()) return;
       if (source !== "HABIT") return;
       const item = state.habits.find(habit => habit.id === originId);
       if (!item) return;
@@ -553,7 +553,7 @@
       if (sheetMode === "habit") {
         saveHabit({
           name: String(formData.get("name") || "").trim(),
-          coins: currentSettings().economy.habitReward
+          coins: Number(formData.get("coins"))
         });
       }
       if (sheetMode === "note") {

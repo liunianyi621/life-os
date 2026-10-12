@@ -54,19 +54,19 @@ const server=http.createServer((req,res)=>{
       await page.locator('[data-settings-page="settlement"]').click();
       await page.locator('[data-settlement-toggle="autoFailTimedTasks"]').uncheck();
       await page.locator('[data-settlement-toggle="autoFailHabitsDaily"]').uncheck();
-      assert.equal(await page.evaluate(()=>taskDeadlineTimer),null);
+      assert.notEqual(await page.evaluate(()=>taskDeadlineTimer),null); // Daily habits still wake at local midnight.
       await page.screenshot({path:path.join(evidence,`settings-settlement-${width}.png`)});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       await page.reload();
       assert.equal(await page.evaluate(()=>currentSettings().settlement.autoFailTimedTasks),false);
       assert.equal(await page.evaluate(()=>defaultTaskReward()),20);
-      await page.locator('[data-open-task]').click();
+      await page.evaluate(()=>openTaskSheet()); // Legacy task editor remains compatible, but is no longer a Today action.
       assert.equal(await page.locator('#sheetForm [name="coins"]:checked').inputValue(),'20');
       await page.locator('#sheetForm [name="name"]').fill('可以自选奖励');
       await page.locator('#sheetForm [name="coins"][value="10"]').check();
       await page.locator('#sheetForm [type="submit"]').click();
       assert.equal(await page.evaluate(()=>state.tasks[0].reward),10);
-      await page.locator('[data-complete-task]').click();await page.waitForTimeout(450);
+      await page.evaluate(()=>completeTask(state.tasks[0].id));await page.waitForTimeout(450);
       assert.equal(await page.evaluate(()=>state.coins),510);
       await page.locator('[data-nav="stats"]').click();await page.locator('[data-open-settings]').click();
       await page.locator('[data-settings-page="data"]').click();
