@@ -45,11 +45,21 @@ module.exports=async function run(scenario){
         const top=await page.locator('#habitList').evaluate(el=>el.getBoundingClientRect().top);
         await page.locator('[data-complete-habit="a"]').tap();
         assert.equal(await page.evaluate(()=>state.coins),1010);
-        assert.equal(await page.locator('[data-habit-row="a"].is-complete').count(),1);
+        await page.clock.runFor(220);
+        assert.equal(await page.locator('[data-habit-row="a"]').count(),0);
         assert.equal(await page.locator('#habitProgress').innerText(),'1 / 3');
         assert.equal(await page.locator('#habitList').evaluate(el=>el.getBoundingClientRect().top),top);
+        const capsule=await page.locator('.contextual-undo-capsule').boundingBox();
+        const balance=await page.locator('.view.active .home-coin-balance').boundingBox();
+        assert.ok(capsule.x+capsule.width<=balance.x || capsule.x>=balance.x+balance.width || capsule.y+capsule.height<=balance.y || capsule.y>=balance.y+balance.height,'Undo must not overlap balance: '+JSON.stringify({capsule,balance}));
         await page.evaluate(()=>completeHabit('a'));assert.equal(await page.evaluate(()=>state.coins),1010);
         await page.locator('[data-contextual-undo]').tap();
+        assert.equal(await page.evaluate(()=>state.coins),1000);
+        assert.equal(await page.locator('[data-habit-row]').evaluateAll(rows=>rows.map(r=>r.dataset.habitRow).join(',')),'a,b,c');
+        assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
+        await page.locator('[data-complete-habit="a"]').tap();await page.clock.runFor(50);
+        await page.locator('[data-contextual-undo]').tap();await page.clock.runFor(220);
+        assert.equal(await page.locator('[data-habit-row="a"]').count(),1);
         assert.equal(await page.evaluate(()=>state.coins),1000);
         await page.locator('[data-complete-habit="a"]').tap();await page.clock.runFor(3800);
         assert.equal(await page.locator('[data-contextual-undo]').count(),0);
@@ -57,12 +67,34 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>state.coins),1010);
         assert.equal(await page.locator('[data-complete-priority]').count(),1);
         assert.equal(await page.locator('[data-fail-priority]').count(),1);
-        await page.reload();assert.equal(await page.locator('[data-habit-row="a"].is-complete').count(),1);
+        await page.reload();assert.equal(await page.locator('[data-habit-row="a"]').count(),0);
+        await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
+        assert.equal(await page.locator('#habitProgress').innerText(),'1 / 3');
         const saved=await page.evaluate(()=>localStorage.getItem(STORAGE_KEY));
         await page.clock.runFor(10000);
         assert.equal(await page.evaluate(()=>localStorage.getItem(STORAGE_KEY)),saved);
         await page.locator('[data-nav="stats"]').tap();
         const gear=await page.locator('[data-open-settings]').boundingBox();assert.ok(gear.width>=44&&gear.height>=44);
+        await page.locator('[data-nav="today"]').tap();
+        await page.locator('[data-complete-habit="b"]').tap();await page.clock.runFor(220);
+        await page.locator('[data-complete-habit="c"]').tap();await page.clock.runFor(220);
+        assert.equal(await page.locator('#habitProgress').innerText(),'3 / 3');
+        assert.equal(await page.locator('[data-habit-row]').count(),0);
+        assert.equal(await page.locator('#habitList').innerText(),'今日习惯已全部完成 ✓');
+        await page.evaluate(()=>{
+          Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});
+          document.dispatchEvent(new Event('visibilitychange'));
+        });
+        await page.clock.setFixedTime(new Date('2026-10-13T10:00:00+01:00'));
+        await page.evaluate(()=>{
+          Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});
+          document.dispatchEvent(new Event('visibilitychange'));
+        });
+        assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
+        assert.equal(await page.locator('[data-habit-row]').count(),3);
+        assert.equal(await page.evaluate(()=>state.coins),535); // 1000 +35, unchanged Priority day-end -500
+        await page.locator('[data-complete-habit="a"]').tap();await page.clock.runFor(220);
+        assert.equal(await page.evaluate(()=>state.coins),545);
       }
       if(scenario==='order'){
         const cdp=safari ? null : await context.newCDPSession(page);

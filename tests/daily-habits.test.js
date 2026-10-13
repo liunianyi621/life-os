@@ -22,7 +22,7 @@ test('Activation preserves rewards/tasks/history and never charges the pre-upgra
 test('Direct completion, repeated click and Undo use one existing coin event',()=>{
   const {run}=runtime();run("completeHabit('a');completeHabit('a')");
   assert.equal(run('state.coins'),1010);assert.equal(run('state.history.length'),1);
-  assert.equal(run('visibleHabitsToday().length'),2);assert.equal(run('state.tasks.length'),0);
+  assert.equal(run('visibleHabitsToday().length'),1);assert.equal(run('habitsDueToday().length'),2);assert.equal(run('state.tasks.length'),0);
   run('undoLastAction()');assert.equal(run('state.coins'),1000);assert.equal(run("habitCompletedToday('a')"),false);
   run("completeHabit('a')");assert.equal(run('state.coins'),1010);
 });
@@ -56,9 +56,9 @@ test('Priority and Memo remain independent; legacy global toggles do not change 
   assert.equal(run('priorityTaskSettlementAmount("done")'),100);assert.equal(run('priorityTaskSettlementAmount("failed")'),500);
   at('2026-10-13T00:00:00+01:00');run('runAutomaticChecks()');assert.equal(run('state.coins'),850);
 });
-test('User order persists, completed rows retain their original priority and reset the next day',()=>{
+test('User order persists, completed rows hide without losing priority and reset the next day',()=>{
   const {run,at}=runtime();run("completeHabit('a');reorderHabit('b','a');state=loadState()");
-  assert.equal(run("visibleHabitsToday().map(h=>h.id).join(',')"),'b,a');
+  assert.equal(run("visibleHabitsToday().map(h=>h.id).join(',')"),'b');
   at('2026-10-13T10:00:00+01:00');run('runAutomaticChecks()');
   assert.equal(run("visibleHabitsToday().map(h=>h.id).join(',')"),'b,a');assert.equal(run("habitCompletedToday('a')"),false);
 });
@@ -95,4 +95,37 @@ test('Activation persistence failure retries safely, preserving old tasks and co
   context.localStorage.setItem=write;run('runAutomaticChecks()');
   assert.equal(run('state.coins'),1000);assert.equal(run('state.tasks[0].status'),'pending');
   assert.equal(run('state.history.length'),0);
+});
+
+test('Hidden completion persists through reload and Undo restores original order exactly once',()=>{
+  const {run}=runtime();run("completeHabit('a');state=loadState()");
+  assert.equal(run("visibleHabitsToday().map(h=>h.id).join(',')"),'b');
+  assert.equal(run('habitsDueToday().length'),2);
+  assert.equal(run('state.habits.length'),2);
+  run('undoLastAction();undoLastAction()');
+  assert.equal(run("visibleHabitsToday().map(h=>h.id).join(',')"),'a,b');
+  assert.equal(run('state.coins'),1000);
+});
+
+test('Reordering remaining rows preserves hidden definitions and full-list relative order',()=>{
+  const {run,at}=runtime();
+  run("state.habits.push({id:'c',name:'阅读',coins:5},{id:'d',name:'练习',coins:5});completeHabit('b');moveHabit('d',-1);state=loadState()");
+  assert.equal(run("visibleHabitsToday().map(h=>h.id).join(',')"),'a,d,c');
+  assert.equal(run("state.habits.map(h=>h.id).join(',')"),'a,b,d,c');
+  at('2026-10-13T10:00:00+01:00');run('runAutomaticChecks()');
+  assert.equal(run("visibleHabitsToday().map(h=>h.id).join(',')"),'a,b,d,c');
+});
+
+test('All completed remains 2/2, then next day resets visibility without a second penalty or reward',()=>{
+  const {run,at}=runtime();run("completeHabit('a');completeHabit('b');state=loadState()");
+  assert.equal(run('visibleHabitsToday().length'),0);
+  assert.equal(run('habitsDueToday().filter(h=>habitCompletedToday(h.id)).length'),2);
+  assert.equal(run('habitsDueToday().length'),2);
+  at('2026-10-13T00:00:00+01:00');run('runAutomaticChecks();runAutomaticChecks()');
+  assert.equal(run('state.coins'),1015);
+  assert.equal(run('visibleHabitsToday().length'),2);
+  run("completeHabit('a');completeHabit('a');state=loadState();runAutomaticChecks()");
+  assert.equal(run('state.coins'),1025);
+  assert.equal(run("habitCompletedOnDate('a','2026-10-12')"),true);
+  assert.equal(run('visibleHabitsToday().length'),1);
 });

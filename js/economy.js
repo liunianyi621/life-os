@@ -442,7 +442,8 @@
       const historyId = coinEvent.historyId;
       if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
-      render();
+      if (sourceEl && typeof animateHabitCompletion === "function") animateHabitCompletion(sourceEl);
+      else render();
       showUndoToast({
         type: "habit_completed",
         name: habit.name,

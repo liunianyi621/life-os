@@ -162,9 +162,13 @@
       return true;
     }
 
+    function habitsDueToday() {
+      return state.habits.filter(habit => habitActiveOnDate(habit, dateKey()));
+    }
+
     function visibleHabitsToday() {
       const today = dateKey();
-      if (dailyHabitSystemEnabled()) return state.habits.filter(habit => habitActiveOnDate(habit, today));
+      if (dailyHabitSystemEnabled()) return habitsDueToday().filter(habit => !habitCompletedOnDate(habit.id, today));
       return state.habits.filter(habit => (
         habitActiveOnDate(habit, today)
         && !habitCompletedOnDate(habit.id, today)

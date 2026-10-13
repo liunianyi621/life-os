@@ -3,6 +3,27 @@
       scheduleRender.timer = setTimeout(render, delay);
     }
 
+    function animateHabitCompletion(row) {
+      if (!row.isConnected || !row.animate || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        render();
+        return;
+      }
+      renderHabitProgress();
+      row.classList.add("is-complete");
+      row.querySelectorAll("button").forEach(button => { button.disabled = true; });
+      row.querySelector(".habit-complete-control").innerHTML = actionIcons["checkmark.circle"];
+      const height = row.getBoundingClientRect().height;
+      const padding = getComputedStyle(row).padding;
+      row.style.minHeight = "0";
+      row.style.overflow = "hidden";
+      row.animate([
+        { height: `${height}px`, padding, opacity: 1 },
+        { height: "0px", padding: "0px", opacity: 0 }
+      ], { duration: 200, easing: "ease-out", fill: "forwards" });
+      // Undo or another action may already have replaced this transient row.
+      window.setTimeout(() => { if (row.isConnected) render(); }, 200);
+    }
+
     function syncSheetViewport() {
       const viewport = window.visualViewport;
       const viewportHeight = Math.max(1, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
@@ -115,7 +136,8 @@
         const centeredTop = balanceRect.top + Math.max(0, (balanceRect.height - 40) / 2);
         const safeTop = Math.max(16, Math.round(window.visualViewport?.offsetTop || 0) + 16);
         els.toast.style.setProperty("--contextual-undo-top", `${Math.max(safeTop, Math.round(centeredTop))}px`);
-        els.toast.style.setProperty("--contextual-undo-right", `${Math.max(16, Math.round(viewportWidth - balanceRect.right))}px`);
+        const rightEdge = els.toast.dataset.habitUndo === "true" ? balanceRect.left - 8 : balanceRect.right;
+        els.toast.style.setProperty("--contextual-undo-right", `${Math.max(16, Math.round(viewportWidth - rightEdge))}px`);
         return;
       }
       const safeTop = Math.max(16, Math.round(window.visualViewport?.offsetTop || 0) + 16);
@@ -133,9 +155,10 @@
       }, 180);
     }
 
-    function renderTopNotice({ message, tone = "neutral", undo = false, completed = false }) {
+    function renderTopNotice({ message, tone = "neutral", undo = false, completed = false, habitUndo = false }) {
       if (!els.toast) return;
       clearTimeout(hideTopNotice.timer);
+      els.toast.dataset.habitUndo = String(habitUndo);
       syncContextualUndoPosition();
       els.toast.textContent = "";
       els.toast.className = `contextual-undo-host${completed ? " is-task-completion" : ""}`;
@@ -183,7 +206,8 @@
         if (!current || current.mode !== "global") return;
         const label = current.amountLabel ? `${current.amountLabel} · 撤回` : "撤回";
         const completed = current.actionId.startsWith("task_completed:") || current.actionId.startsWith("memo_completed:");
-        renderTopNotice({ message: completed ? "已完成" : label, undo: true, completed });
+        const habitUndo = current.actionId.startsWith("habit_completed:");
+        renderTopNotice({ message: completed ? "已完成" : habitUndo ? "撤回" : label, undo: true, completed, habitUndo });
         els.toast.classList.toggle("is-exiting", Boolean(current.exiting));
       }
 

@@ -884,13 +884,19 @@
       });
     }
 
-    function renderHabits() {
-      const habits = visibleHabitsToday();
+    function renderHabitProgress() {
+      const habits = habitsDueToday();
       const doneCount = habits.filter(habit => habitCompletedToday(habit.id)).length;
       const progress = document.getElementById("habitProgress");
       if (progress) progress.textContent = `${doneCount} / ${habits.length}`;
+      return { total: habits.length, doneCount };
+    }
+
+    function renderHabits() {
+      const habits = visibleHabitsToday();
+      const { total, doneCount } = renderHabitProgress();
       if (!habits.length) {
-        els.habitList.innerHTML = `<div class="memo-template-empty">暂无习惯</div>`;
+        els.habitList.innerHTML = `<div class="memo-template-empty">${total && doneCount === total ? "今日习惯已全部完成 ✓" : "暂无习惯"}</div>`;
         return;
       }
       els.habitList.innerHTML = habits.map(habit => {
@@ -1557,7 +1563,7 @@
         completeTask(completeTaskButton.dataset.completeTask, completeTaskButton.closest("[data-task-card]"));
       }
       if (completeHabitButton) {
-        completeHabit(completeHabitButton.dataset.completeHabit);
+        completeHabit(completeHabitButton.dataset.completeHabit, completeHabitButton.closest("[data-habit-row]"));
         closeSheet();
       }
       if (completePriorityButton) {
