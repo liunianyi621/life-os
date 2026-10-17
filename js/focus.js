@@ -4,11 +4,22 @@
         && !habitCompletedOnDate(habitId, day) && !habitFailedOnDate(habitId, day));
     }
 
+    function focusSourceItem(sourceType, sourceId) {
+      return sourceType === "habit" ? state.habits.find(item => item.id === sourceId)
+        : sourceType === "dailyTask" ? (state.dailyTasks || []).find(item => item.id === sourceId) : null;
+    }
+
+    function focusSourceAvailable(sourceType, sourceId, day = dateKey()) {
+      if (sourceType === "habit") return focusHabitAvailable(sourceId, day);
+      const task = focusSourceItem(sourceType, sourceId);
+      return Boolean(task && task.localDateKey === day && !dailyTaskSettled(task));
+    }
+
     function reconcileFocusSession(now = new Date()) {
       if (state.currentFocus == null) return false;
       const session = normalizeFocusSession(state.currentFocus);
       if (!session || session.localDateKey !== dateKey(now)
-        || !focusHabitAvailable(session.habitId, session.localDateKey)) {
+        || !focusSourceAvailable(session.sourceType, session.sourceId, session.localDateKey)) {
         state.currentFocus = null;
         return true;
       }
@@ -20,14 +31,18 @@
     }
 
     function startHabitFocus(habitId, { replaceSessionId = null, now = new Date() } = {}) {
+      return startFocusSession("habit", habitId, { replaceSessionId, now });
+    }
+
+    function startFocusSession(sourceType, sourceId, { replaceSessionId = null, now = new Date() } = {}) {
       runAutomaticChecks({ now, showToast: false });
-      if (!focusHabitAvailable(habitId, dateKey(now))) return false;
-      const current = state.currentFocus;
-      if (current?.habitId === habitId && current.localDateKey === dateKey(now)) return true;
+      if (!focusSourceAvailable(sourceType, sourceId, dateKey(now))) return false;
+      const current = normalizeFocusSession(state.currentFocus);
+      if (current?.sourceType === sourceType && current.sourceId === sourceId && current.localDateKey === dateKey(now)) return true;
       if (current && current.id !== replaceSessionId) return false;
       const before = JSON.stringify(state);
       state.currentFocus = {
-        id: createId("focus"), habitId, localDateKey: dateKey(now),
+        id: createId("focus"), sourceType, sourceId, ...(sourceType === "habit" ? { habitId: sourceId } : {}), localDateKey: dateKey(now),
         startedAt: now.toISOString(), endsAt: new Date(now.getTime() + FOCUS_DURATION_MS).toISOString(),
         status: "active"
       };
@@ -44,11 +59,12 @@
     function completeHabitFocus(sessionId) {
       // A stale card must never complete a different day's or a replacement session's habit.
       runAutomaticChecks({ showToast: false });
-      const session = state.currentFocus;
+      const session = normalizeFocusSession(state.currentFocus);
       if (!session || session.id !== sessionId || session.localDateKey !== dateKey()
-        || !focusHabitAvailable(session.habitId, session.localDateKey)) return false;
-      completeHabit(session.habitId, null, session.localDateKey);
-      return habitCompletedToday(session.habitId);
+        || !focusSourceAvailable(session.sourceType, session.sourceId, session.localDateKey)) return false;
+      if (session.sourceType === "dailyTask") return completeDailyTask(session.sourceId, null, session.localDateKey);
+      completeHabit(session.sourceId, null, session.localDateKey);
+      return habitCompletedToday(session.sourceId);
     }
 
     function focusSecondsRemaining(session, now = Date.now()) {

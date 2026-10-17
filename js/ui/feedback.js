@@ -8,7 +8,8 @@
         render();
         return;
       }
-      renderHabitProgress();
+      if (row.matches("[data-daily-task-row]")) renderDailyTaskProgress();
+      else renderHabitProgress();
       row.classList.add("is-complete");
       row.querySelectorAll("button").forEach(button => { button.disabled = true; });
       row.querySelector(".habit-complete-control").innerHTML = actionIcons["checkmark.circle"];
@@ -206,7 +207,7 @@
         if (!current || current.mode !== "global") return;
         const label = current.amountLabel ? `${current.amountLabel} · 撤回` : "撤回";
         const completed = current.actionId.startsWith("task_completed:") || current.actionId.startsWith("memo_completed:");
-        const habitUndo = current.actionId.startsWith("habit_completed:");
+        const habitUndo = current.actionId.startsWith("habit_completed:") || current.actionId.startsWith("daily_task_completed:");
         renderTopNotice({ message: completed ? "已完成" : habitUndo ? "撤回" : label, undo: true, completed, habitUndo });
         els.toast.classList.toggle("is-exiting", Boolean(current.exiting));
       }

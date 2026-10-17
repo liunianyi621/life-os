@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
   <script src="js/startup.js?v=20260915-stability"></script>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20261017-focus">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20261018-daily-tasks">
 </head>
 <body>
   <div class="app q-app">
@@ -35,7 +35,18 @@
 
         <section class="priority-task-slot today-priority-slot" id="priorityTaskCard" aria-live="polite"></section>
 
-        <section class="today-section focus-task hidden" id="currentFocusTask" aria-label="当前任务"></section>
+        <section class="today-section focus-task" id="currentFocusTask" aria-label="当前任务"></section>
+
+        <section class="today-section today-daily-task-section">
+          <div class="section-heading q-section-header">
+            <h2>今日任务</h2>
+            <div class="section-heading-actions">
+              <span id="dailyTaskProgress" class="habit-progress" aria-live="polite"></span>
+              <button class="icon-button q-icon-button section-add-button" type="button" data-open-daily-task aria-label="新增今日任务" data-icon-button="plus"></button>
+            </div>
+          </div>
+          <div class="daily-habit-list" id="dailyTaskList"></div>
+        </section>
 
         <section class="today-section today-habit-section">
           <div class="section-heading q-section-header">
@@ -402,22 +413,24 @@
 
   <div class="contextual-undo-host" id="toast" aria-live="polite"></div>
 
-  <script src="js/storage.js?v=20261017-focus"></script>
-  <script src="js/backup.js?v=20261017-focus"></script>
+  <script src="js/storage.js?v=20261018-daily-tasks"></script>
+  <script src="js/backup.js?v=20261018-daily-tasks"></script>
   <script src="js/tasks.js?v=20261012-daily-habits"></script>
   <script src="js/habits.js?v=20261017-focus"></script>
-  <script src="js/economy.js?v=20261017-focus"></script>
-  <script src="js/focus.js?v=20261017-focus"></script>
-  <script src="js/settlement.js?v=20261012-daily-habits"></script>
+  <script src="js/economy.js?v=20261018-daily-tasks"></script>
+  <script src="js/daily-tasks.js?v=20261018-daily-tasks"></script>
+  <script src="js/focus.js?v=20261018-daily-tasks"></script>
+  <script src="js/settlement.js?v=20261018-daily-tasks"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
   <script src="js/stats.js?v=20260911-score-trend"></script>
   <script src="js/ui/elements.js?v=20260912-settings"></script>
-  <script src="js/ui/feedback.js?v=20261013-habit-hide"></script>
+  <script src="js/ui/feedback.js?v=20261018-daily-tasks"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
-  <script src="js/ui/sheets.js?v=20261012-daily-habits"></script>
+  <script src="js/ui/sheets.js?v=20261018-daily-tasks"></script>
   <script src="js/memos.js?v=20260913-reminders"></script>
   <script src="js/ui/settings.js?v=20260912-settings"></script>
-  <script src="js/ui/focus.js?v=20261017-focus"></script>
-  <script src="js/ui.js?v=20261017-focus"></script>
+  <script src="js/ui/focus.js?v=20261018-daily-tasks"></script>
+  <script src="js/ui/daily-tasks.js?v=20261018-daily-tasks"></script>
+  <script src="js/ui.js?v=20261018-daily-tasks"></script>
 </body>
 </html>

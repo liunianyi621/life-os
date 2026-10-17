@@ -131,14 +131,14 @@
     }
 
     function updateHabitDropState(drag, x, y) {
-      if (drag.sourceType === "HABIT_ORDER") {
-        const rows = Array.from(document.querySelectorAll("[data-habit-row]"));
+      if (["HABIT_ORDER", "DAILY_TASK_ORDER"].includes(drag.sourceType)) {
+        const rows = Array.from(document.querySelectorAll(drag.sourceType === "DAILY_TASK_ORDER" ? "[data-daily-task-row]" : "[data-habit-row]"));
         rows.forEach(row => row.classList.remove("habit-order-before", "habit-order-after"));
         const target = rows.find(row => {
           const rect = row.getBoundingClientRect();
           return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
         });
-        drag.orderTarget = target?.dataset.habitRow || null;
+        drag.orderTarget = target?.dataset.dailyTaskRow || target?.dataset.habitRow || null;
         drag.orderAfter = target ? y > target.getBoundingClientRect().top + target.offsetHeight / 2 : false;
         if (target && drag.orderTarget !== drag.sourceId) target.classList.add(drag.orderAfter ? "habit-order-after" : "habit-order-before");
         return;
@@ -158,6 +158,12 @@
     }
 
     function habitDragTargetFromEvent(event) {
+      const taskHandle = event.target.closest?.("[data-daily-task-handle]");
+      if (taskHandle) {
+        const task = pendingDailyTasks().find(item => item.id === taskHandle.dataset.dailyTaskHandle);
+        const row = taskHandle.closest("[data-daily-task-row]");
+        return task && row ? { row, card: taskHandle, sourceType: "DAILY_TASK_ORDER", sourceId: task.id, sourceName: task.name } : null;
+      }
       const handle = event.target.closest?.("[data-habit-handle]");
       if (handle) {
         const row = handle.closest("[data-habit-row]");
@@ -275,7 +281,7 @@
       const preview = document.createElement("div");
       preview.className = "habit-drag-preview";
       preview.setAttribute("aria-hidden", "true");
-      preview.innerHTML = drag.sourceType === "HABIT_ORDER" ? "<strong></strong>" : "<strong></strong><span>安排到今日任务</span>";
+      preview.innerHTML = ["HABIT_ORDER", "DAILY_TASK_ORDER"].includes(drag.sourceType) ? "<strong></strong>" : "<strong></strong><span>安排到今日任务</span>";
       preview.querySelector("strong").textContent = drag.sourceName;
       document.body.appendChild(preview);
       drag.preview = preview;
@@ -315,7 +321,7 @@
       dropZone?.classList.remove("habit-drop-available", "habit-drop-active");
       taskTimelineDropSlots().forEach(slot => slot.classList.remove("task-hour-slot-drop-active"));
       document.querySelectorAll(".habit-order-before, .habit-order-after").forEach(row => row.classList.remove("habit-order-before", "habit-order-after"));
-      if (drag.dragging && drag.sourceType !== "HABIT_ORDER") renderTasks();
+      if (drag.dragging && !["HABIT_ORDER", "DAILY_TASK_ORDER"].includes(drag.sourceType)) renderTasks();
       return drag;
     }
 
@@ -404,10 +410,10 @@
       if (!activeHabitDrag || activeHabitDrag.inputMode !== "pointer") return;
       if (event.pointerId !== activeHabitDrag.pointerId) return;
       const drag = activeHabitDrag;
-      if (drag.sourceType === "HABIT_ORDER") {
+      if (["HABIT_ORDER", "DAILY_TASK_ORDER"].includes(drag.sourceType)) {
         updateHabitDropState(drag, event.clientX, event.clientY);
         clearHabitDrag();
-        if (drag.dragging && !cancelled && drag.orderTarget) reorderHabit(drag.sourceId, drag.orderTarget, drag.orderAfter);
+        if (drag.dragging && !cancelled && drag.orderTarget) (drag.sourceType === "DAILY_TASK_ORDER" ? reorderDailyTask : reorderHabit)(drag.sourceId, drag.orderTarget, drag.orderAfter);
         window.setTimeout(() => { suppressNextCardTap = false; }, 220);
         return;
       }
@@ -430,11 +436,11 @@
       drag.lastX = touch.clientX;
       drag.lastY = touch.clientY;
       const wasDragging = drag.phase === "dragging";
-      if (drag.sourceType === "HABIT_ORDER") {
+      if (["HABIT_ORDER", "DAILY_TASK_ORDER"].includes(drag.sourceType)) {
         if (wasDragging && event.cancelable) event.preventDefault();
         updateHabitDropState(drag, touch.clientX, touch.clientY);
         clearHabitDrag();
-        if (wasDragging && !cancelled && drag.orderTarget) reorderHabit(drag.sourceId, drag.orderTarget, drag.orderAfter);
+        if (wasDragging && !cancelled && drag.orderTarget) (drag.sourceType === "DAILY_TASK_ORDER" ? reorderDailyTask : reorderHabit)(drag.sourceId, drag.orderTarget, drag.orderAfter);
         window.setTimeout(() => { suppressNextCardTap = false; }, 220);
         return;
       }
@@ -775,6 +781,7 @@
         els.todayDate.textContent = journalDateLabel(dateKey());
         renderSafely(renderMemoSummary);
         renderSafely(renderPriorityTask);
+        renderSafely(renderDailyTasks);
         renderSafely(renderHabits);
         return;
       }
@@ -1503,17 +1510,35 @@
       if (!event.target.closest("[data-swipe-row]")) {
         closeOpenSwipeRows();
       }
-      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard || event.target.closest("[data-habit-row]"))) {
+      if (suppressNextCardTap && (swipeContent || editCard || reviewCard || habitCard || event.target.closest("[data-habit-row], [data-daily-task-row]"))) {
         suppressNextCardTap = false;
         return;
       }
       const habitActions = event.target.closest("[data-habit-actions]");
+      if (event.target.closest("[data-open-focus-picker]")) { openFocusPicker(); return; }
+      const pickedFocus = event.target.closest("[data-pick-focus]");
+      if (pickedFocus) { requestSourceFocus(pickedFocus.dataset.focusSource, pickedFocus.dataset.pickFocus); return; }
+      if (event.target.closest("[data-open-daily-task]")) { openDailyTaskSheet(); return; }
+      const dailyActions = event.target.closest("[data-daily-task-actions]");
+      if (dailyActions) { openDailyTaskActions(dailyActions.dataset.dailyTaskActions); return; }
+      const editDaily = event.target.closest("[data-edit-daily-task]");
+      if (editDaily) { openDailyTaskSheet(editDaily.dataset.editDailyTask); return; }
+      const deleteDaily = event.target.closest("[data-delete-daily-task]");
+      if (deleteDaily) { deleteDailyTask(deleteDaily.dataset.deleteDailyTask); return; }
+      const completeDaily = event.target.closest("[data-complete-daily-task]");
+      if (completeDaily) { completeDailyTask(completeDaily.dataset.completeDailyTask, completeDaily.closest("[data-daily-task-row]")); return; }
+      const startDaily = event.target.closest("[data-start-daily-focus]");
+      if (startDaily) { requestDailyTaskFocus(startDaily.dataset.startDailyFocus); return; }
+      const dailyHandle = event.target.closest("[data-daily-task-handle]");
+      if (dailyHandle) { openDailyTaskOrderSheet(dailyHandle.dataset.dailyTaskHandle); return; }
+      const dailyMove = event.target.closest("[data-move-daily-task]");
+      if (dailyMove) { moveDailyTask(dailyMove.dataset.moveDailyTask, Number(dailyMove.dataset.direction)); openDailyTaskOrderSheet(dailyMove.dataset.moveDailyTask); return; }
       if (habitActions) { openHabitActionSheet(habitActions.dataset.habitActions); return; }
       const startFocus = event.target.closest("[data-start-focus]");
       if (startFocus) { requestHabitFocus(startFocus.dataset.startFocus); return; }
       const replaceFocus = event.target.closest("[data-replace-focus]");
       if (replaceFocus) {
-        const started = startHabitFocus(replaceFocus.dataset.replaceFocus, { replaceSessionId: replaceFocus.dataset.focusSession });
+        const started = startFocusSession(replaceFocus.dataset.focusSource || "habit", replaceFocus.dataset.replaceFocus, { replaceSessionId: replaceFocus.dataset.focusSession });
         if (started) closeSheet();
         render(); if (started) revealFocusTask(); return;
       }
@@ -1821,16 +1846,16 @@
     });
 
     document.addEventListener("selectstart", event => {
-      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle], [data-daily-task-handle]")) event.preventDefault();
     });
     document.addEventListener("selectionchange", () => {
       if (activeHabitDrag?.phase === "dragging") document.getSelection?.()?.removeAllRanges();
     });
     document.addEventListener("contextmenu", event => {
-      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle], [data-daily-task-handle]")) event.preventDefault();
     });
     document.addEventListener("dragstart", event => {
-      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle]")) event.preventDefault();
+      if (event.target.closest?.("[data-habit-card], [data-reschedule-task], [data-habit-handle], [data-daily-task-handle]")) event.preventDefault();
     });
 
     installSheetViewportSync();

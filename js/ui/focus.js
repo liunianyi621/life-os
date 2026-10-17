@@ -7,9 +7,9 @@
 
     function updateFocusClock() {
       stopFocusTick();
-      const session = state.currentFocus;
+      const session = normalizeFocusSession(state.currentFocus);
       if (!session || document.visibilityState !== "visible" || activeViewName() !== "today") return;
-      if (session.localDateKey !== dateKey() || !focusHabitAvailable(session.habitId, session.localDateKey)
+      if (session.localDateKey !== dateKey() || !focusSourceAvailable(session.sourceType, session.sourceId, session.localDateKey)
         || (session.status === "active" && Date.now() >= Date.parse(session.endsAt))) {
         if (runAutomaticChecks({ showToast: false })) { render(); return; }
         // A failed save keeps the previous session; retry without a render loop.
@@ -31,15 +31,21 @@
       const section = document.getElementById("currentFocusTask");
       if (!section) return;
       const session = normalizeFocusSession(state.currentFocus);
-      const habit = session && state.habits.find(item => item.id === session.habitId);
-      const visible = Boolean(session && habit && session.localDateKey === dateKey()
-        && focusHabitAvailable(session.habitId, session.localDateKey));
-      section.classList.toggle("hidden", !visible);
-      if (!visible) { section.textContent = ""; return; }
+      const item = session && focusSourceItem(session.sourceType, session.sourceId);
+      const visible = Boolean(session && item && session.localDateKey === dateKey()
+        && focusSourceAvailable(session.sourceType, session.sourceId, session.localDateKey));
+      section.classList.remove("hidden");
+      section.classList.toggle("is-idle", !visible);
+      if (!visible) {
+        section.innerHTML = `<div class="focus-task-heading"><h2>当前任务</h2></div>
+          <h3 class="focus-task-name">现在准备做什么？</h3>
+          <div class="focus-task-actions"><button class="q-primary-button" type="button" data-open-focus-picker>选择任务</button></div>`;
+        return;
+      }
       const seconds = focusSecondsRemaining(session);
       section.innerHTML = `<div class="focus-task-heading"><h2>当前任务</h2>
         <span class="focus-task-status" role="status">${session.status === "expired" ? "时间已到" : ""}</span></div>
-        <h3 class="focus-task-name">${escapeHtml(habit.name)}</h3>
+        <h3 class="focus-task-name">${escapeHtml(item.name)}</h3>
         <div class="focus-task-time" id="focusTime" aria-label="剩余时间">${focusTimeLabel(seconds)}</div>
         <progress class="focus-task-progress" id="focusProgress" max="3600" value="${3600 - seconds}" aria-label="专注进度"></progress>
         <div class="focus-task-actions">
@@ -68,24 +74,43 @@
     }
 
     function requestHabitFocus(habitId) {
+      requestSourceFocus("habit", habitId);
+    }
+
+    function requestDailyTaskFocus(taskId) { requestSourceFocus("dailyTask", taskId); }
+
+    function requestSourceFocus(sourceType, sourceId) {
       runAutomaticChecks({ showToast: false });
-      if (!focusHabitAvailable(habitId)) { closeSheet(); render(); return; }
-      const current = state.currentFocus;
-      if (!current || current.habitId === habitId) {
-        const started = startHabitFocus(habitId);
+      if (!focusSourceAvailable(sourceType, sourceId)) { closeSheet(); render(); return; }
+      const current = normalizeFocusSession(state.currentFocus);
+      if (!current || (current.sourceType === sourceType && current.sourceId === sourceId)) {
+        const started = startFocusSession(sourceType, sourceId);
         if (started) closeSheet();
         render();
         if (started) revealFocusTask();
         return;
       }
-      const habit = state.habits.find(item => item.id === current.habitId);
+      const item = focusSourceItem(current.sourceType, current.sourceId);
       sheetMode = "focus-switch";
       editingId = null;
-      els.sheetTitle.textContent = `当前正在专注「${habit.name}」`;
+      els.sheetTitle.textContent = `当前正在专注「${item.name}」`;
       els.sheetForm.innerHTML = `<div class="habit-focus-menu">
         <button class="q-primary-button" type="button" data-continue-focus>继续当前任务</button>
-        <button class="q-secondary-button" type="button" data-replace-focus="${escapeAttr(habitId)}" data-focus-session="${escapeAttr(current.id)}">结束当前专注并开始新任务</button>
+        <button class="q-secondary-button" type="button" data-replace-focus="${escapeAttr(sourceId)}" data-focus-source="${escapeAttr(sourceType)}" data-focus-session="${escapeAttr(current.id)}">结束当前专注并开始新任务</button>
         <button class="focus-cancel-button" type="button" data-cancel-focus>取消</button>
       </div>`;
+      openSheet({ position: "bottom", kind: "habit-actions" });
+    }
+
+    function openFocusPicker() {
+      runAutomaticChecks({ showToast: false });
+      const tasks = pendingDailyTasks();
+      const habits = visibleHabitsToday().filter(habit => focusHabitAvailable(habit.id));
+      const group = (title, source, items) => items.length ? `<section class="focus-picker-group"><h3>${title}</h3>
+        ${items.map(item => `<button type="button" data-pick-focus="${escapeAttr(item.id)}" data-focus-source="${source}">${escapeHtml(item.name)}</button>`).join("")}</section>` : "";
+      sheetMode = "focus-picker"; editingId = null;
+      els.sheetTitle.textContent = "选择任务";
+      els.sheetForm.innerHTML = `${group("今日任务", "dailyTask", tasks)}${group("每日习惯", "habit", habits)}
+        ${!tasks.length && !habits.length ? '<p class="memo-template-empty">今天没有待完成事项</p><button class="q-secondary-button" type="button" data-open-daily-task>新增今日任务</button>' : ""}`;
       openSheet({ position: "bottom", kind: "habit-actions" });
     }

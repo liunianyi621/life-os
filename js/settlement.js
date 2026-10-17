@@ -17,6 +17,9 @@
     function settlementIdentityFromHistory(item) {
       const day = String(item?.date || "");
       if (!day) return null;
+      if (item.taskKind === "dailyTask" && item.taskId && ["task_completed", "task_failed"].includes(item.type)) {
+        return settlementIdentity("daily-task", item.taskId, day);
+      }
       if ((item.type === "task_failed" || item.type === "task_missed") && item.taskId) {
         return taskFailureSettlementIdentity(item.taskId, day);
       }
@@ -272,6 +275,31 @@
       return { count: entries.length, totalPenalty, entries };
     }
 
+    function settleDailyTask(task, outcome, now = new Date(), settledKeys = buildSettledEventKeys()) {
+      if (typeof dailyTaskSettled !== "function" || dailyTaskSettled(task, settledKeys)) return null;
+      const day = dateKey(now);
+      if (outcome === "completed" ? task.localDateKey !== day : outcome !== "failed" || task.localDateKey >= day) return null;
+      const previousTask = cloneForUndo(task);
+      const amount = outcome === "completed" ? task.reward : task.penalty;
+      const key = dailyTaskSettlementKey(task);
+      const timestamp = now.toISOString();
+      const event = recordCoinEvent({ type: outcome === "completed" ? "task_completed" : "task_failed",
+        amount: outcome === "completed" ? amount : -amount, date: task.localDateKey, timestamp,
+        history: { taskKind: "dailyTask", taskId: task.id, name: task.name, coins: amount,
+          rewardAmount: task.reward, penaltyAmount: task.penalty, penaltyMultiplier: 10,
+          settlementKey: key, reason: outcome === "failed" ? "day_end" : "completed",
+          ...(outcome === "completed" ? { earnedCoins: amount, durationSeconds: 0, durationMinutes: 0 } : {}) } });
+      Object.assign(task, { status: outcome, settlementKey: key, settlementHistoryId: event.historyId,
+        settledAt: timestamp, updatedAt: timestamp });
+      if (outcome === "completed") {
+        state.totals.completedTasks = (Number(state.totals.completedTasks) || 0) + 1;
+        state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + amount);
+        updateStreakForCompletion(task.localDateKey);
+      } else state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
+      settledKeys.add(key);
+      return { taskKind: "dailyTask", taskId: task.id, date: task.localDateKey, amount, historyId: event.historyId, previousTask };
+    }
+
     function runPendingSettlements(options = {}) {
       const now = options.now instanceof Date ? options.now : new Date();
       const activated = ensureFixedRewardRules(now);
@@ -279,6 +307,13 @@
       const settledEventKeys = buildSettledEventKeys();
       const habitFailures = settleMissedHabitsThroughDate(lastHabitDay, settledEventKeys, now);
       const taskFailures = settleTimedTaskTimeouts(now, settledEventKeys);
+      if (typeof dailyTaskValid === "function") (state.dailyTasks || []).forEach(task => {
+        const entry = settleDailyTask(task, "failed", now, settledEventKeys);
+        if (entry) {
+          taskFailures.entries.push(entry); taskFailures.count++;
+          taskFailures.totalPenalty = parseCoinAmount(taskFailures.totalPenalty + entry.amount);
+        }
+      });
       const priorityFailures = settleMissedPriorityTasks(now, settledEventKeys);
       const changed = activated || habitFailures.count > 0
         || taskFailures.count > 0

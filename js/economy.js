@@ -851,6 +851,7 @@
         streak: Number(state.streak) || 0,
         lastCompletedDate: state.lastCompletedDate || null,
         task: item.taskId ? cloneForUndo(state.tasks.find(task => task.id === item.taskId)) : null,
+        dailyTask: item.taskKind === "dailyTask" ? cloneForUndo((state.dailyTasks || []).find(task => task.id === item.taskId)) : null,
         taskResult: item.taskId ? cloneForUndo(state.taskResults?.[day]?.[item.taskId] || null) : null,
         taskCompletion: item.taskId ? Boolean(state.completions?.[day]?.[item.taskId]) : false,
         taskAutoFailure: item.taskId ? cloneForUndo(state.taskAutoFailures?.[day]?.[item.taskId] || null) : null,
@@ -870,7 +871,9 @@
       state.streak = Number(snapshot.streak) || 0;
       state.lastCompletedDate = snapshot.lastCompletedDate || null;
 
-      if (item.taskId) {
+      if (item.taskKind === "dailyTask") {
+        if (snapshot.dailyTask) state.dailyTasks = (state.dailyTasks || []).map(task => task.id === item.taskId ? cloneForUndo(snapshot.dailyTask) : task);
+      } else if (item.taskId) {
         if (snapshot.task) {
           state.tasks = state.tasks.map(task => task.id === item.taskId ? { ...task, ...snapshot.task } : task);
           if (!state.tasks.some(task => task.id === item.taskId)) state.tasks.push(cloneForUndo(snapshot.task));
@@ -949,6 +952,18 @@
 
     function resetTaskAfterRecordDeletion(item, day, preserveFailureSettlement = false) {
       if (!item.taskId) return;
+      if (item.taskKind === "dailyTask") {
+        const task = (state.dailyTasks || []).find(task => task.id === item.taskId);
+        if (!task) return;
+        if (preserveFailureSettlement || day !== dateKey()) {
+          task.settlementHistoryId = null;
+          task.historyCorrectedAt = new Date().toISOString();
+        } else {
+          task.status = "pending";
+          delete task.settlementKey; delete task.settlementHistoryId; delete task.settledAt;
+        }
+        return;
+      }
       removeDayValue("taskResults", day, item.taskId);
       removeDayValue("completions", day, item.taskId);
       if (preserveFailureSettlement) {
@@ -1527,7 +1542,7 @@
 
     function contextualUndoLabel(undoData = {}) {
       if (undoData.type === "habit_task_scheduled" || undoData.type === "memo_task_scheduled") return "已安排";
-      if (["task_completed", "memo_completed", "habit_completed"].includes(undoData.type)) return "已完成";
+      if (["task_completed", "daily_task_completed", "memo_completed", "habit_completed"].includes(undoData.type)) return "已完成";
       if (undoData.type === "task_failed") return "未完成";
       return "操作已完成";
     }
@@ -1535,7 +1550,7 @@
     function contextualUndoAmount(undoData = {}) {
       const amount = Math.abs(parseCoinAmount(undoData.amount));
       if (!amount) return "";
-      const positive = ["task_completed", "habit_completed", "priority_task_reward"].includes(undoData.type);
+      const positive = ["task_completed", "daily_task_completed", "habit_completed", "priority_task_reward"].includes(undoData.type);
       return `${positive ? "+" : "-"}${formatCoinAmount(amount)} 金币`;
     }
 
@@ -1571,6 +1586,10 @@
 
       if (undo.type === "memo_completed") {
         if (!undoMemoCompletion(undo.memoSnapshot)) showUndoToast(undo, { message: "撤回失败，请重试" });
+        return;
+      }
+      if (undo.type === "daily_task_completed") {
+        undoDailyTaskCompletion(undo);
         return;
       }
 
@@ -1624,16 +1643,23 @@
         const entries = undo.taskEntries || undo.entries || (undo.taskId ? [undo] : []);
         let restoredAmount = 0;
         entries.forEach(entry => {
-          removeDayValue("taskResults", entry.date, entry.taskId);
-          restoreTaskState(entry.taskId, entry.previousTask);
-          const restoredTask = state.tasks.find(task => task.id === entry.taskId);
-          const failure = undoHistoryById.get(entry.historyId);
-          if (failure?.reason === "slot_deadline" && restoredTask) {
-            restoredTask.reversedFailureDeadline = failure.deadline;
-            removeDayValue("taskAutoFailures", entry.date, entry.taskId);
-          }
-          if (entry.memoSnapshot && typeof restoreMemoSnapshot === "function") {
-            restoreMemoSnapshot(entry.memoSnapshot);
+          if (entry.taskKind === "dailyTask") {
+            const task = (state.dailyTasks || []).find(item => item.id === entry.taskId);
+            // Reversing a past-day penalty must not charge that obligation again.
+            if (task) Object.assign(task, entry.previousTask, { settlementKey: dailyTaskSettlementKey(task),
+              settlementHistoryId: null, settlementReversedAt: new Date().toISOString() });
+          } else {
+            removeDayValue("taskResults", entry.date, entry.taskId);
+            restoreTaskState(entry.taskId, entry.previousTask);
+            const restoredTask = state.tasks.find(task => task.id === entry.taskId);
+            const failure = undoHistoryById.get(entry.historyId);
+            if (failure?.reason === "slot_deadline" && restoredTask) {
+              restoredTask.reversedFailureDeadline = failure.deadline;
+              removeDayValue("taskAutoFailures", entry.date, entry.taskId);
+            }
+            if (entry.memoSnapshot && typeof restoreMemoSnapshot === "function") {
+              restoreMemoSnapshot(entry.memoSnapshot);
+            }
           }
           const historyEntry = undoHistoryById.get(entry.historyId);
           const actualAmount = historyEntry

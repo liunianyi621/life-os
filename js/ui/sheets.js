@@ -511,6 +511,15 @@
     async function handleSheetSubmit(event) {
       event.preventDefault();
       const formData = new FormData(els.sheetForm);
+      if (sheetMode === "daily-task") {
+        const button = event.submitter;
+        if (button?.disabled) return;
+        if (button) button.disabled = true;
+        const saved = saveDailyTask({ id: editingId, name: String(formData.get("name") || ""), reward: Number(formData.get("reward")) },
+          { startFocus: button?.value === "start" });
+        if (!saved && button) button.disabled = false;
+        return;
+      }
       if (sheetMode === "task") {
         const submitButton = event.submitter || els.sheetForm.querySelector("button[type='submit']");
         if (submitButton?.disabled) return;

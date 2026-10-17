@@ -17,6 +17,7 @@
       for (const [key, value] of Object.entries(emptyState)) {
         if (key === "settings" && !(key in data)) continue; // Version 1 backups predate Settings.
         if (key === "currentFocus" && !(key in data)) continue;
+        if (key === "dailyTasks" && !(key in data)) continue;
         if (!(key in data)) invalid();
         if (Array.isArray(value) && !Array.isArray(data[key])) invalid();
         if (backupObject(value) && !backupObject(data[key])) invalid();
@@ -32,6 +33,10 @@
       };
       visit(data);
       if (data.currentFocus != null && !normalizeFocusSession(data.currentFocus)) invalid();
+      if (data.dailyTasks !== undefined) {
+        if (!Array.isArray(data.dailyTasks) || data.dailyTasks.some(task => !dailyTaskValid(task))
+          || new Set(data.dailyTasks.map(task => task.id)).size !== data.dailyTasks.length) invalid();
+      }
       if (data.dailyHabitSystem !== undefined) {
         const marker = data.dailyHabitSystem;
         if (!backupObject(marker) || marker.version !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(marker.activatedOn)
@@ -86,6 +91,7 @@
       const candidate = JSON.parse(JSON.stringify(data));
       candidate.settings = normalizeSettings(candidate.settings);
       candidate.currentFocus = normalizeFocusSession(candidate.currentFocus);
+      candidate.dailyTasks = candidate.dailyTasks || [];
       return candidate;
     }
 

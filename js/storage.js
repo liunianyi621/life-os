@@ -4,14 +4,18 @@
     function normalizeFocusSession(value) {
       if (!value || typeof value !== "object" || Array.isArray(value)) return null;
       const { id, habitId, localDateKey, startedAt, endsAt, status } = value;
-      if (typeof id !== "string" || !id || typeof habitId !== "string" || !habitId
+      const sourceType = value.sourceType ?? (habitId ? "habit" : null);
+      const sourceId = value.sourceId ?? (sourceType === "habit" ? habitId : null);
+      if (!["habit", "dailyTask"].includes(sourceType) || typeof sourceId !== "string" || !sourceId
+        || (sourceType === "habit" && habitId != null && habitId !== sourceId)
+        || typeof id !== "string" || !id
         || !/^\d{4}-\d{2}-\d{2}$/.test(localDateKey)
         || dateKey(dateFromKey(localDateKey)) !== localDateKey
         || typeof startedAt !== "string" || typeof endsAt !== "string"
         || !Number.isFinite(Date.parse(startedAt)) || !Number.isFinite(Date.parse(endsAt))
         || Date.parse(endsAt) - Date.parse(startedAt) !== FOCUS_DURATION_MS
         || !["active", "expired"].includes(status)) return null;
-      return { id, habitId, localDateKey, startedAt, endsAt, status };
+      return { id, sourceType, sourceId, ...(sourceType === "habit" ? { habitId: sourceId } : {}), localDateKey, startedAt, endsAt, status };
     }
     const OLD_STORAGE_KEYS = [
       "life-rpg-system-v1",
@@ -94,6 +98,7 @@
       lastCompletedDate: null,
       settledThroughDate: null,
       tasks: [],
+      dailyTasks: [],
       completions: {},
       taskResults: {},
       habits: [],
@@ -735,7 +740,7 @@
     function normalizeStoredCollections(saved) {
       const result = { ...saved };
       const recovered = [];
-      for (const key of ["tasks", "habits", "badHabits", "notes", "memos", "calendarEvents", "rewards", "achievements", "history"]) {
+      for (const key of ["tasks", "dailyTasks", "habits", "badHabits", "notes", "memos", "calendarEvents", "rewards", "achievements", "history"]) {
         if (result[key] == null) continue;
         if (!Array.isArray(result[key])) {
           recovered.push({ collection: key, value: result[key] });
@@ -810,6 +815,7 @@
           settings: normalizeSettings(saved.settings),
           totals: { ...cloneEmptyState().totals, ...(saved.totals || {}) },
           tasks: Array.isArray(saved.tasks) ? saved.tasks : [],
+          dailyTasks: Array.isArray(saved.dailyTasks) ? saved.dailyTasks : [],
           habits: Array.isArray(saved.habits) ? saved.habits : [],
           currentFocus: normalizeFocusSession(saved.currentFocus),
           badHabits: Array.isArray(saved.badHabits) ? saved.badHabits : [],
