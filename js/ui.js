@@ -812,6 +812,7 @@
       renderSafely(scheduleTaskDeadlineCheck);
       renderSafely(updatePrimaryReadouts);
       renderSafely(renderActiveView);
+      renderSafely(renderFocusTask);
       if (!els.memoBackdrop.classList.contains("hidden")) renderMemos();
     }
 
@@ -905,7 +906,7 @@
         const reward = habitRewardAmount(habit);
         return `<div class="daily-habit-row${done ? " is-complete" : ""}" data-habit-row="${escapeAttr(habit.id)}">
           <button class="habit-order-handle" type="button" data-habit-handle="${escapeAttr(habit.id)}" aria-label="调整${escapeAttr(habit.name)}的顺序" title="调整顺序"><span aria-hidden="true">≡</span></button>
-          <button type="button" class="daily-habit-content" data-edit-habit="${escapeAttr(habit.id)}">
+          <button type="button" class="daily-habit-content" data-habit-actions="${escapeAttr(habit.id)}">
             <span class="daily-habit-name">${escapeHtml(habit.name)}</span>
             <span class="daily-habit-reward">+${reward} / −${parseCoinAmount(reward * 10)}${failed ? " · 已结算" : ""}</span>
           </button>
@@ -1506,6 +1507,22 @@
         suppressNextCardTap = false;
         return;
       }
+      const habitActions = event.target.closest("[data-habit-actions]");
+      if (habitActions) { openHabitActionSheet(habitActions.dataset.habitActions); return; }
+      const startFocus = event.target.closest("[data-start-focus]");
+      if (startFocus) { requestHabitFocus(startFocus.dataset.startFocus); return; }
+      const replaceFocus = event.target.closest("[data-replace-focus]");
+      if (replaceFocus) {
+        const started = startHabitFocus(replaceFocus.dataset.replaceFocus, { replaceSessionId: replaceFocus.dataset.focusSession });
+        if (started) closeSheet();
+        render(); if (started) revealFocusTask(); return;
+      }
+      if (event.target.closest("[data-continue-focus]")) { closeSheet(); render(); revealFocusTask(); return; }
+      if (event.target.closest("[data-cancel-focus]")) { closeSheet(); render(); return; }
+      const completeFocus = event.target.closest("[data-complete-focus]");
+      if (completeFocus) { completeHabitFocus(completeFocus.dataset.completeFocus); render(); return; }
+      const endFocus = event.target.closest("[data-end-focus]");
+      if (endFocus) { endHabitFocus(endFocus.dataset.endFocus); render(); return; }
       const orderHandle = event.target.closest("[data-habit-handle]");
       if (orderHandle) { openHabitOrderSheet(orderHandle.dataset.habitHandle); return; }
       const orderMove = event.target.closest("[data-move-habit]");
@@ -1779,24 +1796,28 @@
       if (document.visibilityState !== "visible") {
         clearHabitDrag();
         clearTimeout(taskDeadlineTimer);
+        stopFocusTick();
         return;
       }
       const dateChanged = syncLocalDateContext();
       if ((runAutomaticChecks() && activeViewName() !== "review") || dateChanged) render();
       scheduleTaskDeadlineCheck();
+      renderFocusTask();
     });
     window.addEventListener("focus", () => {
       const dateChanged = syncLocalDateContext();
       if ((runAutomaticChecks() && activeViewName() !== "review") || dateChanged) render();
       scheduleTaskDeadlineCheck();
+      renderFocusTask();
     });
     window.addEventListener("blur", clearHabitDrag);
     window.addEventListener("pagehide", clearHabitDrag);
-    window.addEventListener("pagehide", () => clearTimeout(taskDeadlineTimer));
+    window.addEventListener("pagehide", () => { clearTimeout(taskDeadlineTimer); stopFocusTick(); });
     window.addEventListener("pageshow", () => {
       const dateChanged = syncLocalDateContext();
       if ((runAutomaticChecks() && activeViewName() !== "review") || dateChanged) render();
       scheduleTaskDeadlineCheck();
+      renderFocusTask();
     });
 
     document.addEventListener("selectstart", event => {

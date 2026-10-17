@@ -28,6 +28,101 @@ module.exports=async function run(scenario){
       assert.equal(await page.locator('[data-task-timeline-slot], [data-habit-card], [data-open-task]').count(),0);
       assert.equal(await page.locator('[data-habit-row]').count(),3);
       assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
+      if(scenario==='focus'){
+        await page.clock.pauseAt(new Date('2026-10-12T10:05:00+01:00'));
+        const start=async id=>{
+          await page.locator(`[data-habit-actions="${id}"]`).tap();
+          await page.locator(`[data-start-focus="${id}"]`).tap();
+        };
+        const visibility=async value=>page.evaluate(value=>{
+          Object.defineProperty(document,'visibilityState',{configurable:true,value});
+          document.dispatchEvent(new Event('visibilitychange'));
+        },value);
+        assert.equal(await page.locator('#currentFocusTask').isVisible(),false);
+        await start('a');
+        assert.equal(await page.locator('#focusTime').innerText(),'60:00');
+        assert.equal(await page.locator('[data-habit-row="a"]').count(),1);
+        assert.equal(await page.evaluate(()=>state.coins),1000);
+        const layout=await page.evaluate(()=>{
+          const focus=document.getElementById('currentFocusTask').getBoundingClientRect();
+          return {top:focus.top,bottom:focus.bottom,priority:els.priorityTaskCard.getBoundingClientRect().bottom,
+            habits:document.querySelector('.today-habit-section').getBoundingClientRect().top,
+            overflow:document.documentElement.scrollWidth>innerWidth};
+        });
+        assert.ok(layout.top>layout.priority&&layout.bottom<layout.habits);assert.equal(layout.overflow,false);
+        for(const button of await page.locator('.focus-task-actions button').all()){
+          const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44);
+        }
+        const out=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(out,{recursive:true});
+        await page.screenshot({path:path.join(out,'focus-'+width+'.png'),fullPage:true});
+        await page.evaluate(()=>{
+          window.focusRenderCount=0;window.focusSaveCount=0;
+          const originalRender=render,originalSave=saveState;
+          render=function(){window.focusRenderCount++;return originalRender();};
+          saveState=function(){window.focusSaveCount++;return originalSave();};
+        });
+        await page.clock.runFor(5000);
+        assert.equal(await page.locator('#focusTime').innerText(),'59:55');
+        assert.equal(await page.evaluate(()=>window.focusRenderCount),0);
+        assert.equal(await page.evaluate(()=>window.focusSaveCount),0);
+        await visibility('hidden');
+        assert.equal(await page.evaluate(()=>focusTickTimer),null);
+        await page.clock.setSystemTime(new Date('2026-10-12T10:50:00+01:00'));
+        await visibility('visible');
+        assert.equal(await page.locator('#focusTime').innerText(),'15:00');
+        await page.reload();
+        await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
+        assert.equal(await page.locator('#focusTime').innerText(),'15:00');
+        const first=await page.evaluate(()=>state.currentFocus.id);
+        await start('b');assert.match(await page.locator('#sheetTitle').innerText(),/当前正在专注/);
+        await page.locator('[data-cancel-focus]').tap();assert.equal(await page.evaluate(()=>state.currentFocus.id),first);
+        await start('b');await page.locator('[data-continue-focus]').tap();assert.equal(await page.evaluate(()=>state.currentFocus.id),first);
+        await start('b');await page.locator('[data-replace-focus="b"]').tap();
+        assert.equal(await page.evaluate(()=>state.currentFocus.habitId),'b');assert.equal(await page.evaluate(()=>state.coins),1000);
+        await page.locator('[data-end-focus]').tap();assert.equal(await page.evaluate(()=>state.currentFocus),null);
+        assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
+        await start('a');await page.locator('[data-complete-focus]').tap();
+        assert.equal(await page.evaluate(()=>state.coins),1010);
+        assert.equal(await page.locator('[data-habit-row="a"]').count(),0);
+        assert.equal(await page.locator('#currentFocusTask').isVisible(),false);
+        await page.locator('[data-contextual-undo]').tap();
+        assert.equal(await page.evaluate(()=>state.coins),1000);
+        assert.equal(await page.evaluate(()=>state.currentFocus),null);
+        assert.equal(await page.locator('[data-habit-row]').evaluateAll(rows=>rows.map(r=>r.dataset.habitRow).join(',')),'a,b,c');
+        await start('a');await page.locator('[data-complete-habit="a"]').tap();await page.clock.runFor(220);
+        assert.equal(await page.locator('#currentFocusTask').isVisible(),false);
+        await page.locator('[data-contextual-undo]').tap();assert.equal(await page.evaluate(()=>state.coins),1000);
+        await start('a');await page.clock.setSystemTime(new Date('2026-10-12T12:00:00+01:00'));
+        await visibility('visible');
+        assert.equal(await page.locator('#focusTime').innerText(),'00:00');
+        assert.equal(await page.locator('.focus-task-status').innerText(),'时间已到');
+        assert.equal(await page.evaluate(()=>focusTickTimer),null);
+        assert.equal(await page.evaluate(()=>state.coins),1000);assert.equal(await page.evaluate(()=>state.history.length),0);
+        await page.reload();assert.equal(await page.locator('#focusTime').innerText(),'00:00');
+        await page.locator('[data-complete-focus]').tap();assert.equal(await page.evaluate(()=>state.coins),1010);
+        await page.locator('[data-contextual-undo]').tap();
+        await start('b');await page.locator('[data-habit-actions="b"]').tap();
+        await page.locator('[data-edit-habit="b"]').tap();
+        await page.locator('[data-delete-habit="b"]').tap();
+        assert.equal(await page.evaluate(()=>state.currentFocus),null);
+        await page.evaluate(()=>{state.priorityTaskByDate={};saveState();});
+        await page.clock.setSystemTime(new Date('2026-10-12T23:40:00+01:00'));
+        await start('a');const oldSession=await page.evaluate(()=>state.currentFocus.id);
+        const backup=await page.evaluate(()=>createLifeOSBackup());assert.equal(backup.data.currentFocus.habitId,'a');
+        await visibility('hidden');await page.clock.setSystemTime(new Date('2026-10-13T00:01:00+01:00'));await visibility('visible');
+        assert.equal(await page.locator('#currentFocusTask').isVisible(),false);
+        assert.equal(await page.evaluate(()=>state.coins),700);
+        assert.equal(await page.evaluate(id=>completeHabitFocus(id),oldSession),false);
+        await page.reload();assert.equal(await page.evaluate(()=>state.coins),700);
+        await start('a');await page.locator('[data-complete-focus]').tap();assert.equal(await page.evaluate(()=>state.coins),710);
+        assert.equal(await page.evaluate(()=>state.memos.length),1);
+        await page.clock.setSystemTime(new Date('2026-10-13T23:40:00+01:00'));await start('c');
+        await page.clock.pauseAt(new Date('2026-10-13T23:59:59+01:00'));await page.evaluate(()=>render());
+        await page.clock.runFor(1000);
+        assert.equal(await page.evaluate(()=>state.currentFocus),null);
+        assert.equal(await page.evaluate(()=>state.coins),510);
+        assert.equal(await page.locator('#habitProgress').innerText(),'0 / 2');
+      }
       if(scenario==='overview'){
         const layout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,
           priority:document.querySelector('#priorityTaskCard').getBoundingClientRect().bottom,
@@ -97,6 +192,8 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>state.coins),545);
       }
       if(scenario==='order'){
+        await page.evaluate(()=>{startHabitFocus('a');render();});
+        const focusId=await page.evaluate(()=>state.currentFocus.id);
         const cdp=safari ? null : await context.newCDPSession(page);
         const touch=async(type,x,y)=>{
           if(cdp) return cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x,y}]});
@@ -120,6 +217,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>scrollY),scroll);
         await touch('touchEnd',x,target.y+10);await page.clock.runFor(250);
         assert.equal(await page.evaluate(()=>state.habits.map(h=>h.id).join(',')),'c,a,b');
+        assert.equal(await page.evaluate(()=>state.currentFocus.id),focusId);
         assert.equal(await page.locator('.habit-drag-preview').count(),0);
         assert.equal(await page.evaluate(()=>document.documentElement.style.overflow),'');
         await page.locator('[data-habit-handle="c"]').focus();
@@ -154,6 +252,7 @@ module.exports=async function run(scenario){
         await page.locator('#sheetForm [name="coins"]').fill('10');
         await page.locator('#sheetForm [type="submit"]').tap();
         assert.equal(await page.evaluate(()=>state.habits.at(-1).coins),10);
+        await page.locator('[data-habit-actions="b"]').tap();
         await page.locator('[data-edit-habit="b"]').tap();
         await page.locator('#sheetForm [name="coins"]').fill('20');
         await page.locator('#sheetForm [type="submit"]').tap();

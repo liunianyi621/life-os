@@ -16,6 +16,7 @@
       // Require every current state container, including settlement markers; never fill missing history.
       for (const [key, value] of Object.entries(emptyState)) {
         if (key === "settings" && !(key in data)) continue; // Version 1 backups predate Settings.
+        if (key === "currentFocus" && !(key in data)) continue;
         if (!(key in data)) invalid();
         if (Array.isArray(value) && !Array.isArray(data[key])) invalid();
         if (backupObject(value) && !backupObject(data[key])) invalid();
@@ -30,6 +31,7 @@
         }
       };
       visit(data);
+      if (data.currentFocus != null && !normalizeFocusSession(data.currentFocus)) invalid();
       if (data.dailyHabitSystem !== undefined) {
         const marker = data.dailyHabitSystem;
         if (!backupObject(marker) || marker.version !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(marker.activatedOn)
@@ -83,6 +85,7 @@
       if (Object.values(data.scheduledHabitIdsByDate).some(ids => !Array.isArray(ids) || ids.some(id => typeof id !== "string"))) invalid();
       const candidate = JSON.parse(JSON.stringify(data));
       candidate.settings = normalizeSettings(candidate.settings);
+      candidate.currentFocus = normalizeFocusSession(candidate.currentFocus);
       return candidate;
     }
 

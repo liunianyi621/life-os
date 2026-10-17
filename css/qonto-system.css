@@ -533,6 +533,23 @@ textarea:focus-visible {
 .habit-order-after::after { bottom: 0; }
 .habit-order-actions { display: flex; gap: 12px; padding: 12px 0; }
 .habit-order-actions button { flex: 1; min-height: 48px; }
+
+.focus-task { padding: 18px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.focus-task-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.focus-task-heading h2 { margin: 0; color: var(--color-text-secondary); font-size: 14px; font-weight: 600; }
+.focus-task-status { color: var(--color-text-secondary); font-size: 13px; }
+.focus-task-name { margin: 10px 0 0; font-size: 19px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+.focus-task-time { margin: 10px 0 14px; font-size: 32px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.focus-task-progress { display: block; appearance: none; -webkit-appearance: none; width: 100%; height: 3px; border: 0; border-radius: 3px; background: var(--color-surface-muted); overflow: hidden; }
+.focus-task-progress::-webkit-progress-bar { background: var(--color-surface-muted); border-radius: 3px; }
+.focus-task-progress::-webkit-progress-value { background: var(--color-border-strong); border-radius: 3px; }
+.focus-task-progress::-moz-progress-bar { background: var(--color-border-strong); border-radius: 3px; }
+.focus-task-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.focus-task-actions button { min-height: 44px; padding: 10px 12px; font-size: 14px; }
+.habit-focus-menu { display: grid; gap: 10px; padding: 8px 0; }
+.habit-focus-menu button { min-height: 48px; white-space: normal; overflow-wrap: anywhere; }
+.focus-cancel-button { border: 0; background: transparent; color: var(--color-text-secondary); font: inherit; }
+.sheet-backdrop[data-sheet-kind="habit-actions"] .sheet-header h2 { font-size: 23px; overflow-wrap: anywhere; }
 body.habit-dragging .habit-order-handle { touch-action: none; }
 
 .memo-template-empty {

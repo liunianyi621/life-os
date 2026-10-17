@@ -180,6 +180,7 @@
       runAutomaticChecks({ showToast: false });
       const before = JSON.stringify(state);
       state.habits = state.habits.map(habit => habit.id === habitId ? { ...habit, deletedDate: dateKey() } : habit);
+      if (state.currentFocus?.habitId === habitId) state.currentFocus = null;
       if (!saveTaskAction(before)) return;
       closeSheet();
       render();

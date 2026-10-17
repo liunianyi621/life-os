@@ -415,15 +415,16 @@
       });
     }
 
-    function completeHabit(habitId, sourceEl = null) {
+    function completeHabit(habitId, sourceEl = null, expectedDate = null) {
       runAutomaticChecks({ showToast: false });
+      const today = dateKey();
+      if (expectedDate && expectedDate !== today) return;
       const habit = state.habits.find(item => item.id === habitId);
-      if (!habit || !habitActiveOnDate(habit, dateKey()) || habitCompletedToday(habitId) || habitFailedOnDate(habitId, dateKey())) return;
-      const linkedTask = state.tasks.find(task => taskHabitId(task) === habitId && taskSettlementDay(task) === dateKey() && !taskIsSettled(task));
+      if (!habit || !habitActiveOnDate(habit, today) || habitCompletedOnDate(habitId, today) || habitFailedOnDate(habitId, today)) return;
+      const linkedTask = state.tasks.find(task => taskHabitId(task) === habitId && taskSettlementDay(task) === today && !taskIsSettled(task));
       if (linkedTask && !dailyHabitSystemEnabled()) return completeTask(linkedTask.id, sourceEl);
       const before = JSON.stringify(state);
 
-      const today = dateKey();
       const amount = habitRewardAmount(habit);
       const previousProgress = habitProgressSnapshot(today, habit.id);
       state.habitCompletions[today] = state.habitCompletions[today] || {};
@@ -440,8 +441,10 @@
         }
       });
       const historyId = coinEvent.historyId;
+      if (state.currentFocus?.habitId === habitId && state.currentFocus.localDateKey === today) state.currentFocus = null;
       if (!saveTaskAction(before)) return;
       updatePrimaryReadouts();
+      if (typeof renderFocusTask === "function") renderFocusTask();
       if (sourceEl && typeof animateHabitCompletion === "function") animateHabitCompletion(sourceEl);
       else render();
       showUndoToast({
@@ -724,6 +727,7 @@
         deadlines = settleTaskSlotDeadlines(now);
         settlementResult = runPendingSettlements({ now });
         settlementResult.changed ||= activated;
+        if (typeof reconcileFocusSession === "function" && reconcileFocusSession(now)) settlementResult.changed = true;
       } catch (error) {
         state = JSON.parse(before);
         console.error("LifeOS automatic check failed before saving", error);
