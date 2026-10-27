@@ -3334,6 +3334,45 @@ body.keyboard-open .keyboard-form-sheet__footer .q-primary-button {
 }
 
 /* Day detail */
+#dayDetailBackdrop {
+  --day-detail-safe-top: env(safe-area-inset-top, 0px);
+  --day-detail-safe-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: max(18px, var(--day-detail-safe-top));
+  padding-bottom: max(14px, var(--day-detail-safe-bottom));
+}
+
+#dayDetailBackdrop .day-detail-sheet {
+  max-height: min(calc(var(--app-visible-height, 100dvh) - max(18px, var(--day-detail-safe-top)) - max(14px, var(--day-detail-safe-bottom))), 820px);
+}
+
+#dayDetailBackdrop .sheet-header,
+#dayDetailBackdrop .detail-summary-grid,
+#dayDetailBackdrop .day-timeline-section > h3 {
+  flex-shrink: 0;
+}
+
+#dayDetailBackdrop .day-detail-content,
+#dayDetailBackdrop .day-timeline-section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#dayDetailBackdrop .day-detail-content {
+  padding-bottom: calc(24px + var(--day-detail-safe-bottom));
+}
+
+#dayDetailBackdrop .day-timeline-list {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
 .day-detail-content {
   display: grid;
   gap: 14px;
