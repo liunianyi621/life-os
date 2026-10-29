@@ -1,94 +1,96 @@
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http');
-const {chromium}=require('playwright');
-const root=path.resolve(__dirname,'..');
-const server=http.createServer((req,res)=>{
-  const p=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(p==='/'?'/index.html':p));
-  if(!file.startsWith(root+'/'))return res.writeHead(403).end();
-  try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.writeHead(404).end();}
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const http = require('node:http');
+const { chromium, webkit } = require('playwright');
+const root = path.resolve(__dirname, '..');
+const routes = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8')).routes;
+const server = http.createServer((req, res) => {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  const redirect = routes.find(route => route.status === 307 && new RegExp('^' + route.src + '$').test(pathname));
+  if (redirect) return res.writeHead(redirect.status, redirect.headers).end();
+  const file = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+  if (!file.startsWith(root + '/')) return res.writeHead(403).end();
+  try {
+    res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+    res.end(fs.readFileSync(file));
+  } catch { res.writeHead(404).end(); }
 });
-(async()=>{
-  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
-  try{
-    browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH});
-    const evidence=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(evidence,{recursive:true});
-    for(const [width,height] of [[390,844],[393,852],[430,932]]){
-      const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true,timezoneId:'Europe/London'});
-      const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
-      await page.clock.setFixedTime(new Date('2026-09-12T10:30:00Z'));await page.goto(`http://127.0.0.1:${server.address().port}`);
-      await page.evaluate(()=>{state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();state.calendarEvents=[
-        {id:'trip',title:'高地旅行与拍摄长中文名称',startDate:'2026-09-14',endDate:'2026-09-18',category:'normal'},
-        {id:'cross',title:'跨周计划',startDate:'2026-09-18',endDate:'2026-09-22',category:'important'},
-        {id:'single',title:'拍摄',startDate:'2026-09-15',endDate:'2026-09-15',category:'normal'},
-        {id:'year',title:'跨年',startDate:'2026-12-30',endDate:'2027-01-03',category:'normal'}];saveState();render();});
-      const original=await page.evaluate(()=>JSON.stringify(state.calendarEvents));
-      await page.locator('[data-nav="calendar"]').click();await page.waitForTimeout(300);
-      assert.equal(await page.locator('.calendar-day-cell.today.selected').count(),0);
-      const tomorrow=page.locator('button[data-calendar-day="2026-09-13"]');
-      await tomorrow.click({position:{x:15,y:12}});
-      assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
-      assert.equal(await page.locator('.calendar-day-cell.today:not(.selected)').count(),1);
-      await tomorrow.click({position:{x:15,y:12}});
-      assert.equal(await page.locator('#sheetForm input[name="startDate"]').inputValue(),'2026-09-13');
-      assert.equal(await page.locator('#sheetForm input[name="endDate"]').inputValue(),'2026-09-13');
-      assert.equal(await page.locator('[data-delete-calendar-event]').count(),0);
-      await page.evaluate(()=>closeSheet());
-      assert.equal(await page.evaluate(()=>JSON.stringify(state.calendarEvents)),original);
-      await page.locator('button[data-calendar-day="2026-09-12"]').click({position:{x:15,y:12}});
-      assert.equal(await page.locator('.calendar-day-cell.today.selected').count(),1);
-      assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
-      await tomorrow.click({position:{x:15,y:12}});
-      assert.equal(await page.locator('#calendarGrid [data-calendar-event="trip"]').count(),1);
-      assert.equal(await page.locator('#calendarGrid [data-calendar-event="cross"]').count(),2);
-      const segment=page.locator('#calendarGrid [data-calendar-event="trip"]');
-      const bar=await segment.boundingBox(),grid=await page.locator('#calendarGrid').boundingBox();
-      assert.ok(Math.abs(bar.width-grid.width*5/7)<2);
-      await page.screenshot({path:path.join(evidence,`calendar-five-${width}.png`)});
-      await page.evaluate(()=>{state.calendarEvents=[...state.calendarEvents,...Array.from({length:4},(_,i)=>({id:'overlap'+i,title:'重叠计划'+i,startDate:'2026-09-14',endDate:'2026-09-18',category:'normal'}))];renderCalendar();});
-      assert.ok(await page.locator('[data-calendar-more="2026-09-15"]').count());
-      await page.locator('[data-calendar-more="2026-09-15"]').click();
-      assert.equal(await page.locator('#calendarSelectedPlans [data-calendar-event]').count(),6);
-      await page.evaluate(original=>{state.calendarEvents=JSON.parse(original);renderCalendar();},original);
-      await segment.click();await page.waitForTimeout(200);
-      const sheet=await page.locator('#sheetBackdrop .sheet').boundingBox();assert.ok(sheet.height<height*.6,JSON.stringify(sheet));
-      assert.match(await page.locator('[data-calendar-date-label="startDate"]').innerText(),/9月14日/);
-      await page.screenshot({path:path.join(evidence,`calendar-sheet-${width}.png`)});
-      await page.locator('#sheetForm input[name="title"]').fill('修改后的高地');
-      await page.locator('#sheetForm input[name="endDate"]').fill('2026-09-19');
-      await page.locator('#sheetForm button[type="submit"]').click();
-      assert.equal(await page.evaluate(()=>state.calendarEvents.find(e=>e.id==='trip').endDate),'2026-09-19');
-      await page.reload();await page.locator('[data-nav="calendar"]').click();
-      assert.equal(await page.evaluate(()=>state.calendarEvents.find(e=>e.id==='trip').title),'修改后的高地');
-      await page.evaluate(()=>{currentCalendarMonth='2026-08';renderCalendar();});
-      assert.equal(await page.locator('.calendar-week').count(),6);
-      await page.locator('button[data-calendar-day="2026-07-27"]').click({position:{x:15,y:12}});
-      assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
-      await page.evaluate(()=>window.scrollTo(0,0));await page.waitForTimeout(200);
-      await page.screenshot({path:path.join(evidence,`calendar-six-${width}.png`)});
-      await page.evaluate(()=>{currentCalendarMonth='2026-12';renderCalendar();});
-      assert.equal(await page.locator('#calendarGrid [data-calendar-event="year"]').count(),1);
-      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-      await page.locator('#calendarGrid [data-calendar-event="year"]').click();
-      for(const h of [430,320]){
-        await page.evaluate(h=>Object.defineProperty(visualViewport,'height',{configurable:true,value:h}),h);
-        await page.locator('#sheetForm input[name="title"]').focus();await page.evaluate(()=>{syncSheetViewport();ensureFocusedFormFieldVisible();});await page.waitForTimeout(250);
-        const layout=await page.evaluate(()=>{const f=els.sheetForm.querySelector('input[name="title"]').getBoundingClientRect(),b=els.sheetForm.querySelector('button[type="submit"]').getBoundingClientRect();return {field:f.bottom,save:b.top,bottom:b.bottom};});
-        assert.ok(layout.field<=layout.save && layout.bottom<=h+1,JSON.stringify(layout));
+(async () => {
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  let browser;
+  try {
+    const useWebkit = process.env.LIFEOS_BROWSER === 'webkit';
+    browser = await (useWebkit ? webkit : chromium).launch({
+      executablePath: useWebkit ? process.env.WEBKIT_PATH : process.env.CHROMIUM_PATH
+    });
+    const base = process.env.LIFEOS_TEST_URL || `http://127.0.0.1:${server.address().port}`;
+    for (const [width, height] of [[390, 844], [393, 852], [430, 932]]) {
+      const context = await browser.newContext({ viewport: { width, height }, isMobile: true, hasTouch: true, timezoneId: 'Europe/London' });
+      const page = await context.newPage(), errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      await page.clock.setFixedTime(new Date('2026-10-29T10:30:00Z'));
+      await page.goto(base);
+      await page.evaluate(() => {
+        state = cloneEmptyState();
+        state.fixedRewardRulesSince = dateKey();
+        state.settledThroughDate = yesterdayKey();
+        state.calendarEvents = [
+          { id: 'single', title: '拍摄', startDate: '2026-09-15', endDate: '2026-09-15', category: 'normal' },
+          { id: 'trip', title: '历史跨月旅行计划', startDate: '2026-09-28', endDate: '2026-10-04', category: 'important' },
+          { id: 'year', title: '跨年', startDate: '2026-12-30', endDate: '2027-01-03', category: 'normal' }
+        ].map(normalizeCalendarEvent);
+        saveState(); render();
+      });
+      const original = await page.evaluate(() => JSON.stringify(state.calendarEvents));
+      const ledger = await page.evaluate(() => JSON.stringify({ coins: state.coins, history: state.history }));
+      assert.deepEqual(await page.locator('.bottom-nav [data-nav]').evaluateAll(nodes => nodes.map(node => [node.dataset.nav, node.innerText.trim()])),
+        [['today', '今天'], ['review', '复盘'], ['rewards', '奖励'], ['stats', '统计']]);
+      assert.equal(await page.locator('[data-view="calendar"], [data-calendar-day], [data-calendar-event], [data-calendar-add-selected]').count(), 0);
+      const boxes = await page.locator('.bottom-nav [data-nav]').evaluateAll(nodes => nodes.map(node => {
+        const box = node.getBoundingClientRect(), style = getComputedStyle(node);
+        return { width: box.width, height: box.height, align: style.alignItems, justify: style.justifyContent };
+      }));
+      assert.ok(boxes.every(box => box.width >= 44 && box.height >= 44 && Math.abs(box.width - boxes[0].width) < 1
+        && box.align === 'center' && box.justify === 'center'));
+      for (const view of ['review', 'rewards', 'stats', 'today']) {
+        await page.locator(`[data-nav="${view}"]`).click();
+        assert.equal(await page.locator('.view.active').getAttribute('data-view'), view);
       }
-      await page.evaluate(()=>{document.activeElement.blur();delete visualViewport.height;syncSheetViewport();closeSheet();});
-      await page.evaluate(()=>openCalendarEventSheet('year'));
-      await page.locator('[data-delete-calendar-event="year"]').click();
-      await page.locator('#confirmCancelBtn').click();
-      assert.equal(await page.evaluate(()=>state.calendarEvents.some(e=>e.id==='year')),true);
-      await page.locator('[data-delete-calendar-event="year"]').click();
-      await page.locator('#confirmAcceptBtn').click();
-      assert.equal(await page.evaluate(()=>state.calendarEvents.some(e=>e.id==='year')),false);
-      await page.evaluate(()=>openCalendarEventSheet(null,{date:'2026-09-13'}));
-      await page.locator('#sheetForm input[name="title"]').fill('新建的重要计划');
-      await page.locator('[data-calendar-category="important"]').click();
-      await page.locator('#sheetForm button[type="submit"]').click();
-      const created=await page.evaluate(()=>state.calendarEvents.find(e=>e.title==='新建的重要计划'));
-      assert.equal(created.startDate,'2026-09-13');assert.equal(created.endDate,'2026-09-13');assert.equal(created.category,'important');assert.ok(created.id);
-      assert.deepEqual(errors,[]);console.log(JSON.stringify({width,weeklyContinuity:true,firstSecondTap:true,editReload:true,sheetHeight:sheet.height,keyboard:true}));await context.close();
+      for (const invoke of ['switchView("calendar")', 'openCalendarEventSheet("trip")', 'openCalendarEventActionSheet("trip")']) {
+        await page.evaluate(invoke);
+        assert.equal(await page.locator('.view.active').getAttribute('data-view'), 'today');
+        assert.equal(await page.locator('#sheetBackdrop').isVisible(), false);
+        assert.equal(await page.locator('.nav-button.active').getAttribute('data-nav'), 'today');
+      }
+      const backup = await page.evaluate(() => createLifeOSBackup());
+      assert.equal(JSON.stringify(backup.data.calendarEvents), original);
+      // Old version-1 backups predate Settings, Focus and Daily Tasks.
+      delete backup.data.settings; delete backup.data.currentFocus; delete backup.data.dailyTasks;
+      await page.evaluate(backup => restoreLifeOSBackup(backup), backup);
+      for (const suffix of ['/#calendar', '/?view=calendar', '/calendar', '/calendar/', '/calendar.html', '/calendar/2026-09']) {
+        await page.goto(base.replace(/\/$/, '') + suffix);
+        assert.equal(await page.locator('.view.active').getAttribute('data-view'), 'today');
+        assert.equal(await page.evaluate(() => JSON.stringify(state.calendarEvents)), original);
+        assert.equal(await page.evaluate(() => JSON.stringify({ coins: state.coins, history: state.history })), ledger);
+      }
+      await page.reload();
+      assert.equal(await page.locator('.nav-button.active').getAttribute('data-nav'), 'today');
+      assert.equal(await page.evaluate(() => JSON.stringify(createLifeOSBackup().data.calendarEvents)), original);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      const nav = await page.locator('.bottom-nav').boundingBox();
+      assert.ok(nav.y >= 0 && nav.y + nav.height <= height);
+      assert.deepEqual(errors, []);
+      const evidence = path.join(root, 'outputs/life-rpg/test-evidence');
+      fs.mkdirSync(evidence, { recursive: true });
+      await page.waitForTimeout(250);
+      await page.screenshot({ path: path.join(evidence, `four-tabs-${useWebkit ? 'webkit' : 'chrome'}-${width}.png`) });
+      console.log(JSON.stringify({ width, height, fourTabs: true, oldRoutes: true, calendarDataPreserved: true, oldBackup: true }));
+      await context.close();
     }
-  }finally{await browser?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}
-})().catch(e=>{console.error(e);process.exitCode=1;});
+  } finally {
+    await browser?.close();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });

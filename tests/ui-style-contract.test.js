@@ -13,6 +13,19 @@ const sheetSource = fs.readFileSync(path.join(ROOT, "js/ui/sheets.js"), "utf8");
 const timePickerSource = fs.readFileSync(path.join(ROOT, "js/ui/time-picker.js"), "utf8");
 const statsSource = fs.readFileSync(path.join(ROOT, "js/stats.js"), "utf8");
 
+test("Calendar UI removed while legacy storage and four-tab navigation remain safe", () => {
+  assert.deepEqual([...indexHtml.matchAll(/data-nav="([^"]+)"/g)].map(match => match[1]), ["today", "review", "rewards", "stats"]);
+  assert.doesNotMatch(indexHtml, /data-view="calendar"|id="calendarGrid"|data-calendar-add-selected/);
+  assert.match(productionCss, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(feedbackSource, /if \(view === "calendar"\) view = "today"/);
+  const routes = JSON.parse(fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8")).routes;
+  for (const url of ["/calendar", "/calendar/", "/calendar.html", "/calendar/2026-09"]) {
+    const route = routes.find(item => new RegExp(`^${item.src}$`).test(url));
+    assert.equal(route.status, 307);
+    assert.equal(route.headers.Location, "/");
+  }
+});
+
 test("Today 紧凑布局删除冗余说明，导航空间只作用于当前首页", () => {
   assert.doesNotMatch(uiSource, /今天只放一件最重要的事|剩余习惯已安排，请在今日任务中完成/);
   assert.match(uiSource, /habitProgress/);

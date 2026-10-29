@@ -214,6 +214,7 @@
     }
 
     function openCalendarEventSheet(eventId = null, defaults = {}) {
+      if (!document.querySelector('[data-view="calendar"]')) return switchView("today");
       const event = eventId ? calendarEventById(eventId) : null;
       const defaultDate = normalizeCalendarDate(defaults.date || selectedCalendarDate || dateKey());
       const startDate = event?.startDate || defaultDate;
@@ -254,6 +255,7 @@
     });
 
     function openCalendarEventActionSheet(eventId) {
+      if (!document.querySelector('[data-view="calendar"]')) return switchView("today");
       const event = calendarEventById(eventId);
       if (!event) return;
       sheetMode = "calendar-event-actions";

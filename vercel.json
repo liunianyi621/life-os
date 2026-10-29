@@ -9,6 +9,11 @@
   ],
   "routes": [
     {
+      "src": "/calendar(?:/.*|\\.html)?",
+      "status": 307,
+      "headers": { "Location": "/" }
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }

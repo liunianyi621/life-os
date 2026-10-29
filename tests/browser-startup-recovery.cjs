@@ -25,7 +25,7 @@ const server=http.createServer((req,res)=>{
       assert.equal(await page.locator('#homeMemoList [data-toggle-memo="keep"]').count(),1);
       assert.equal(await page.evaluate(()=>state.coins),1234);
       assert.equal(await page.evaluate(()=>state.storageRecovery[0].records.length),3);
-      for(const view of ['calendar','review','rewards','stats','today']){
+      for(const view of ['review','rewards','stats','today']){
         await page.locator('[data-nav="'+view+'"]').tap();
         assert.equal(await page.locator('[data-view="'+view+'"]').isVisible(),true);
         assert.ok((await page.locator('[data-view="'+view+'"]').innerText()).length>10);
@@ -51,6 +51,6 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('#appRecoveryNotice').isVisible(),true);
     assert.match(await page.locator('#appRecoveryNotice').innerText(),/加载失败/);
     await context.close();
-    console.log('Startup recovery: production build, all five views, three mobile viewports, old data, reload, unreadable JSON, isolated render failure and failed script PASS ('+url+')');
+    console.log('Startup recovery: production build, all four views, three mobile viewports, old data, reload, unreadable JSON, isolated render failure and failed script PASS ('+url+')');
   }finally{if(browser)await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

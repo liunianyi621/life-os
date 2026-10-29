@@ -23,7 +23,7 @@ const server=http.createServer((req,res)=>{
       const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       await page.evaluate(()=>{state=cloneEmptyState();state.coins=500;state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();saveState();render();});
-      assert.equal(await page.locator('[data-nav]').count(),5);
+      assert.equal(await page.locator('[data-nav]').count(),4);
       await page.locator('[data-nav="stats"]').click();
       assert.equal(await page.locator('[data-view="stats"] [data-export-backup], [data-view="stats"] #resetAllBtn').count(),0);
       await page.locator('[data-stats-range="year"]').click();

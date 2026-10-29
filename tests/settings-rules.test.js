@@ -260,5 +260,5 @@ test('Settings 为次级页面，底部仍为五项，数据管理已从 Statist
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   const stats=html.slice(html.indexOf('data-view="stats"'),html.indexOf('data-view="settings"'));
   assert.match(stats,/data-open-settings/);assert.doesNotMatch(stats,/data-export-backup|resetAllBtn|data-export-debug/);
-  assert.equal((html.match(/data-nav="/g)||[]).length,5);
+  assert.equal((html.match(/data-nav="/g)||[]).length,4);
 });

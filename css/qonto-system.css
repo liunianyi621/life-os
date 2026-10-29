@@ -3935,7 +3935,7 @@ body.keyboard-open .keyboard-form-sheet__footer .q-primary-button {
   bottom: max(12px, env(safe-area-inset-bottom));
   left: max(20px, calc((100vw - 720px) / 2 + 20px));
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   height: var(--nav-height);
   padding: 6px;
   border: 1px solid rgba(0, 0, 0, 0.05);

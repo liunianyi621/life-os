@@ -369,6 +369,7 @@
     }
 
     function switchView(view, options = {}) {
+      if (view === "calendar") view = "today";
       const activeElement = document.activeElement;
       if (view !== "review" && activeElement?.closest?.(".review-keyboard-form")) {
         activeElement.blur();
