@@ -16,10 +16,19 @@ test('Review journal retains data fields but removes repeated prompts and score 
   assert.doesNotMatch(review,/今天做得最好的事情是什么|今天最大的失误是什么|id="reviewHistoryCount"/);
   for(const id of ['reviewBest','reviewMistake','reviewDailyScore','reviewPriority']) assert.ok(review.includes(`id="${id}"`));
 });
-test('Journal history preserves missing score and uses a distinct tomorrow preview',()=>{
+test('Journal history preserves missing score in compact summary rows',()=>{
   const ui=read('js/ui.js');
-  assert.match(ui,/review-row-next/);
+  assert.doesNotMatch(ui,/review-row-next/);
   assert.match(ui,/score === null \? "missing"/);
   assert.match(ui,/function journalDateLabel/);
   assert.doesNotMatch(read('js/storage.js'),/showToast\("复盘已保存"/);
+});
+test('Review uses one writing group, separate tomorrow area and existing date control',()=>{
+  const html=read('index.html');
+  assert.match(html,/class="review-journal-group"/);
+  assert.match(html,/review-question review-tomorrow/);
+  assert.match(html,/id="reviewDateInput" type="date"/);
+  const css=read('css/qonto-system.css');
+  assert.match(css,/\.review-journal-group > \.review-question \+ \.review-question/);
+  assert.match(css,/body.keyboard-open \.review-journal-group/);
 });

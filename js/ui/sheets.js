@@ -446,16 +446,16 @@
             <input name="date" type="date" max="${escapeAttr(dateKey())}" value="${escapeAttr(reviewDate)}" required>
           </label>
           <label class="field">
-            <span class="field-label">今天做得最好的事情是什么？</span>
+            <span class="field-label">做得好</span>
             <textarea name="best" maxlength="500" placeholder="写下值得保留的部分">${escapeHtml(review.best || "")}</textarea>
           </label>
           <label class="field">
-            <span class="field-label">今天最大的失误是什么？</span>
+            <span class="field-label">需要改进</span>
             <textarea name="mistake" maxlength="500" placeholder="写下需要调整的部分">${escapeHtml(review.mistake || "")}</textarea>
           </label>
           ${dailyScoreFieldHtml(review.dailyScore)}
           <label class="field">
-            <span class="field-label">明天最重要的一件事是什么？</span>
+            <span class="field-label">明日重点</span>
             <textarea name="priority" maxlength="500" placeholder="写下下一步">${escapeHtml(reviewPriorityInputValue(reviewDate, review))}</textarea>
           </label>
         `,

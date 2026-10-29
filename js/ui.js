@@ -1242,7 +1242,6 @@
             <div class="review-date">
               <span class="review-date-main">${escapeHtml(journalDateLabel(day))}</span>
               <span class="review-row-summary ${summary === "未填写" ? "empty" : ""}">${escapeHtml(summary)}</span>
-              ${review.priority ? `<span class="review-row-next">明日 → ${escapeHtml(review.priority)}</span>` : ""}
             </div>
             <span class="review-row-score ${score === null ? "missing" : score >= 8 ? "positive" : score <= 4 ? "negative" : "neutral"}" aria-label="${score === null ? "未评分" : `评分 ${score} / 10`}">${score === null ? "—" : score}</span>
             <span class="review-row-chevron" aria-hidden="true">›</span>
