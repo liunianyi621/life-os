@@ -728,6 +728,7 @@
         settlementResult = runPendingSettlements({ now });
         settlementResult.changed ||= activated;
         if (typeof reconcileFocusSession === "function" && reconcileFocusSession(now)) settlementResult.changed = true;
+        if (typeof syncWinStreak === "function" && syncWinStreak(now)) settlementResult.changed = true;
       } catch (error) {
         state = JSON.parse(before);
         console.error("LifeOS automatic check failed before saving", error);

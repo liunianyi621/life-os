@@ -32,6 +32,7 @@
         }
       };
       visit(data);
+      if (data.winStreak !== undefined && typeof winExperimentValid === "function" && !winExperimentValid(data.winStreak)) invalid();
       if (data.currentFocus != null && !normalizeFocusSession(data.currentFocus)) invalid();
       if (data.dailyTasks !== undefined) {
         if (!Array.isArray(data.dailyTasks) || data.dailyTasks.some(task => !dailyTaskValid(task))

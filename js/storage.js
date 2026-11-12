@@ -893,6 +893,7 @@
 
     function saveState() {
       if (storageReadBlocked) throw new Error("Storage is protected after a read failure");
+      if (typeof syncWinStreak === "function") syncWinStreak();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 

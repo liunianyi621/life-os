@@ -820,6 +820,7 @@
       renderSafely(updatePrimaryReadouts);
       renderSafely(renderActiveView);
       renderSafely(renderFocusTask);
+      if (typeof renderWinStreak === "function") renderSafely(renderWinStreak);
       if (!els.memoBackdrop.classList.contains("hidden")) renderMemos();
     }
 

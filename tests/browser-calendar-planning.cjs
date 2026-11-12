@@ -40,7 +40,7 @@ const server = http.createServer((req, res) => {
           { id: 'trip', title: '历史跨月旅行计划', startDate: '2026-09-28', endDate: '2026-10-04', category: 'important' },
           { id: 'year', title: '跨年', startDate: '2026-12-30', endDate: '2027-01-03', category: 'normal' }
         ].map(normalizeCalendarEvent);
-        saveState(); render();
+        setWinEnabled(false); saveState(); render();
       });
       const original = await page.evaluate(() => JSON.stringify(state.calendarEvents));
       const ledger = await page.evaluate(() => JSON.stringify({ coins: state.coins, history: state.history }));

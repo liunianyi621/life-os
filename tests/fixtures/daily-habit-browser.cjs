@@ -23,7 +23,7 @@ module.exports=async function run(scenario){
         state.habits=[{id:'a',name:'一个外部可验证行动',coins:10},{id:'b',name:'运动',coins:5},{id:'c',name:'每日复盘',coins:20}];
         state.memos=[{id:'m',text:'旅行装 / 手机防水壳'}];
         state.priorityTaskByDate[dateKey()]={title:'今天最重要的交付',status:'pending'};
-        runAutomaticChecks({initializeDailyHabits:true,showToast:false});render();
+        runAutomaticChecks({initializeDailyHabits:true,showToast:false});setWinEnabled(false);render();
       });
       assert.equal(await page.locator('[data-task-timeline-slot], [data-habit-card], [data-open-task]').count(),0);
       assert.equal(await page.locator('[data-habit-row]').count(),3);

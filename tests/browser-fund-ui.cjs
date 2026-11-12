@@ -30,7 +30,7 @@ const server = http.createServer((req,res) => {
           {id:'antarctic',name:'南极基金',totalCoins:50000,currentCoins:0,amountPerDeposit:100},
           {id:'world',name:'环球旅行',totalCoins:100000,currentCoins:0,amountPerDeposit:100},
           {id:'east',name:'中东基金',totalCoins:10000,currentCoins:9000,amountPerDeposit:100}
-        ];saveState();render();
+        ];setWinEnabled(false);saveState();render();
       });
       await page.locator('[data-nav="rewards"]').click();
       await page.waitForTimeout(350);
