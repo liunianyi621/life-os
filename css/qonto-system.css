@@ -1227,26 +1227,6 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
   white-space: nowrap;
 }
 
-.win-today { padding: 14px 16px; margin-bottom: 16px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
-.q-rewards-page > [hidden], .win-today[hidden], .win-notice[hidden] { display:none; }
-.win-heading { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:6px; font-size:13px; color:var(--color-text-secondary); }
-.win-heading h2 { margin:0; font-size:15px; color:var(--color-text-primary); }
-.win-heading > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.win-heading > span:last-child { flex-shrink:0; }
-.win-today > strong { display:block; font-size:19px; margin:4px 0 8px; }
-.win-text-action { border:0; background:transparent; color:var(--color-text-primary); min-height:44px; padding:8px 0; font-size:15px; }
-.win-positive { color:var(--color-success); }
-.win-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; padding:24px 0; }
-.win-metrics small { display:block; color:var(--color-text-secondary); }
-.win-metrics strong { font-size:32px; }
-.win-calendar { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin-top:16px; }
-.win-day { display:grid; text-align:center; gap:4px; padding:8px 0; border-radius:6px; background:var(--color-surface-muted); font-size:14px; }
-.win-day small { font-size:11px; }
-.win-day.win { background:var(--color-text-primary); color:white; }
-.win-day.loss { background:transparent; border:1px solid var(--color-border-strong); }
-.win-legend { font-size:12px; color:var(--color-text-secondary); }
-.win-notice { position:fixed; z-index:110; top:calc(env(safe-area-inset-top) + 8px); left:50%; transform:translateX(-50%); width:max-content; max-width:90%; padding:10px 16px; border-radius:22px; background:var(--color-text-primary); color:white; pointer-events:none; font-size:14px; }
-[data-win-toggle] { width:44px; height:28px; accent-color:var(--color-success); }
 /* Review */
 .q-review-page .header {
   margin-bottom: 10px;

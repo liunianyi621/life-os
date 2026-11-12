@@ -4,7 +4,33 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 
-function runtime(time = '2026-10-18T10:00:00') {
+test('Released rollback ignores persisted enabled=true and never alters experiment snapshots',()=>{
+ const {run,at}=runtime('2026-10-18T10:00:00',false);
+ run("state.winStreak={version:1,enabled:true,windows:[{start:'2026-10-17T00:00:00Z',end:null}],days:{'2026-10-17':{choice:null,locked:false,rest:false,receipts:[],outcome:'absent'}}};const archived=JSON.stringify(state.winStreak);saveState()");
+ assert.equal(run('winEnabled()'),false);
+ assert.equal(run('setWinEnabled(true)'),false);
+ assert.equal(run('syncWinStreak()'),false);
+ assert.equal(run("chooseWinTask('habit','h')"),false);
+ run("state=loadState();runAutomaticChecks();saveState()");
+ assert.equal(run('JSON.stringify(state.winStreak)'),run('archived'));
+ assert.equal(run('JSON.stringify(createLifeOSBackup().data.winStreak)'),run('archived'));
+ at('2026-10-21T10:00:00');run('runAutomaticChecks();state=loadState();runAutomaticChecks()');
+ assert.equal(run('JSON.stringify(state.winStreak)'),run('archived'));
+});
+test('Released rollback preserves experimental-period tasks, focus, rewards and normal Undo',()=>{
+ const {run}=runtime('2026-10-18T10:00:00',false);
+ run("const id=saveDailyTask({name:'实验期间新增',reward:20});startFocusSession('dailyTask',id);state=loadState()");
+ assert.equal(run('state.dailyTasks[0].name'),'实验期间新增');
+ assert.equal(run('state.currentFocus.sourceId'),run('id'));
+ run('completeDailyTask(id);completeDailyTask(id)');
+ assert.equal(run('state.coins'),1020);
+ run('undoLastAction()'); assert.equal(run('state.coins'),1000);
+ run("const snapshot=createLifeOSBackup();restoreLifeOSBackup(snapshot)");
+ assert.equal(run('state.dailyTasks[0].status'),'pending');
+ assert.equal(run('state.winStreak'),undefined);
+});
+
+function runtime(time = '2026-10-18T10:00:00', archivedExperiment = true) {
   const clock = { time }, store = new Map();
   const context = vm.createContext({ console, setTimeout, clearTimeout,
     Date: class extends Date {
@@ -14,7 +40,10 @@ function runtime(time = '2026-10-18T10:00:00') {
     localStorage: { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) }
   });
   for (const name of ['storage', 'backup', 'tasks', 'habits', 'economy', 'daily-tasks', 'focus', 'settlement', 'memos', 'win-streak']) {
-    vm.runInContext(fs.readFileSync(path.join(__dirname, '../js', name + '.js'), 'utf8'), context);
+    let source = fs.readFileSync(path.join(__dirname, '../js', name + '.js'), 'utf8');
+    // Keep archived-rule coverage separate from the released, forcibly disabled mode.
+    if (name === 'win-streak' && archivedExperiment) source = source.replace('const WIN_STREAK_RELEASE_ENABLED = false;', 'const WIN_STREAK_RELEASE_ENABLED = true;');
+    vm.runInContext(source, context);
   }
   const run = source => vm.runInContext(source, context);
   run(`state=cloneEmptyState();state.coins=1000;

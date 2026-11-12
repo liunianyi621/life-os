@@ -1,5 +1,18 @@
 # Daily Win + Streak experiment
 
+## Rollback release
+The experiment has been withdrawn. WIN_STREAK_RELEASE_ENABLED is false and
+overrides even previously persisted enabled=true values. No storage mutation is
+needed to enforce rollback. The experimental UI script and all visible entry
+points are no longer loaded; Today and Funds markup/styles match the stable tag.
+The compatibility validator remains loaded so experiment-period backups can be
+validated and restored. syncWinStreak and experimental mutation handlers return
+without changes. All existing winStreak data is retained exactly, not deleted,
+finalized, or recalculated. New normal task/habit/fund/review records keep using
+the original business handlers. Reload and PWA resume cannot re-enable the UI.
+The old settings switch instructions below describe the archived experimental
+release only; the withdrawn release intentionally exposes no experiment switch.
+
 ## Verified recovery point (2026-11-12)
 - Stable production SHA: 7e54068b9b13fea20d6813d38bee9d9125e844d7
 - Annotated tag: lifeos-pre-win-streak-20261112

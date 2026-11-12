@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
   <script src="js/startup.js?v=20260915-stability"></script>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20261112-win-streak">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20261112-restore-legacy">
 </head>
 <body>
   <div class="app q-app">
@@ -33,7 +33,6 @@
           </div>
         </header>
 
-        <section id="winToday" class="win-today" aria-label="今日战绩" hidden></section>
         <section class="priority-task-slot today-priority-slot" id="priorityTaskCard" aria-live="polite"></section>
 
         <section class="today-section focus-task" id="currentFocusTask" aria-label="当前任务"></section>
@@ -139,8 +138,6 @@
       </section>
 
       <section class="view q-rewards-page" data-view="rewards">
-        <div id="winRecords" hidden></div>
-        <button type="button" class="win-text-action" data-win-back hidden>返回战绩</button>
         <header class="header q-page-header">
           <div>
             <span class="eyebrow">人生目标</span>
@@ -223,9 +220,6 @@
           <button class="icon-button q-icon-button" type="button" data-settings-back aria-label="返回统计" title="返回" data-icon-button="arrow.left"></button>
         </header>
         <div data-settings-panel="home">
-          <section class="settings-group"><h2>实验</h2>
-            <label class="settings-row"><span>每日胜负实验版</span><input type="checkbox" data-win-toggle role="switch"></label>
-          </section>
           <section class="settings-group"><h2>规则</h2>
             <button class="settings-row" type="button" data-settings-page="economy"><span>金币与惩罚</span><span class="settings-chevron" aria-hidden="true">›</span></button>
             <button class="settings-row" type="button" data-settings-page="settlement"><span>每日结算</span><span class="settings-chevron" aria-hidden="true">›</span></button>
@@ -387,16 +381,15 @@
 
   <div class="contextual-undo-host" id="toast" aria-live="polite"></div>
 
-  <div id="winNotice" class="win-notice" role="status" hidden></div>
-  <script src="js/storage.js?v=20261112-win-streak"></script>
-  <script src="js/backup.js?v=20261112-win-streak"></script>
+  <script src="js/storage.js?v=20261018-daily-tasks"></script>
+  <script src="js/backup.js?v=20261018-daily-tasks"></script>
   <script src="js/tasks.js?v=20261012-daily-habits"></script>
   <script src="js/habits.js?v=20261017-focus"></script>
-  <script src="js/economy.js?v=20261112-win-streak"></script>
+  <script src="js/economy.js?v=20261018-daily-tasks"></script>
   <script src="js/daily-tasks.js?v=20261018-daily-tasks"></script>
   <script src="js/focus.js?v=20261018-daily-tasks"></script>
   <script src="js/settlement.js?v=20261018-daily-tasks"></script>
-  <script src="js/win-streak.js?v=20261112-win-streak"></script>
+  <script src="js/win-streak.js?v=20261112-restore-legacy"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
   <script src="js/stats.js?v=20260911-score-trend"></script>
   <script src="js/ui/elements.js?v=20260912-settings"></script>
@@ -407,7 +400,6 @@
   <script src="js/ui/settings.js?v=20260912-settings"></script>
   <script src="js/ui/focus.js?v=20261018-daily-tasks"></script>
   <script src="js/ui/daily-tasks.js?v=20261018-daily-tasks"></script>
-  <script src="js/ui/win-streak.js?v=20261112-win-streak"></script>
-  <script src="js/ui.js?v=20261112-win-streak"></script>
+  <script src="js/ui.js?v=20261112-restore-legacy"></script>
 </body>
 </html>

@@ -1,4 +1,6 @@
 // Independent audit projection. Never mutates coin events or source entities.
+// Release rollback overrides saved enabled=true without modifying device data.
+const WIN_STREAK_RELEASE_ENABLED = false;
 function winExperimentValid(value) {
   const object = v => v && typeof v === "object" && !Array.isArray(v);
   return object(value) && value.version === 1 && typeof value.enabled === "boolean"
@@ -11,7 +13,7 @@ function winExperimentValid(value) {
       && (r.choice == null || (object(r.choice) && ["habit","dailyTask","priority"].includes(r.choice.type)
         && typeof r.choice.id === "string" && typeof r.choice.name === "string")));
 }
-function winEnabled() { return state.winStreak == null || (winExperimentValid(state.winStreak) && state.winStreak.enabled); }
+function winEnabled() { return WIN_STREAK_RELEASE_ENABLED && (state.winStreak == null || (winExperimentValid(state.winStreak) && state.winStreak.enabled)); }
 function winEventKey(event) {
   if (event.type === "habit_completed" && event.habitId) return "habit:" + event.habitId;
   if (event.type === "task_completed" && event.taskKind === "dailyTask" && event.taskId) return "dailyTask:" + event.taskId;
@@ -28,6 +30,7 @@ function winCandidates(day = dateKey()) {
   ].flat();
 }
 function syncWinStreak(now = new Date()) {
+  if (!WIN_STREAK_RELEASE_ENABLED) return false;
   const before = JSON.stringify(state.winStreak);
   if (state.winStreak == null) state.winStreak = {
     version:1, enabled:true, windows:[{start:now.toISOString(),end:null}], days:{}
@@ -78,6 +81,7 @@ function syncWinStreak(now = new Date()) {
   return before !== JSON.stringify(model);
 }
 function saveWinChange(change) {
+  if (!WIN_STREAK_RELEASE_ENABLED) return false;
   const before = JSON.stringify(state);
   syncWinStreak();
   if (!winExperimentValid(state.winStreak)) return false;
