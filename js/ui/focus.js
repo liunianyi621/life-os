@@ -106,11 +106,19 @@
       runAutomaticChecks({ showToast: false });
       const tasks = pendingDailyTasks();
       const habits = visibleHabitsToday().filter(habit => focusHabitAvailable(habit.id));
-      const group = (title, source, items) => items.length ? `<section class="focus-picker-group"><h3>${title}</h3>
-        ${items.map(item => `<button type="button" data-pick-focus="${escapeAttr(item.id)}" data-focus-source="${source}">${escapeHtml(item.name)}</button>`).join("")}</section>` : "";
+      const group = (title, source, items) => `<section class="focus-picker-group" aria-label="${title}">
+        <div class="focus-picker-heading"><h3>${source === "dailyTask" ? actionIconHtml("calendar") : '<span class="focus-picker-cycle" aria-hidden="true">↻</span>'}${title}</h3><span>${items.length}</span></div>
+        <div class="focus-picker-list">${items.length ? items.map(item => {
+          const reward = source === "dailyTask" ? item.reward : habitRewardAmount(item);
+          const penalty = source === "dailyTask" ? item.penalty : parseCoinAmount(reward * 10);
+          return `<button type="button" data-pick-focus="${escapeAttr(item.id)}" data-focus-source="${source}">
+            <span class="focus-picker-label"><strong>${escapeHtml(item.name)}</strong><small>+${formatNumber(reward)} / −${formatNumber(penalty)} 金币</small></span>
+            <span class="focus-picker-chevron" aria-hidden="true">›</span></button>`;
+        }).join("") : '<p class="focus-picker-empty">暂无待完成事项</p>'}</div></section>`;
       sheetMode = "focus-picker"; editingId = null;
-      els.sheetTitle.textContent = "选择任务";
-      els.sheetForm.innerHTML = `${group("今日任务", "dailyTask", tasks)}${group("每日习惯", "habit", habits)}
+      els.sheetTitle.innerHTML = '<small class="focus-picker-eyebrow">开始专注</small><span>选择任务</span>';
+      els.sheetForm.innerHTML = `<div class="focus-picker-intro"><span>选择一件事，专注完成它</span><span>${FOCUS_DURATION_MS / 60000} 分钟</span></div>
+        ${group("今日任务", "dailyTask", tasks)}${group("每日习惯", "habit", habits)}
         ${!tasks.length && !habits.length ? '<p class="memo-template-empty">今天没有待完成事项</p><button class="q-secondary-button" type="button" data-open-daily-task>新增今日任务</button>' : ""}`;
-      openSheet({ position: "bottom", kind: "habit-actions" });
+      openSheet({ position: "bottom", kind: "focus-picker" });
     }
