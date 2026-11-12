@@ -1217,11 +1217,11 @@
         els.reviewDateInput.value = reviewDate;
         els.reviewDateInput.max = today;
       }
-      els.reviewBest.value = shouldClearInputs ? "" : selectedReview.best || "";
       els.reviewMistake.value = shouldClearInputs ? "" : selectedReview.mistake || "";
       els.reviewPriority.value = shouldClearInputs ? "" : reviewPriorityInputValue(reviewDate, selectedReview);
       els.reviewDailyScore.value = String(dailyScore ?? 5);
       syncDailyScoreControl(els.reviewDailyScore, scoreHasValue);
+      hydrateReviewEditor(reviewDate, selectedReview, true);
 
       if (!history.length) {
         els.reviewHistoryList.innerHTML = `
@@ -1715,7 +1715,7 @@
       event.preventDefault();
       const formData = new FormData(els.dailyReviewForm);
       saveDailyReview({
-        best: formData.get("best"),
+        bestItems: collectBestFields(els.dailyReviewForm),
         mistake: formData.get("mistake"),
         priority: formData.get("priority"),
         dailyScore: els.reviewDailyScore.dataset.hasValue === "true"

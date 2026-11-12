@@ -1438,9 +1438,14 @@
       return { changed: true, protected: false, date: priorityDate };
     }
 
+    function reviewBestItems(review) {
+      return Array.isArray(review?.bestItems) && review.bestItems.length === 3 && review.bestItems.every(x => typeof x === "string")
+        ? [...review.bestItems] : [String(review?.best || ""), "", ""];
+    }
     function saveDailyReview(reviewData, key = selectedReviewDate) {
       const reviewDate = setSelectedReviewDate(key);
-      const best = String(reviewData.best || "").trim();
+      const bestItems = reviewBestItems(reviewData);
+      const best = bestItems.filter(x => x.trim()).join("\n").trim();
       const mistake = String(reviewData.mistake || "").trim();
       const priority = String(reviewData.priority || "").trim();
       const dailyScore = normalizeDailyScore(reviewData.dailyScore);
@@ -1455,6 +1460,7 @@
       state.dailyReviews[reviewDate] = {
         date: reviewDate,
         best,
+        bestItems,
         mistake,
         priority,
         dailyScore,
@@ -1462,6 +1468,7 @@
         updatedAt: savedAt
       };
       syncReviewPriorityForDate(reviewDate, priority);
+      if (typeof clearReviewDraft === "function") clearReviewDraft(reviewDate);
       saveState();
       renderDailyReview();
       if (
@@ -1493,7 +1500,8 @@
     async function saveEditedDailyReview(reviewData, originalDate = editingReviewDate) {
       const previousDate = normalizeReviewDateKey(originalDate);
       const reviewDate = normalizeReviewDateKey(reviewData.date);
-      const best = String(reviewData.best || "").trim();
+      const bestItems = reviewBestItems(reviewData);
+      const best = bestItems.filter(x => x.trim()).join("\n").trim();
       const mistake = String(reviewData.mistake || "").trim();
       const priority = String(reviewData.priority || "").trim();
       const dailyScore = normalizeDailyScore(reviewData.dailyScore);
@@ -1523,6 +1531,7 @@
         ...previous,
         date: reviewDate,
         best,
+        bestItems,
         mistake,
         priority,
         dailyScore,
@@ -1537,6 +1546,7 @@
       }
       syncReviewPriorityForDate(reviewDate, priority);
 
+      if (typeof clearReviewDraft === "function") { clearReviewDraft(previousDate); clearReviewDraft(reviewDate); }
       saveState();
       closeSheet();
       renderDailyReview();

@@ -1259,6 +1259,16 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 }
 
 /* Review */
+.review-good-row { display:flex; align-items:center; gap:12px; min-height:44px; }
+.review-good-row > span { color:var(--color-text-tertiary); font-size:12px; font-variant-numeric:tabular-nums; }
+.review-good-row input { min-width:0; width:100%; height:44px; padding:8px 0; border:0; border-radius:0; background:transparent; color:var(--color-text-primary); font-size:16px; }
+.review-good-row + .review-good-row { border-top:1px solid var(--color-border); }
+.review-score-numbers { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; width:100%; }
+.review-score-field:has(.review-score-numbers) .review-score-control { display:block; }
+.review-score-numbers button { min-height:44px; border:0; border-radius:6px; background:var(--color-surface-muted); color:var(--color-text-primary); font-size:16px; }
+.review-score-numbers button[aria-pressed="true"] { background:var(--color-text-primary); color:white; }
+.review-journal-group .review-score-control { display:block; padding-top:8px; }
+.q-review-page .review-tomorrow { margin-top:0; padding:10px 0; border:0; border-top:1px solid var(--color-border); border-radius:0; }
 .q-review-page .header {
   margin-bottom: 10px;
 }
@@ -1352,11 +1362,12 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 .review-journal-group .review-score-heading output { font-size: 22px; }
 
 .q-review-page .review-tomorrow {
-  margin-top: 16px;
-  padding: 14px 18px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  margin-top: 0;
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
 }
 .review-tomorrow .field-label { color: var(--color-text-primary); }
 .q-review-page .review-tomorrow textarea {

@@ -35,14 +35,14 @@ const server = http.createServer((req,res) => {
       await page.locator('[data-nav="review"]').click();
       await page.locator('#reviewBest').fill('长文本与换行\n'.repeat(60));
       const longText = await page.locator('#reviewBest').evaluate(field => {
-        field.scrollTop=field.scrollHeight;
-        return {scroll:field.scrollTop,overflow:field.scrollHeight>field.clientHeight};
+        field.scrollLeft=field.scrollWidth;
+        return {scroll:field.scrollLeft,overflow:field.scrollWidth>field.clientWidth};
       });
       assert.ok(longText.overflow && longText.scroll>0);
       await page.locator('#reviewBest').fill('今天拍完了照片');
       await page.locator('#reviewMistake').fill('早点休息');
       await page.locator('#reviewPriority').fill('整理照片');
-      await page.locator('#reviewDailyScore').fill('8');
+      await page.locator('#reviewScoreNumbers [data-review-score="8"]').click();
       await page.locator('#dailyReviewForm button[type="submit"]').click();
       assert.equal(await page.evaluate(()=>state.dailyReviews[dateKey()].dailyScore),8);
       assert.equal(await page.evaluate(()=>state.priorityTaskByDate[shiftDateKey(dateKey(),1)].title),'整理照片');
@@ -55,8 +55,8 @@ const server = http.createServer((req,res) => {
       assert.equal(await card.locator('.review-row-score').innerText(),'6');
       assert.match(await page.locator('[data-review-card="2025-12-31"]').innerText(),/2025年/);
       await card.click();
-      assert.equal(await page.locator('#sheetForm textarea[name="best"]').inputValue(),'该干的都干了');
-      await page.locator('#sheetForm textarea[name="best"]').fill('修改后的记忆');
+      assert.equal(await page.locator('#sheetForm input[name="best0"]').inputValue(),'该干的都干了');
+      await page.locator('#sheetForm input[name="best0"]').fill('修改后的记忆');
       assert.equal(await page.locator('#sheetForm textarea[name="priority"]').inputValue(),'整理冰岛行程');
       await page.locator('#sheetForm button[type="submit"]').click();
       await page.reload();await page.locator('[data-nav="review"]').click();
@@ -65,13 +65,13 @@ const server = http.createServer((req,res) => {
       await page.locator('#reviewDateInput').dispatchEvent('change');
       assert.equal(await page.locator('#reviewBest').inputValue(),'修改后的记忆');
       assert.equal(await page.locator('#reviewDailyScore').inputValue(),'6');
-      await page.locator('#reviewBest').fill('第一行\n第二行');
+      await page.locator('#reviewBest').fill('第一件事');
       await page.locator('#dailyReviewForm button[type="submit"]').click();
-      assert.equal(await page.evaluate(()=>state.dailyReviews['2026-09-11'].best),'第一行\n第二行');
+      assert.equal(await page.evaluate(()=>state.dailyReviews['2026-09-11'].best),'第一件事');
       assert.equal(await page.evaluate(()=>state.dailyReviews['2026-09-12'].dailyScore),8);
       assert.equal(await page.evaluate(()=>state.priorityTaskByDate['2026-09-13'].title),'整理照片');
-      assert.equal(await page.locator('#reviewDailyScore').getAttribute('min'),'1');
-      assert.equal(await page.locator('#reviewDailyScore').getAttribute('max'),'10');
+      assert.equal(await page.locator('#reviewScoreNumbers button').count(),10);
+      assert.equal(await page.locator('#reviewScoreNumbers [aria-pressed="true"]').innerText(),'6');
       await page.evaluate(()=>document.activeElement.blur());
       await page.locator('[data-review-card="2025-12-31"]').scrollIntoViewIfNeeded();
       await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));await page.waitForTimeout(300);

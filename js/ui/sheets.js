@@ -30,13 +30,12 @@
       return `
         <div class="field review-score-field">
           <div class="review-score-heading">
-            <label class="field-label" for="editReviewDailyScore">今天给自己打几分？</label>
+            <label class="field-label" for="editReviewDailyScore">今日评分</label>
             <output for="editReviewDailyScore">${hasValue ? `${score} / 10` : "未评分"}</output>
           </div>
           <div class="review-score-control">
-            <span aria-hidden="true">1</span>
-            <input id="editReviewDailyScore" name="dailyScore" type="range" min="1" max="10" step="1" value="${score ?? 5}" data-daily-score data-has-value="${hasValue ? "true" : "false"}" aria-label="今天给自己打几分，1 到 10 分">
-            <span aria-hidden="true">10</span>
+            <input id="editReviewDailyScore" name="dailyScore" type="hidden" value="${score ?? 5}" data-daily-score data-has-value="${hasValue ? "true" : "false"}">
+            <div class="review-score-numbers" role="group" aria-label="今日评分">${scoreNumbersHtml(score)}</div>
           </div>
         </div>
       `;
@@ -445,10 +444,10 @@
             <span class="field-label">日期</span>
             <input name="date" type="date" max="${escapeAttr(dateKey())}" value="${escapeAttr(reviewDate)}" required>
           </label>
-          <label class="field">
-            <span class="field-label">做得好</span>
-            <textarea name="best" maxlength="500" placeholder="写下值得保留的部分">${escapeHtml(review.best || "")}</textarea>
-          </label>
+          <div class="field">
+            <span class="field-label">今天做得好的 3 件事</span>
+            ${bestFieldsHtml(readReviewDraft(reviewDate)||review)}
+          </div>
           <label class="field">
             <span class="field-label">需要改进</span>
             <textarea name="mistake" maxlength="500" placeholder="写下需要调整的部分">${escapeHtml(review.mistake || "")}</textarea>
@@ -462,10 +461,12 @@
         submitLabel: "保存复盘"
       });
       openSheet({ position: "top", kind: "review-edit", keyboardForm: true });
-      focusSheetField("textarea[name='best']");
+      hydrateReviewEditor(reviewDate,review);
+      focusSheetField("[data-review-best]");
     }
 
     function openSheet(options = {}) {
+      if (options.kind !== "review-edit") delete els.sheetForm.dataset.reviewDraftDate;
       syncSheetViewport();
       els.sheetBackdrop.dataset.sheetPosition = options.position || "top";
       if (options.layer) els.sheetBackdrop.dataset.sheetLayer = options.layer;
@@ -591,7 +592,7 @@
         const dailyScoreInput = els.sheetForm.querySelector("[name='dailyScore']");
         await saveEditedDailyReview({
           date: formData.get("date"),
-          best: formData.get("best"),
+          bestItems: collectBestFields(els.sheetForm),
           mistake: formData.get("mistake"),
           priority: formData.get("priority"),
           dailyScore: dailyScoreInput?.dataset.hasValue === "true"
