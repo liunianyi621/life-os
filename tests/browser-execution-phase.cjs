@@ -65,7 +65,7 @@ const server = http.createServer((req,res) => {
           Object.defineProperty(window.visualViewport,'height',{configurable:true,value:h});
           Object.defineProperty(window.visualViewport,'offsetTop',{configurable:true,value:12});
         },viewportHeight);
-        for (const id of ['reviewBest','reviewMistake','reviewPriority']) {
+        for (const id of ['reviewBest','reviewPriority']) {
           await page.locator('#'+id).focus();
           await page.evaluate(() => { syncSheetViewport(); ensureFocusedFormFieldVisible(); });
           await page.waitForTimeout(500);

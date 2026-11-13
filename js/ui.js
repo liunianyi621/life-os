@@ -833,6 +833,7 @@
 
     function renderPriorityTask() {
       if (!els.priorityTaskCard) return;
+      if(typeof usesPriorityPlan==="function" && usesPriorityPlan(dateKey())) {renderPriorityGroup();return;}
       const task = priorityTaskToday();
       if (!task) {
         els.priorityTaskCard.innerHTML = `
@@ -857,12 +858,6 @@
               label: "完成今天最重要的一件事",
               attrs: `data-complete-priority="${escapeAttr(task.date)}"`
             }),
-            actionButtonHtml({
-              tone: "red",
-              icon: "xmark.circle",
-              label: "标记今天最重要的一件事为未完成",
-              attrs: `data-fail-priority="${escapeAttr(task.date)}"`
-            })
           ].join("")
         : actionButtonHtml({
             tone: done ? "green" : "red",
@@ -1217,8 +1212,7 @@
         els.reviewDateInput.value = reviewDate;
         els.reviewDateInput.max = today;
       }
-      els.reviewMistake.value = shouldClearInputs ? "" : selectedReview.mistake || "";
-      els.reviewPriority.value = shouldClearInputs ? "" : reviewPriorityInputValue(reviewDate, selectedReview);
+      if(els.reviewMistake) els.reviewMistake.value = shouldClearInputs ? "" : selectedReview.mistake || "";
       els.reviewDailyScore.value = String(dailyScore ?? 5);
       syncDailyScoreControl(els.reviewDailyScore, scoreHasValue);
       hydrateReviewEditor(reviewDate, selectedReview, true);
@@ -1234,7 +1228,7 @@
       }
 
       els.reviewHistoryList.innerHTML = history.map(([day, review]) => {
-        const summary = review.best || review.mistake || "未填写";
+        const summary = review.best || priorityAutoGood(day).map(i=>i.title).join("、") || review.mistake || "未填写";
         const score = normalizeDailyScore(review.dailyScore);
         return `
         <article class="card review-card q-list-row" data-review-card="${escapeAttr(day)}" data-edit-card="review" data-edit-id="${escapeAttr(day)}" role="button" tabindex="0" aria-label="打开复盘">
@@ -1716,8 +1710,8 @@
       const formData = new FormData(els.dailyReviewForm);
       saveDailyReview({
         bestItems: collectBestFields(els.dailyReviewForm),
-        mistake: formData.get("mistake"),
-        priority: formData.get("priority"),
+        mistake: readReviewDraft(selectedReviewDate)?.mistake ?? state.dailyReviews?.[selectedReviewDate]?.mistake ?? "",
+        priorityItems: collectPriorityFields(els.dailyReviewForm),
         dailyScore: els.reviewDailyScore.dataset.hasValue === "true"
           ? formData.get("dailyScore")
           : null

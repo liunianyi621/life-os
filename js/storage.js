@@ -1410,10 +1410,13 @@
       return String(review?.priority || "");
     }
 
-    function syncReviewPriorityForDate(reviewDate, title) {
+    function syncReviewPriorityForDate(reviewDate, title, titles=null) {
       const sourceReviewDate = normalizeReviewDateKey(reviewDate);
       const priorityDate = shiftDateKey(sourceReviewDate, 1);
       const today = dateKey();
+      if(typeof usesPriorityPlan==="function" && state.priorityPlanVersion && priorityDate>=state.priorityPlanVersion.from) {
+        return syncPriorityPlan(priorityDate,titles||[title,"",""],"review",sourceReviewDate);
+      }
       const nextTitle = String(title || "").trim();
       const existing = priorityTaskForDate(priorityDate);
 
@@ -1446,8 +1449,9 @@
       const reviewDate = setSelectedReviewDate(key);
       const bestItems = reviewBestItems(reviewData);
       const best = bestItems.filter(x => x.trim()).join("\n").trim();
-      const mistake = String(reviewData.mistake || "").trim();
-      const priority = String(reviewData.priority || "").trim();
+      const mistake = String(reviewData.mistake ?? state.dailyReviews[reviewDate]?.mistake ?? "");
+      const priorityItems=typeof reviewPriorityItems==="function" ? reviewPriorityItems(reviewData) : null;
+      const priority = priorityItems ? priorityItems.filter(x=>x.trim()).join("\n").trim() : String(reviewData.priority || "").trim();
       const dailyScore = normalizeDailyScore(reviewData.dailyScore);
 
       if (!best && !mistake && !priority && dailyScore === null) {
@@ -1463,11 +1467,12 @@
         bestItems,
         mistake,
         priority,
+        ...(priorityItems?{priorityItems}:{}),
         dailyScore,
         createdAt: previous.createdAt || savedAt,
         updatedAt: savedAt
       };
-      syncReviewPriorityForDate(reviewDate, priority);
+      syncReviewPriorityForDate(reviewDate, priority,priorityItems);
       if (typeof clearReviewDraft === "function") clearReviewDraft(reviewDate);
       saveState();
       renderDailyReview();
@@ -1502,8 +1507,9 @@
       const reviewDate = normalizeReviewDateKey(reviewData.date);
       const bestItems = reviewBestItems(reviewData);
       const best = bestItems.filter(x => x.trim()).join("\n").trim();
-      const mistake = String(reviewData.mistake || "").trim();
-      const priority = String(reviewData.priority || "").trim();
+      const mistake = String(reviewData.mistake ?? state.dailyReviews[previousDate]?.mistake ?? "");
+      const priorityItems=typeof reviewPriorityItems==="function" ? reviewPriorityItems(reviewData) : null;
+      const priority = priorityItems ? priorityItems.filter(x=>x.trim()).join("\n").trim() : String(reviewData.priority || "").trim();
       const dailyScore = normalizeDailyScore(reviewData.dailyScore);
 
       if (!state.dailyReviews?.[previousDate]) {
@@ -1534,6 +1540,7 @@
         bestItems,
         mistake,
         priority,
+        ...(priorityItems?{priorityItems}:{}),
         dailyScore,
         createdAt: previous.createdAt || now,
         updatedAt: now
@@ -1544,7 +1551,7 @@
         moveReviewRewardDate(previousDate, reviewDate);
         if (selectedReviewDate === previousDate) selectedReviewDate = reviewDate;
       }
-      syncReviewPriorityForDate(reviewDate, priority);
+      syncReviewPriorityForDate(reviewDate, priority,priorityItems);
 
       if (typeof clearReviewDraft === "function") { clearReviewDraft(previousDate); clearReviewDraft(reviewDate); }
       saveState();

@@ -34,14 +34,14 @@
             <output for="editReviewDailyScore">${hasValue ? `${score} / 10` : "未评分"}</output>
           </div>
           <div class="review-score-control">
-            <input id="editReviewDailyScore" name="dailyScore" type="hidden" value="${score ?? 5}" data-daily-score data-has-value="${hasValue ? "true" : "false"}">
-            <div class="review-score-numbers" role="group" aria-label="今日评分">${scoreNumbersHtml(score)}</div>
+            <input id="editReviewDailyScore" name="dailyScore" type="range" min="1" max="10" step="1" value="${score ?? 5}" data-daily-score data-has-value="${hasValue ? "true" : "false"}">
           </div>
         </div>
       `;
     }
 
     function openPrioritySheet(day = dateKey()) {
+      if(typeof usesPriorityPlan==="function" && usesPriorityPlan(day)) {openPriorityGroupSheet(day);return;}
       const priorityDate = normalizePriorityDateKey(day);
       const task = priorityTaskForDate(priorityDate);
       sheetMode = "priority";
@@ -455,7 +455,7 @@
           ${dailyScoreFieldHtml(review.dailyScore)}
           <label class="field">
             <span class="field-label">明日重点</span>
-            <textarea name="priority" maxlength="500" placeholder="写下下一步">${escapeHtml(reviewPriorityInputValue(reviewDate, review))}</textarea>
+            ${priorityFieldsHtml(readReviewDraft(reviewDate)||review)}
           </label>
         `,
         submitLabel: "保存复盘"
@@ -594,7 +594,7 @@
           date: formData.get("date"),
           bestItems: collectBestFields(els.sheetForm),
           mistake: formData.get("mistake"),
-          priority: formData.get("priority"),
+          priorityItems: collectPriorityFields(els.sheetForm),
           dailyScore: dailyScoreInput?.dataset.hasValue === "true"
             ? formData.get("dailyScore")
             : null

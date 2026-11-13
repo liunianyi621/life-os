@@ -315,7 +315,9 @@
         }
       });
       const priorityFailures = settleMissedPriorityTasks(now, settledEventKeys);
-      const changed = activated || habitFailures.count > 0
+      if(typeof settlePriorityPlans==="function") settlePriorityPlans(now,priorityFailures);
+      const priorityActivated=typeof activatePriorityPlan==="function" && activatePriorityPlan(now);
+      const changed = activated || priorityActivated || habitFailures.count > 0
         || taskFailures.count > 0
         || priorityFailures.count > 0
         || habitFailures.checkedThroughChanged;

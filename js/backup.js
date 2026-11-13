@@ -32,6 +32,13 @@
         }
       };
       visit(data);
+      if(data.priorityPlanVersion!==undefined && (!backupObject(data.priorityPlanVersion) || data.priorityPlanVersion.version!==1
+        || typeof data.priorityPlanVersion.from!=="string" || !/^\d{4}-\d{2}-\d{2}$/.test(data.priorityPlanVersion.from)
+        || dateKey(dateFromKey(data.priorityPlanVersion.from))!==data.priorityPlanVersion.from)) invalid();
+      if(data.priorityPlans!==undefined && (!backupObject(data.priorityPlans) || Object.entries(data.priorityPlans).some(([day,g])=>
+        !/^\d{4}-\d{2}-\d{2}$/.test(day) || !backupObject(g) || g.version!==1 || !Array.isArray(g.items) || g.items.length!==3
+        || new Set(g.items.map(i=>i?.id)).size!==3 || g.items.some(i=>!backupObject(i) || typeof i.id!=="string" || typeof i.title!=="string"
+          || !["pending","done","failed"].includes(i.status))))) invalid();
       if (data.winStreak !== undefined && typeof winExperimentValid === "function" && !winExperimentValid(data.winStreak)) invalid();
       if (data.currentFocus != null && !normalizeFocusSession(data.currentFocus)) invalid();
       if (data.dailyTasks !== undefined) {

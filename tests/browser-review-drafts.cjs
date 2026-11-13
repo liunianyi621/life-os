@@ -43,14 +43,14 @@ const server = http.createServer((req,res) => {
  assert.equal(await page.locator('#reviewBest').inputValue(),'上午完成第一件');
  await page.locator('[name="best1"]').fill('');
  await page.locator('#reviewPriority').fill('次日唯一重点');
- for(const value of [1,10,7]) await page.locator(`#reviewScoreNumbers [data-review-score="${value}"]`).click();
+ for(const value of [1,10,7]) await page.locator('#reviewDailyScore').fill(String(value));
  await page.locator('#dailyReviewForm button[type="submit"]').click();
  const saved=await page.evaluate(()=>state.dailyReviews[dateKey()]);
  assert.deepEqual(saved.bestItems,['上午完成第一件','','']);assert.equal(saved.dailyScore,7);
- assert.equal(await page.evaluate(()=>state.priorityTaskByDate[shiftDateKey(dateKey(),1)].title),'次日唯一重点');
+ assert.equal(await page.evaluate(()=>state.priorityPlans[shiftDateKey(dateKey(),1)].items[0].title),'次日唯一重点');
  await page.evaluate(()=>{state.dailyReviews[yesterdayKey()]={best:'旧长文本。不可拆句\n保留第二段',mistake:'',priority:'',dailyScore:null};saveState();renderDailyReview();});
  await page.locator(`[data-review-card="${yesterday}"]`).click();
- const scoreBox=await page.locator('#sheetForm [data-review-score="1"]').boundingBox();
+ const scoreBox=await page.locator('#editReviewDailyScore').boundingBox();
  assert.ok(scoreBox.width>=44 && scoreBox.height>=44);
  await page.locator('#sheetForm button[type="submit"]').click();
  assert.deepEqual(await page.evaluate(()=>state.dailyReviews[yesterdayKey()].bestItems),['旧长文本。不可拆句\n保留第二段','','']);

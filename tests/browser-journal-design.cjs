@@ -40,12 +40,11 @@ const server = http.createServer((req,res) => {
       });
       assert.ok(longText.overflow && longText.scroll>0);
       await page.locator('#reviewBest').fill('今天拍完了照片');
-      await page.locator('#reviewMistake').fill('早点休息');
       await page.locator('#reviewPriority').fill('整理照片');
-      await page.locator('#reviewScoreNumbers [data-review-score="8"]').click();
+      await page.locator('#reviewDailyScore').fill('8');
       await page.locator('#dailyReviewForm button[type="submit"]').click();
       assert.equal(await page.evaluate(()=>state.dailyReviews[dateKey()].dailyScore),8);
-      assert.equal(await page.evaluate(()=>state.priorityTaskByDate[shiftDateKey(dateKey(),1)].title),'整理照片');
+      assert.equal(await page.evaluate(()=>(state.priorityPlans[shiftDateKey(dateKey(),1)]?.items[0].title || state.priorityTaskByDate[shiftDateKey(dateKey(),1)]?.title)),'整理照片');
       assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
       await page.evaluate(()=>{document.activeElement.blur();window.scrollTo(0,0);});await page.waitForTimeout(300);
       await page.screenshot({path:path.join(evidence,`journal-${width}.png`)});
@@ -57,7 +56,7 @@ const server = http.createServer((req,res) => {
       await card.click();
       assert.equal(await page.locator('#sheetForm input[name="best0"]').inputValue(),'该干的都干了');
       await page.locator('#sheetForm input[name="best0"]').fill('修改后的记忆');
-      assert.equal(await page.locator('#sheetForm textarea[name="priority"]').inputValue(),'整理冰岛行程');
+      assert.equal(await page.locator('#sheetForm input[name="priority0"]').inputValue(),'整理冰岛行程');
       await page.locator('#sheetForm button[type="submit"]').click();
       await page.reload();await page.locator('[data-nav="review"]').click();
       assert.match(await card.innerText(),/修改后的记忆/);
@@ -69,9 +68,9 @@ const server = http.createServer((req,res) => {
       await page.locator('#dailyReviewForm button[type="submit"]').click();
       assert.equal(await page.evaluate(()=>state.dailyReviews['2026-09-11'].best),'第一件事');
       assert.equal(await page.evaluate(()=>state.dailyReviews['2026-09-12'].dailyScore),8);
-      assert.equal(await page.evaluate(()=>state.priorityTaskByDate['2026-09-13'].title),'整理照片');
-      assert.equal(await page.locator('#reviewScoreNumbers button').count(),10);
-      assert.equal(await page.locator('#reviewScoreNumbers [aria-pressed="true"]').innerText(),'6');
+      assert.equal(await page.evaluate(()=>(state.priorityPlans['2026-09-13']?.items[0].title || state.priorityTaskByDate['2026-09-13']?.title)),'整理照片');
+      assert.equal(await page.locator('#reviewDailyScore').getAttribute('min'),'1');
+      assert.equal(await page.locator('#reviewDailyScore').getAttribute('max'),'10');
       await page.evaluate(()=>document.activeElement.blur());
       await page.locator('[data-review-card="2025-12-31"]').scrollIntoViewIfNeeded();
       await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));await page.waitForTimeout(300);

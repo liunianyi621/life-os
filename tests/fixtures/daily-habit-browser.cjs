@@ -270,7 +270,7 @@ module.exports=async function run(scenario){
         await page.locator('[data-toggle-memo="m"]').tap();await page.clock.runFor(200);
         assert.equal(await page.evaluate(()=>state.coins),1010);
         assert.equal(await page.locator('[data-complete-priority]').count(),1);
-        assert.equal(await page.locator('[data-fail-priority]').count(),1);
+        assert.equal(await page.locator('[data-fail-priority]').count(),0);
         await page.reload();assert.equal(await page.locator('[data-habit-row="a"]').count(),0);
         await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
         assert.equal(await page.locator('#habitProgress').innerText(),'1 / 3');

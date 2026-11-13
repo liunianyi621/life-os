@@ -9,13 +9,17 @@ function collectBestFields(form) {
     return input.value===original.replace(/[\r\n]/g," ") ? original : input.value;
   });
 }
-function scoreNumbersHtml(score) {
-  return Array.from({length:10},(_,i)=>`<button type="button" data-review-score="${i+1}" aria-pressed="${score===i+1}">${i+1}</button>`).join("");
+function priorityFieldsHtml(review,main=false) {
+ return reviewPriorityItems(review).map((text,i)=>`<label class="review-good-row"><span>0${i+1}</span><input type="text" ${main&&i===0?'id="reviewPriority"':''} name="priority${i}" data-review-priority data-original="${escapeAttr(JSON.stringify(text))}" value="${escapeAttr(text.replace(/[\r\n]/g," "))}" aria-label="明日重点 ${i+1}" placeholder="明天的一件重点"></label>`).join("");
+}
+function collectPriorityFields(form) {
+ return [...form.querySelectorAll("[data-review-priority]")].map(input=>{
+  const original=JSON.parse(input.dataset.original);
+  return input.value===original.replace(/[\r\n]/g," ") ? original : input.value;
+ });
 }
 function refreshScoreNumbers(input) {
-  const field=input.closest(".review-score-field");
-  field.querySelectorAll("[data-review-score]").forEach(button=>button.setAttribute("aria-pressed",String(input.dataset.hasValue==="true" && Number(input.value)===Number(button.dataset.reviewScore))));
-  field.querySelector("output").textContent=input.dataset.hasValue==="true" ? `已选 ${input.value} / 10` : "未评分";
+ input.closest(".review-score-field").querySelector("output").textContent=input.dataset.hasValue==="true" ? `${input.value} / 10` : "未评分";
 }
 function readReviewDraft(day) {
   const draft=reviewDraftQueue.get(day)||state.reviewDrafts?.[day];
@@ -42,11 +46,16 @@ function hydrateReviewEditor(day, review, main=false) {
   if(main) {
     document.getElementById("reviewBestFields").innerHTML=bestFieldsHtml(draft||review,true);
     els.reviewBest=document.getElementById("reviewBest");
-    document.getElementById("reviewScoreNumbers").innerHTML=scoreNumbersHtml(null);
+    document.getElementById("reviewPriorityFields").innerHTML=priorityFieldsHtml(draft||review,true);
+    els.reviewPriority=document.getElementById("reviewPriority");
   }
+  const auto=priorityAutoGood(day);
+  let autoEl=main?document.getElementById("reviewAutoGood"):form.querySelector("[data-auto-good]");
+  if(!autoEl) {autoEl=document.createElement("div");autoEl.dataset.autoGood="";form.querySelector("[data-review-best]").closest(".field").append(autoEl);}
+  autoEl.innerHTML=auto.map(item=>`<small class="review-auto-good" data-priority-ref="${escapeAttr(item.id)}">今日重点 · ${escapeHtml(item.title)}</small>`).join("");
   if(draft) {
-    form.querySelector('[name="mistake"]').value=draft.mistake;
-    form.querySelector('[name="priority"]').value=draft.priority;
+    if(form.querySelector('[name="mistake"]')) form.querySelector('[name="mistake"]').value=draft.mistake;
+
     const input=form.querySelector("[data-daily-score]");
     input.value=String(draft.dailyScore??5);input.dataset.hasValue=String(draft.dailyScore!==null);
   }
@@ -56,18 +65,14 @@ document.addEventListener("input",event=>{
   const form=event.target.closest("[data-review-draft-date]");
   if(!form || !event.target.matches("input,textarea")) return;
   const score=form.querySelector("[data-daily-score]");
+  if(event.target.matches("[data-daily-score]")) score.dataset.hasValue="true";
   reviewDraftQueue.set(form.dataset.reviewDraftDate,{version:1,bestItems:collectBestFields(form),
-    mistake:form.querySelector('[name="mistake"]').value,priority:form.querySelector('[name="priority"]').value,
+    mistake:form.querySelector('[name="mistake"]')?.value ?? readReviewDraft(form.dataset.reviewDraftDate)?.mistake ?? state.dailyReviews[form.dataset.reviewDraftDate]?.mistake ?? "",
+    priority:collectPriorityFields(form).filter(Boolean).join("\n"),priorityItems:collectPriorityFields(form),
     dailyScore:score.dataset.hasValue==="true"?Number(score.value):null});
   clearTimeout(reviewDraftTimer);reviewDraftTimer=setTimeout(flushReviewDrafts,600);
 });
 document.addEventListener("click",event=>{
-  const button=event.target.closest("[data-review-score]");
-  if(button) {
-    const input=button.closest(".review-score-field").querySelector("[data-daily-score]");
-    input.value=button.dataset.reviewScore; input.dataset.hasValue="true";
-    input.dispatchEvent(new Event("input",{bubbles:true}));refreshScoreNumbers(input);
-  }
   if(event.target.closest("[data-nav]")) flushReviewDrafts();
 },true);
 document.addEventListener("focusout",flushReviewDrafts);

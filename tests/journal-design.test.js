@@ -12,9 +12,9 @@ test('Today focuses on daily habits and independent reminders, without a task ti
 });
 test('Review journal retains data fields but removes repeated prompts and score endpoints',()=>{
   const review=read('index.html').split('data-view="review"')[1].split('data-view="rewards"')[0];
-  for(const label of ['做得好','需要改进','今日评分','明日重点']) assert.ok(review.includes(label));
+  for(const label of ['做得好','今日评分','明日重点']) assert.ok(review.includes(label));
   assert.doesNotMatch(review,/今天做得最好的事情是什么|今天最大的失误是什么|id="reviewHistoryCount"/);
-  for(const id of ['reviewBestFields','reviewMistake','reviewDailyScore','reviewPriority']) assert.ok(review.includes(`id="${id}"`));
+  for(const id of ['reviewBestFields','reviewDailyScore','reviewPriorityFields']) assert.ok(review.includes(`id="${id}"`));
 });
 test('Journal history preserves missing score in compact summary rows',()=>{
   const ui=read('js/ui.js');

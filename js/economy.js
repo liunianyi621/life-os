@@ -859,6 +859,7 @@
         habitCompletion: item.habitId ? Boolean(state.habitCompletions?.[day]?.[item.habitId]) : false,
         habitFailure: item.habitId ? cloneForUndo(state.habitFailures?.[day]?.[item.habitId] || null) : null,
         priorityTask: cloneForUndo(priorityTaskForDate(day)),
+        priorityPlan: cloneForUndo(state.priorityPlans?.[day]),
         review: cloneForUndo(state.dailyReviews?.[day]),
         reviewReward: cloneForUndo(state.reviewRewards?.[day]),
         fund: item.rewardId ? cloneForUndo(state.rewards.find(fund => fund.id === item.rewardId)) : null,
@@ -868,6 +869,7 @@
 
     function restoreCorrectionSnapshot(snapshot, item = {}) {
       if (!snapshot) return;
+      if(snapshot.priorityPlan) {state.priorityPlans ||= {};state.priorityPlans[snapshot.day]=cloneForUndo(snapshot.priorityPlan);}
       state.totals = cloneForUndo(snapshot.totals) || state.totals;
       state.streak = Number(snapshot.streak) || 0;
       state.lastCompletedDate = snapshot.lastCompletedDate || null;
@@ -1017,6 +1019,10 @@
         state.habitFailures[day][item.habitId] = state.habitFailures[day][item.habitId] || `corrected:${item.id}`;
       }
       if (item.type === "priority_task_reward" || item.type === "priority_task_penalty") {
+        if(item.priorityItemId) {
+          const groupItem=state.priorityPlans?.[day]?.items.find(i=>i.id===item.priorityItemId);
+          if(groupItem) Object.assign(groupItem,{status:"pending",historyId:null,failureReversed:true});
+        }
         const task = priorityTaskForDate(day);
         if (task) {
           restorePriorityTask(day, {
@@ -1505,6 +1511,7 @@
       const name = undoFeedbackName(undoData);
       const named = fallback => name ? `「${name}」` : fallback;
       const presentations = {
+        priority_item_completed: {message:"今日重点已完成",icon:"checkmark.circle",tone:"positive"},
         task_completed: { message: `已完成${named("任务")} · +${amount} 金币`, icon: "checkmark.circle", tone: "positive" },
         habit_completed: { message: `已完成${named("习惯")} · +${amount} 金币`, icon: "checkmark.circle", tone: "positive" },
         priority_task_reward: { message: `今日重点已完成 · +${amount} 金币`, icon: "checkmark.circle", tone: "positive" },
@@ -1543,7 +1550,7 @@
 
     function contextualUndoLabel(undoData = {}) {
       if (undoData.type === "habit_task_scheduled" || undoData.type === "memo_task_scheduled") return "已安排";
-      if (["task_completed", "daily_task_completed", "memo_completed", "habit_completed"].includes(undoData.type)) return "已完成";
+      if (["priority_item_completed", "task_completed", "daily_task_completed", "memo_completed", "habit_completed"].includes(undoData.type)) return "已完成";
       if (undoData.type === "task_failed") return "未完成";
       return "操作已完成";
     }
@@ -1551,7 +1558,7 @@
     function contextualUndoAmount(undoData = {}) {
       const amount = Math.abs(parseCoinAmount(undoData.amount));
       if (!amount) return "";
-      const positive = ["task_completed", "daily_task_completed", "habit_completed", "priority_task_reward"].includes(undoData.type);
+      const positive = ["priority_item_completed", "task_completed", "daily_task_completed", "habit_completed", "priority_task_reward"].includes(undoData.type);
       return `${positive ? "+" : "-"}${formatCoinAmount(amount)} 金币`;
     }
 
@@ -1584,6 +1591,7 @@
       const undo = pendingUndo;
       clearPendingUndo(true);
       clearTimeout(scheduleRender.timer);
+      if(undo.type==="priority_item_completed") {undoPriorityItem(undo);return;}
 
       if (undo.type === "memo_completed") {
         if (!undoMemoCompletion(undo.memoSnapshot)) showUndoToast(undo, { message: "撤回失败，请重试" });
@@ -1708,7 +1716,8 @@
           return parseCoinAmount(total + actualAmount);
         }, 0);
         entries.forEach(entry => {
-          restorePriorityTask(entry.date, entry.previousTask);
+          if(entry.itemId) restorePriorityItem(entry,true);
+          else restorePriorityTask(entry.date, entry.previousTask);
         });
         undoCoinEvent({ coinDelta: -restoredAmount, removeHistory: false });
         state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - restoredAmount));
