@@ -24,37 +24,37 @@ const server = http.createServer((req,res) => {
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.LIFEOS_TEST_URL||`http://127.0.0.1:${server.address().port}`);
  await page.evaluate(()=>{state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();runAutomaticChecks({initializeDailyHabits:true,showToast:false});render();});
- await page.locator('[data-open-priority]').click();
- await page.locator('#sheetForm [name="priority0"]').fill('重点 A');
- await page.locator('#sheetForm [name="priority1"]').fill('重点 B');
- await page.locator('#sheetForm [name="priority2"]').fill('重点 C');
- await page.locator('#sheetForm button[type="submit"]').click();
- assert.equal(await page.locator('[data-complete-priority-item]').count(),3);
- await page.locator('[data-complete-priority-item]').nth(0).click();
- await page.locator('[data-complete-priority-item]').nth(1).click();
+ const ids=await page.evaluate(()=>Array.from({length:10},(_,i)=>saveDailyTask({name:'重点 '+i,reward:10})));
+ assert.equal(await page.locator('[data-complete-daily-task]').count(),10);
+ assert.equal(await page.locator('#priorityTaskCard').count(),0);
+ await page.locator('[data-complete-daily-task]').nth(0).click();await page.waitForTimeout(250);
+ await page.locator('[data-complete-daily-task]').nth(0).click();await page.waitForTimeout(250);
  assert.equal(await page.evaluate(()=>state.coins),100);
  await page.locator('#toast [data-contextual-undo]').click();
  assert.equal(await page.evaluate(()=>state.coins),50);
+ assert.equal(await page.locator('#dailyTaskProgress').innerText(),'1 / 10');
  await page.locator('[data-nav="review"]').click();
- assert.equal(await page.locator('[data-priority-ref]').count(),1);
- assert.equal(await page.locator('#reviewMistake').count(),0);
- await page.locator('#reviewBest').fill('手动好事');
- await page.locator('[data-review-priority]').nth(0).fill('明天 A');
- await page.locator('[data-review-priority]').nth(1).fill('明天 B');
- await page.locator('[data-review-priority]').nth(2).fill('明天 C');
+ assert.equal(await page.locator('[data-completion-ref]').count(),1);
+ assert.equal(await page.locator('#reviewBest,#reviewMistake').count(),0);
+ for(const text of ['明天 A','明天 B','明天 C','明天 D']){
+  await page.locator('[data-add-review-plan]').click();
+  await page.locator('[data-review-priority]').last().fill(text);
+ }
+ await page.locator('[data-plan-move="-1"]').last().click();
  await page.locator('#reviewDailyScore').fill('7');
  await page.locator('#dailyReviewForm button[type="submit"]').click();
- assert.equal(await page.evaluate(()=>state.priorityPlans[shiftDateKey(dateKey(),1)].items.filter(i=>i.title).length),3);
+ await page.locator('#dailyReviewForm button[type="submit"]').click();
+ assert.equal(await page.evaluate(()=>state.dailyTasks.filter(t=>t.localDateKey===shiftDateKey(dateKey(),1)).length),4);
+ assert.equal(await page.evaluate(()=>state.dailyTasks.filter(t=>t.localDateKey===shiftDateKey(dateKey(),1)).map(t=>t.name).join()),'明天 A,明天 B,明天 D,明天 C');
  await page.reload();await page.locator('[data-nav="review"]').click();
- assert.equal(await page.locator('#reviewBest').inputValue(),'手动好事');
- assert.equal(await page.locator('[data-priority-ref]').count(),1);
- assert.equal(await page.locator('[data-review-priority]').count(),3);
+ assert.equal(await page.locator('[data-completion-ref]').count(),1);
+ assert.equal(await page.locator('[data-review-priority]').count(),4);
  assert.equal(await page.locator('#reviewDailyScore').inputValue(),'7');
  assert.equal(await page.evaluate(()=>state.coins),50);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  assert.deepEqual(errors,[]);
  const evidence=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(evidence,{recursive:true});
- await page.screenshot({path:path.join(evidence,`priority-loop-${width}.png`),fullPage:true});
+ await page.screenshot({path:path.join(evidence,`unified-loop-${width}.png`),fullPage:true});
  await page.evaluate(()=>Object.defineProperty(visualViewport,'height',{configurable:true,value:320}));
  await page.locator('[data-review-priority]').nth(2).focus();
  await page.evaluate(()=>{syncSheetViewport();ensureFocusedFormFieldVisible();});
@@ -67,7 +67,7 @@ const server = http.createServer((req,res) => {
  });
  assert.ok(keyboard.top>=keyboard.bodyTop && keyboard.bottom<=keyboard.bodyBottom && keyboard.saveBottom<=320,JSON.stringify(keyboard));
  await page.evaluate(()=>{document.activeElement.blur();delete visualViewport.height;syncSheetViewport();});
- console.log(JSON.stringify({width,priority:true,undo:true,manualGood:true,reviewNextDay:true,score:true}));await context.close();
+ console.log(JSON.stringify({width,priority:true,undo:true,unlimited:true,reviewNextDay:true,score:true}));await context.close();
  }
  }finally{await browser?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1});

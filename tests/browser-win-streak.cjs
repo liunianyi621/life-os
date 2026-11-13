@@ -51,12 +51,12 @@ const server = http.createServer((req,res) => {
  await page.locator('[data-nav="stats"]').click();await page.locator('[data-open-settings]').click();
  assert.equal(await page.getByText('每日胜负实验版',{exact:true}).count(),0);
  await page.locator('[data-nav="today"]').click();
- const id=await page.evaluate(()=>state.dailyTasks[0].id);
+ const id=await page.evaluate(()=>state.dailyTasks.find(t=>t.name==='实验期新增任务').id);
  await page.evaluate(id=>{startFocusSession('dailyTask',id);render();},id);
  await page.reload();
  assert.equal(await page.evaluate(()=>state.currentFocus.sourceId),id);
  await page.evaluate(id=>{completeDailyTask(id);completeDailyTask(id);render();},id);
- assert.equal(await page.evaluate(()=>state.coins),143.45);
+ assert.equal(await page.evaluate(()=>state.coins),173.45);
  await page.locator('#toast [data-contextual-undo]').click();
  assert.equal(await page.evaluate(()=>state.coins),123.45);
  const after=await page.evaluate(()=>createLifeOSBackup().data);

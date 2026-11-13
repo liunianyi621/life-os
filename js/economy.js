@@ -296,6 +296,7 @@
     }
 
     function completePriorityTask(day = dateKey(), sourceEl = null) {
+      if(typeof prioritySourceImported==="function" && prioritySourceImported(day)) return completeDailyTask(state.unifiedPriorities.imports[unifiedSourceKey(day)],sourceEl);
       const date = normalizeReviewDateKey(day);
       const task = priorityTaskForDate(date);
       if (!task || task.status !== "pending") return;
@@ -355,6 +356,7 @@
     }
 
     function failPriorityTask(day = dateKey(), sourceEl = null) {
+      if(typeof prioritySourceImported==="function" && prioritySourceImported(day)) return false;
       const date = normalizeReviewDateKey(day);
       const task = priorityTaskForDate(date);
       if (!task || task.status !== "pending") return;
@@ -724,9 +726,11 @@
       let deadlines, settlementResult;
       try {
         const activated = dailyHabitActivationRequested ? activateDailyHabitSystem(now) : false;
+        const unifiedChanged=typeof migrateUnifiedPriorities==="function" && migrateUnifiedPriorities(now);
         deadlines = settleTaskSlotDeadlines(now);
         settlementResult = runPendingSettlements({ now });
         settlementResult.changed ||= activated;
+        settlementResult.changed ||= unifiedChanged;
         if (typeof reconcileFocusSession === "function" && reconcileFocusSession(now)) settlementResult.changed = true;
         if (typeof syncWinStreak === "function" && syncWinStreak(now)) settlementResult.changed = true;
       } catch (error) {

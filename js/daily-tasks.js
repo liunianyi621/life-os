@@ -3,7 +3,7 @@
         && /^\d{4}-\d{2}-\d{2}$/.test(task.localDateKey)
         && dateKey(dateFromKey(task.localDateKey)) === task.localDateKey
         && Number.isFinite(task.reward) && task.reward >= 0 && task.reward * 10 <= Number.MAX_SAFE_INTEGER
-        && task.penalty === parseCoinAmount(task.reward * 10)
+        && (task.ruleVersion===2 ? task.reward===50 && task.penalty===200 : task.penalty === parseCoinAmount(task.reward * 10))
         && ["pending", "completed", "failed", "deleted"].includes(task.status));
     }
 
@@ -25,6 +25,7 @@
 
     function saveDailyTask({ id = null, name, reward }, { startFocus = false } = {}) {
       runAutomaticChecks({ showToast: false });
+      if(state.unifiedPriorities) reward=50;
       name = String(name || "").trim();
       reward = Number(reward);
       if (!name || !Number.isFinite(reward) || reward < 0 || reward * 10 > Number.MAX_SAFE_INTEGER) {
@@ -39,7 +40,8 @@
       const timestamp = new Date().toISOString();
       const task = { ...existing, id: existing?.id || createId("daily-task"), name,
         localDateKey: existing?.localDateKey || day, reward: parseCoinAmount(reward),
-        penalty: parseCoinAmount(parseCoinAmount(reward) * 10), status: "pending",
+        penalty: state.unifiedPriorities ? 200 : parseCoinAmount(parseCoinAmount(reward) * 10), status: "pending",
+        ...(state.unifiedPriorities?{ruleVersion:2,...(existing?{manuallyEdited:true}:{})}:{}),
         createdAt: existing?.createdAt || timestamp, updatedAt: timestamp };
       state.dailyTasks = existing ? state.dailyTasks.map(item => item.id === id ? task : item) : [...(state.dailyTasks || []), task];
       if (!saveTaskAction(before)) return null;

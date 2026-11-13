@@ -1228,7 +1228,7 @@
       }
 
       els.reviewHistoryList.innerHTML = history.map(([day, review]) => {
-        const summary = review.best || priorityAutoGood(day).map(i=>i.title).join("、") || review.mistake || "未填写";
+        const summary = review.best || unifiedCompletedRecords(day).map(i=>i.title).join("、") || review.mistake || "未填写";
         const score = normalizeDailyScore(review.dailyScore);
         return `
         <article class="card review-card q-list-row" data-review-card="${escapeAttr(day)}" data-edit-card="review" data-edit-id="${escapeAttr(day)}" role="button" tabindex="0" aria-label="打开复盘">
@@ -1709,9 +1709,8 @@
       event.preventDefault();
       const formData = new FormData(els.dailyReviewForm);
       saveDailyReview({
-        bestItems: collectBestFields(els.dailyReviewForm),
         mistake: readReviewDraft(selectedReviewDate)?.mistake ?? state.dailyReviews?.[selectedReviewDate]?.mistake ?? "",
-        priorityItems: collectPriorityFields(els.dailyReviewForm),
+        priorityEntries: collectPlanEntries(els.dailyReviewForm),
         dailyScore: els.reviewDailyScore.dataset.hasValue === "true"
           ? formData.get("dailyScore")
           : null

@@ -1259,6 +1259,13 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 }
 
 /* Review */
+.review-plan-row { display:flex; align-items:center; gap:2px; border-bottom:1px solid var(--color-border); min-width:0; }
+.review-plan-row input { flex:1; min-width:0; height:44px; padding:8px 0; border:0; background:transparent; font-size:16px; }
+.review-plan-row button { flex-shrink:0; width:44px; height:44px; border:0; background:transparent; color:var(--color-text-secondary); }
+.review-plan-add { min-height:44px; border:0; background:transparent; color:var(--color-text-secondary); padding:8px 0; font-size:15px; }
+.unified-completed { padding:12px 16px; color:var(--color-text-secondary); font-size:14px; }
+.unified-completed div { padding:8px 0; }
+[data-legacy-best], [data-legacy-mistake] { white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.6; }
 .priority-group { border:1px solid var(--color-border); border-radius:20px; padding:12px 16px; background:var(--color-surface); }
 .priority-group .section-heading { margin:0; gap:10px; }
 .priority-group .section-heading h2 { flex:1; font-size:16px; }

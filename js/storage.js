@@ -1410,10 +1410,14 @@
       return String(review?.priority || "");
     }
 
-    function syncReviewPriorityForDate(reviewDate, title, titles=null) {
+    function syncReviewPriorityForDate(reviewDate, title, titles=null, entries=null) {
       const sourceReviewDate = normalizeReviewDateKey(reviewDate);
       const priorityDate = shiftDateKey(sourceReviewDate, 1);
       const today = dateKey();
+      if(typeof syncUnifiedReviewPlan==="function") {
+        if(!state.unifiedPriorities) migrateUnifiedPriorities();
+        return syncUnifiedReviewPlan(sourceReviewDate,entries ? {priorityEntries:entries} : {priorityItems:titles||[title]});
+      }
       if(typeof usesPriorityPlan==="function" && state.priorityPlanVersion && priorityDate>=state.priorityPlanVersion.from) {
         return syncPriorityPlan(priorityDate,titles||[title,"",""],"review",sourceReviewDate);
       }
@@ -1447,10 +1451,13 @@
     }
     function saveDailyReview(reviewData, key = selectedReviewDate) {
       const reviewDate = setSelectedReviewDate(key);
-      const bestItems = reviewBestItems(reviewData);
-      const best = bestItems.filter(x => x.trim()).join("\n").trim();
+      const preserved=(typeof readReviewDraft==="function" && readReviewDraft(reviewDate))||state.dailyReviews[reviewDate];
+      const hasBest=reviewData.bestItems || reviewData.best!==undefined;
+      const bestItems = reviewBestItems(hasBest ? reviewData : preserved);
+      const best = !hasBest && state.dailyReviews[reviewDate]?.best!==undefined ? state.dailyReviews[reviewDate].best : bestItems.filter(x=>x.trim()).join("\n").trim();
       const mistake = String(reviewData.mistake ?? state.dailyReviews[reviewDate]?.mistake ?? "");
       const priorityItems=typeof reviewPriorityItems==="function" ? reviewPriorityItems(reviewData) : null;
+      const priorityEntries=typeof reviewPlanRows==="function" ? reviewPlanRows(reviewData) : null;
       const priority = priorityItems ? priorityItems.filter(x=>x.trim()).join("\n").trim() : String(reviewData.priority || "").trim();
       const dailyScore = normalizeDailyScore(reviewData.dailyScore);
 
@@ -1462,17 +1469,19 @@
       const previous = state.dailyReviews[reviewDate] || {};
       const savedAt = new Date().toISOString();
       state.dailyReviews[reviewDate] = {
+        ...previous,
         date: reviewDate,
         best,
         bestItems,
         mistake,
         priority,
         ...(priorityItems?{priorityItems}:{}),
+        ...(priorityEntries?{priorityEntries}:{}),
         dailyScore,
         createdAt: previous.createdAt || savedAt,
         updatedAt: savedAt
       };
-      syncReviewPriorityForDate(reviewDate, priority,priorityItems);
+      syncReviewPriorityForDate(reviewDate, priority,priorityItems,priorityEntries);
       if (typeof clearReviewDraft === "function") clearReviewDraft(reviewDate);
       saveState();
       renderDailyReview();
@@ -1505,10 +1514,13 @@
     async function saveEditedDailyReview(reviewData, originalDate = editingReviewDate) {
       const previousDate = normalizeReviewDateKey(originalDate);
       const reviewDate = normalizeReviewDateKey(reviewData.date);
-      const bestItems = reviewBestItems(reviewData);
-      const best = bestItems.filter(x => x.trim()).join("\n").trim();
+      const preserved=(typeof readReviewDraft==="function" && readReviewDraft(previousDate))||state.dailyReviews[previousDate];
+      const hasBest=reviewData.bestItems || reviewData.best!==undefined;
+      const bestItems = reviewBestItems(hasBest ? reviewData : preserved);
+      const best = !hasBest && state.dailyReviews[previousDate]?.best!==undefined ? state.dailyReviews[previousDate].best : bestItems.filter(x=>x.trim()).join("\n").trim();
       const mistake = String(reviewData.mistake ?? state.dailyReviews[previousDate]?.mistake ?? "");
       const priorityItems=typeof reviewPriorityItems==="function" ? reviewPriorityItems(reviewData) : null;
+      const priorityEntries=typeof reviewPlanRows==="function" ? reviewPlanRows(reviewData) : null;
       const priority = priorityItems ? priorityItems.filter(x=>x.trim()).join("\n").trim() : String(reviewData.priority || "").trim();
       const dailyScore = normalizeDailyScore(reviewData.dailyScore);
 
@@ -1541,6 +1553,7 @@
         mistake,
         priority,
         ...(priorityItems?{priorityItems}:{}),
+        ...(priorityEntries?{priorityEntries}:{}),
         dailyScore,
         createdAt: previous.createdAt || now,
         updatedAt: now
@@ -1551,7 +1564,7 @@
         moveReviewRewardDate(previousDate, reviewDate);
         if (selectedReviewDate === previousDate) selectedReviewDate = reviewDate;
       }
-      syncReviewPriorityForDate(reviewDate, priority,priorityItems);
+      syncReviewPriorityForDate(reviewDate, priority,priorityItems,priorityEntries);
 
       if (typeof clearReviewDraft === "function") { clearReviewDraft(previousDate); clearReviewDraft(reviewDate); }
       saveState();

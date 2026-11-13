@@ -223,6 +223,7 @@
       let totalPenalty = 0;
 
       Object.entries(tasksByDate).forEach(([day, task]) => {
+        if(typeof prioritySourceImported==="function" && prioritySourceImported(day)) return;
         if (!task || day >= today) return;
         if (task.status !== "pending") return;
         if (task.settledPenalty) return;
@@ -286,7 +287,7 @@
       const event = recordCoinEvent({ type: outcome === "completed" ? "task_completed" : "task_failed",
         amount: outcome === "completed" ? amount : -amount, date: task.localDateKey, timestamp,
         history: { taskKind: "dailyTask", taskId: task.id, name: task.name, coins: amount,
-          rewardAmount: task.reward, penaltyAmount: task.penalty, penaltyMultiplier: 10,
+          rewardAmount: task.reward, penaltyAmount: task.penalty, penaltyMultiplier: task.ruleVersion===2 ? 4 : 10,
           settlementKey: key, reason: outcome === "failed" ? "day_end" : "completed",
           ...(outcome === "completed" ? { earnedCoins: amount, durationSeconds: 0, durationMinutes: 0 } : {}) } });
       Object.assign(task, { status: outcome, settlementKey: key, settlementHistoryId: event.historyId,

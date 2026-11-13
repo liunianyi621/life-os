@@ -7,6 +7,7 @@ function usesPriorityPlan(day) {
   return state.priorityPlanVersion?.version===1 && day>=state.priorityPlanVersion.from && !state.priorityTaskByDate?.[day];
 }
 function reviewPriorityItems(review) {
+  if(Array.isArray(review?.priorityEntries)) return review.priorityEntries.map(r=>String(r.text||""));
   return Array.isArray(review?.priorityItems) && review.priorityItems.length===3 && review.priorityItems.every(x=>typeof x==="string")
     ? [...review.priorityItems] : [String(review?.priority||""),"",""];
 }
@@ -30,6 +31,7 @@ function syncPriorityPlan(day, titles, source, sourceDate=null) {
   return {changed:true,protected:false,date:day};
 }
 function settlePriorityItem(day,id,outcome,now=new Date()) {
+  if(typeof prioritySourceImported==="function" && prioritySourceImported(day,id)) return null;
   const item=state.priorityPlans?.[day]?.items.find(i=>i.id===id);
   if(!item?.title || item.status!=="pending") return null;
   if(outcome==="done" && day!==dateKey(now)) return null;
@@ -70,6 +72,7 @@ function settlePriorityPlans(now,result) {
     if(!Array.isArray(group?.items) || group.version!==1) continue;
     for(const item of group.items) {
       if(!item || typeof item.id!=="string" || typeof item.title!=="string") continue;
+      if(typeof prioritySourceImported==="function" && prioritySourceImported(day,item.id)) continue;
       const entry=settlePriorityItem(day,item.id,"failed",now);
       if(entry) {result.entries.push(entry);result.count++;result.totalPenalty=parseCoinAmount(result.totalPenalty+entry.amount);}
     }

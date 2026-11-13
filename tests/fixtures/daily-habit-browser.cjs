@@ -18,13 +18,13 @@ module.exports=async function run(scenario){
       await page.clock.install({time:new Date('2026-10-12T10:00:00+01:00')});
       await page.goto(process.env.LIFEOS_TEST_URL || 'http://127.0.0.1:'+server.address().port);
       await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
-      await page.evaluate(()=>{
+      await page.evaluate(scenario=>{
         state=cloneEmptyState();state.coins=1000;state.fixedRewardRulesSince='2026-08-01';state.settledThroughDate='2026-08-01';
         state.habits=[{id:'a',name:'一个外部可验证行动',coins:10},{id:'b',name:'运动',coins:5},{id:'c',name:'每日复盘',coins:20}];
         state.memos=[{id:'m',text:'旅行装 / 手机防水壳'}];
-        state.priorityTaskByDate[dateKey()]={title:'今天最重要的交付',status:'pending'};
+        if(scenario==='overview'||scenario==='completion')state.priorityTaskByDate[dateKey()]={title:'今天最重要的交付',status:'pending'};
         runAutomaticChecks({initializeDailyHabits:true,showToast:false});setWinEnabled(false);render();
-      });
+      },scenario);
       assert.equal(await page.locator('[data-task-timeline-slot], [data-habit-card], [data-open-task]').count(),0);
       assert.equal(await page.locator('[data-habit-row]').count(),3);
       assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
@@ -34,7 +34,7 @@ module.exports=async function run(scenario){
           await page.locator('.today-daily-task-section .section-add-button').tap();
           assert.equal(await page.locator('#sheetForm input[type="date"], #sheetForm input[type="time"]').count(),0);
           await page.locator('#sheetForm [name="name"]').fill(name);
-          await page.locator('#sheetForm [name="reward"]').fill(String(reward));
+          assert.equal(await page.locator('#sheetForm [name="reward"]').inputValue(),'50');
           await page.getByRole('button',{name:focus?'保存并开始专注':'保存任务',exact:true}).tap();
           return page.evaluate(()=>state.dailyTasks.at(-1).id);
         };
@@ -55,13 +55,13 @@ module.exports=async function run(scenario){
         await page.locator('[data-end-focus]').tap();
         await page.locator('.today-daily-task-section .section-add-button').tap();
         await page.locator('#sheetForm [name="name"]').fill('整理摄影作品集');
-        await page.locator('#sheetForm [name="reward"]').fill('10');
+        assert.equal(await page.locator('#sheetForm [name="reward"]').inputValue(),'50');
         await page.setViewportSize({width,height:430});
-        await page.locator('#sheetForm [name="reward"]').focus();
+        await page.locator('#sheetForm [name="name"]').focus();
         await page.evaluate(()=>{syncSheetViewport();ensureFocusedFormFieldVisible();});
         await page.waitForTimeout(200);
         const keyboard=await page.evaluate(()=>{
-          const input=els.sheetForm.querySelector('[name="reward"]').getBoundingClientRect();
+          const input=els.sheetForm.querySelector('[name="name"]').getBoundingClientRect();
           const footer=els.sheetForm.querySelector('.keyboard-form-sheet__footer').getBoundingClientRect();
           return {inputBottom:input.bottom,footerTop:footer.top,footerBottom:footer.bottom,height:innerHeight};
         });
@@ -70,7 +70,7 @@ module.exports=async function run(scenario){
         await page.locator('#sheetForm [name="name"]').press('Enter');
         assert.equal(await page.evaluate(()=>state.currentFocus),null);
         const a=await page.evaluate(()=>state.dailyTasks[0].id);
-        assert.equal(await page.evaluate(()=>state.dailyTasks[0].penalty),100);
+        assert.equal(await page.evaluate(()=>state.dailyTasks[0].penalty),200);
         const b=await create('联系两位客户',20,true);
         assert.equal(await page.evaluate(()=>state.currentFocus.sourceType),'dailyTask');
         assert.equal(await page.evaluate(()=>state.currentFocus.sourceId),b);
@@ -81,7 +81,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.locator('[data-pick-focus][data-focus-source="dailyTask"]').count(),2);
         await page.locator(`[data-pick-focus="${a}"]`).tap();
         await page.locator(`[data-complete-daily-task="${a}"]`).tap();await page.clock.runFor(220);
-        assert.equal(await page.locator('#dailyTaskProgress').innerText(),'1 / 2');assert.equal(await page.evaluate(()=>state.coins),1010);
+        assert.equal(await page.locator('#dailyTaskProgress').innerText(),'1 / 2');assert.equal(await page.evaluate(()=>state.coins),1050);
         assert.equal(await page.locator(`[data-daily-task-row="${a}"]`).count(),0);
         assert.equal(await page.locator('[data-open-focus-picker]').count(),1);
         await page.locator('[data-contextual-undo]').tap();
@@ -89,7 +89,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>state.currentFocus),null);
         await begin(a);await page.locator('[data-complete-focus]').tap();
         assert.equal(await page.evaluate(id=>completeDailyTask(id),a),false);
-        assert.equal(await page.evaluate(()=>state.coins),1010);await page.locator('[data-contextual-undo]').tap();
+        assert.equal(await page.evaluate(()=>state.coins),1050);await page.locator('[data-contextual-undo]').tap();
         const c=await create('购买摄影配件',5);
         await page.locator('#dailyTaskList').scrollIntoViewIfNeeded();
         const cdp=safari?null:await context.newCDPSession(page);
@@ -115,7 +115,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>state.dailyTasks[0].id),b);
         assert.equal(await page.evaluate(()=>state.habits.map(h=>h.id).join(',')),'a,c,b');
         await begin(b);await page.locator(`[data-daily-task-actions="${b}"]`).tap();await page.locator(`[data-edit-daily-task="${b}"]`).tap();
-        await page.locator('#sheetForm [name="reward"]').fill('5');await page.getByRole('button',{name:'保存任务',exact:true}).tap();
+        assert.equal(await page.locator('#sheetForm [name="reward"]').inputValue(),'50');await page.getByRole('button',{name:'保存任务',exact:true}).tap();
         await page.locator(`[data-daily-task-actions="${b}"]`).tap();await page.locator(`[data-delete-daily-task="${b}"]`).tap();
         assert.equal(await page.evaluate(()=>state.currentFocus),null);assert.equal(await page.evaluate(()=>state.coins),1000);
         await begin(c);await page.clock.setSystemTime(new Date('2026-10-12T12:00:00+01:00'));await setVisibility('visible');
@@ -127,10 +127,10 @@ module.exports=async function run(scenario){
         const out=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(out,{recursive:true});
         await page.screenshot({path:path.join(out,'daily-tasks-'+width+'.png'),fullPage:true});
         await setVisibility('hidden');await page.clock.setSystemTime(new Date('2026-10-13T00:01:00+01:00'));await setVisibility('visible');
-        assert.equal(await page.evaluate(()=>state.coins),500);assert.equal(await page.evaluate(id=>completeHabitFocus(id),oldSession),false);
+        assert.equal(await page.evaluate(()=>state.coins),250);assert.equal(await page.evaluate(id=>completeHabitFocus(id),oldSession),false);
         assert.equal(await page.locator('#dailyTaskProgress').innerText(),'0 / 0');assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
         assert.equal(await page.locator('[data-open-focus-picker]').count(),1);
-        await page.reload();assert.equal(await page.evaluate(()=>state.coins),500);
+        await page.reload();assert.equal(await page.evaluate(()=>state.coins),250);
         await page.evaluate(()=>{const backup=createLifeOSBackup();restoreLifeOSBackup(backup);render();});
         assert.equal(await page.evaluate(()=>state.tasks[0].id),'old');assert.equal(await page.evaluate(()=>state.dailyTasks.length),3);
         await page.evaluate(()=>{state.habits=[];saveState();render();});await page.locator('[data-open-focus-picker]').tap();
@@ -154,11 +154,11 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>state.coins),1000);
         const layout=await page.evaluate(()=>{
           const focus=document.getElementById('currentFocusTask').getBoundingClientRect();
-          return {top:focus.top,bottom:focus.bottom,priority:els.priorityTaskCard.getBoundingClientRect().bottom,
+          return {top:focus.top,bottom:focus.bottom,header:document.querySelector('.today-page .home-header').getBoundingClientRect().bottom,
             habits:document.querySelector('.today-habit-section').getBoundingClientRect().top,
             overflow:document.documentElement.scrollWidth>innerWidth};
         });
-        assert.ok(layout.top>layout.priority&&layout.bottom<layout.habits);assert.equal(layout.overflow,false);
+        assert.ok(layout.top>layout.header&&layout.bottom<layout.habits);assert.equal(layout.overflow,false);
         for(const button of await page.locator('.focus-task-actions button').all()){
           const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44);
         }
@@ -234,7 +234,7 @@ module.exports=async function run(scenario){
       }
       if(scenario==='overview'){
         const layout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,
-          priority:document.querySelector('#priorityTaskCard').getBoundingClientRect().bottom,
+          priority:document.querySelector('.today-daily-task-section').getBoundingClientRect().bottom,
           habits:document.querySelector('#habitList').getBoundingClientRect().top,
           memo:document.querySelector('.home-memo-section').getBoundingClientRect().top,
           nav:document.querySelector('[data-nav="today"]').getBoundingClientRect().top}));
@@ -269,7 +269,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.locator('[data-contextual-undo]').count(),0);
         await page.locator('[data-toggle-memo="m"]').tap();await page.clock.runFor(200);
         assert.equal(await page.evaluate(()=>state.coins),1010);
-        assert.equal(await page.locator('[data-complete-priority]').count(),1);
+        assert.equal(await page.locator('[data-complete-daily-task]').count(),1);
         assert.equal(await page.locator('[data-fail-priority]').count(),0);
         await page.reload();assert.equal(await page.locator('[data-habit-row="a"]').count(),0);
         await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
@@ -296,9 +296,9 @@ module.exports=async function run(scenario){
         });
         assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
         assert.equal(await page.locator('[data-habit-row]').count(),3);
-        assert.equal(await page.evaluate(()=>state.coins),535); // 1000 +35, unchanged Priority day-end -500
+        assert.equal(await page.evaluate(()=>state.coins),835); // 1000 +35, unified priority day-end -200
         await page.locator('[data-complete-habit="a"]').tap();await page.clock.runFor(220);
-        assert.equal(await page.evaluate(()=>state.coins),545);
+        assert.equal(await page.evaluate(()=>state.coins),845);
       }
       if(scenario==='order'){
         await page.evaluate(()=>{startHabitFocus('a');render();});

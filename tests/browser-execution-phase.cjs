@@ -60,12 +60,14 @@ const server = http.createServer((req,res) => {
       await page.locator('[data-nav="review"]').click();
       assert.equal(await page.locator('.bottom-nav').isVisible(),true);
       assert.equal(await page.getByRole('button',{name:'返回',exact:true}).count(),0);
+      await page.locator('[data-add-review-plan]').click();
+      await page.locator('[data-review-priority]').first().evaluate(el=>el.id='reviewPriority');
       for (const viewportHeight of [430,320]) {
         await page.evaluate(h => {
           Object.defineProperty(window.visualViewport,'height',{configurable:true,value:h});
           Object.defineProperty(window.visualViewport,'offsetTop',{configurable:true,value:12});
         },viewportHeight);
-        for (const id of ['reviewBest','reviewPriority']) {
+        for (const id of ['reviewPriority']) {
           await page.locator('#'+id).focus();
           await page.evaluate(() => { syncSheetViewport(); ensureFocusedFormFieldVisible(); });
           await page.waitForTimeout(500);

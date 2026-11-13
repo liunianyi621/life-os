@@ -41,6 +41,7 @@
     }
 
     function openPrioritySheet(day = dateKey()) {
+      if(state.unifiedPriorities) {openDailyTaskSheet();return;}
       if(typeof usesPriorityPlan==="function" && usesPriorityPlan(day)) {openPriorityGroupSheet(day);return;}
       const priorityDate = normalizePriorityDateKey(day);
       const task = priorityTaskForDate(priorityDate);
@@ -444,14 +445,15 @@
             <span class="field-label">日期</span>
             <input name="date" type="date" max="${escapeAttr(dateKey())}" value="${escapeAttr(reviewDate)}" required>
           </label>
-          <div class="field">
-            <span class="field-label">今天做得好的 3 件事</span>
-            ${bestFieldsHtml(readReviewDraft(reviewDate)||review)}
-          </div>
-          <label class="field">
+          <div class="field"><span class="field-label">今日完成记录</span><div data-auto-good></div></div>
+          ${review.best ? `<div class="field">
+            <span class="field-label">历史好事</span>
+            <div data-legacy-best>${escapeHtml(review.best || "")}</div>
+          </div>` : ""}
+          ${review.mistake ? `<div class="field">
             <span class="field-label">需要改进</span>
-            <textarea name="mistake" maxlength="500" placeholder="写下需要调整的部分">${escapeHtml(review.mistake || "")}</textarea>
-          </label>
+            <div data-legacy-mistake>${escapeHtml(review.mistake || "")}</div>
+          </div>` : ""}
           ${dailyScoreFieldHtml(review.dailyScore)}
           <label class="field">
             <span class="field-label">明日重点</span>
@@ -462,7 +464,6 @@
       });
       openSheet({ position: "top", kind: "review-edit", keyboardForm: true });
       hydrateReviewEditor(reviewDate,review);
-      focusSheetField("[data-review-best]");
     }
 
     function openSheet(options = {}) {
@@ -592,9 +593,7 @@
         const dailyScoreInput = els.sheetForm.querySelector("[name='dailyScore']");
         await saveEditedDailyReview({
           date: formData.get("date"),
-          bestItems: collectBestFields(els.sheetForm),
-          mistake: formData.get("mistake"),
-          priorityItems: collectPriorityFields(els.sheetForm),
+          priorityEntries: collectPlanEntries(els.sheetForm),
           dailyScore: dailyScoreInput?.dataset.hasValue === "true"
             ? formData.get("dailyScore")
             : null

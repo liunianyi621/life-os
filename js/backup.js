@@ -32,6 +32,12 @@
         }
       };
       visit(data);
+      if(data.unifiedPriorities!==undefined && (!backupObject(data.unifiedPriorities) || data.unifiedPriorities.version!==1
+        || !/^\d{4}-\d{2}-\d{2}$/.test(data.unifiedPriorities.from) || !backupObject(data.unifiedPriorities.imports)
+        || dateKey(dateFromKey(data.unifiedPriorities.from))!==data.unifiedPriorities.from
+        || Object.values(data.unifiedPriorities.imports).some(id=>typeof id!=="string")
+        || (data.unifiedPriorities.protectedReviewKeys!==undefined && (!Array.isArray(data.unifiedPriorities.protectedReviewKeys)
+          || data.unifiedPriorities.protectedReviewKeys.some(key=>typeof key!=="string"))))) invalid();
       if(data.priorityPlanVersion!==undefined && (!backupObject(data.priorityPlanVersion) || data.priorityPlanVersion.version!==1
         || typeof data.priorityPlanVersion.from!=="string" || !/^\d{4}-\d{2}-\d{2}$/.test(data.priorityPlanVersion.from)
         || dateKey(dateFromKey(data.priorityPlanVersion.from))!==data.priorityPlanVersion.from)) invalid();

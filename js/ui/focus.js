@@ -118,7 +118,7 @@
       sheetMode = "focus-picker"; editingId = null;
       els.sheetTitle.innerHTML = '<small class="focus-picker-eyebrow">开始专注</small><span>选择任务</span>';
       els.sheetForm.innerHTML = `<div class="focus-picker-intro"><span>选择一件事，专注完成它</span><span>${FOCUS_DURATION_MS / 60000} 分钟</span></div>
-        ${group("今日任务", "dailyTask", tasks)}${group("每日习惯", "habit", habits)}
-        ${!tasks.length && !habits.length ? '<p class="memo-template-empty">今天没有待完成事项</p><button class="q-secondary-button" type="button" data-open-daily-task>新增今日任务</button>' : ""}`;
+        ${group("今日重点", "dailyTask", tasks)}${group("每日习惯", "habit", habits)}
+        ${!tasks.length && !habits.length ? '<p class="memo-template-empty">今天没有待完成事项</p><button class="q-secondary-button" type="button" data-open-daily-task>新增今日重点</button>' : ""}`;
       openSheet({ position: "bottom", kind: "focus-picker" });
     }
