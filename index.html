@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
   <script src="js/startup.js?v=20260915-stability"></script>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20261113-unified">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20261114-marker">
 </head>
 <body>
   <div class="app q-app">
@@ -33,6 +33,7 @@
           </div>
         </header>
         <section class="today-section focus-task" id="currentFocusTask" aria-label="当前任务"></section>
+        <div class="marker-toolbar" id="procrastinationToolbar" aria-label="拖延标记"></div>
 
         <section class="today-section today-daily-task-section">
           <div class="section-heading q-section-header">
@@ -160,6 +161,7 @@
           <button class="icon-button q-icon-button settings-entry" type="button" data-open-settings aria-label="设置" title="设置" data-icon-button="gearshape"></button>
         </header>
 
+        <section class="marker-stat-section"><h2>拖延热力图</h2><div id="procrastinationChart"></div></section>
         <div class="stats-grid q-summary-grid">
           <div class="stat-card q-summary-card">
             <span class="stat-label">当前连续</span>
@@ -375,7 +377,7 @@
   <div class="contextual-undo-host" id="toast" aria-live="polite"></div>
 
   <script src="js/storage.js?v=20261113-unified"></script>
-  <script src="js/backup.js?v=20261113-unified"></script>
+  <script src="js/backup.js?v=20261114-marker"></script>
   <script src="js/tasks.js?v=20261012-daily-habits"></script>
   <script src="js/habits.js?v=20261017-focus"></script>
   <script src="js/economy.js?v=20261113-unified"></script>
@@ -386,7 +388,7 @@
   <script src="js/unified-priorities.js?v=20261113-unified"></script>
   <script src="js/win-streak.js?v=20261112-restore-legacy"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
-  <script src="js/stats.js?v=20260911-score-trend"></script>
+  <script src="js/stats.js?v=20261114-marker"></script>
   <script src="js/ui/elements.js?v=20260912-settings"></script>
   <script src="js/ui/feedback.js?v=20261029-four-tabs"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
@@ -396,6 +398,7 @@
   <script src="js/ui/settings.js?v=20260912-settings"></script>
   <script src="js/ui/focus.js?v=20261113-unified"></script>
   <script src="js/ui/daily-tasks.js?v=20261113-unified"></script>
-  <script src="js/ui.js?v=20261113-unified"></script>
+  <script src="js/procrastination.js?v=20261114-marker"></script>
+  <script src="js/ui.js?v=20261114-marker"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
     let selectedDailyScoreTrendKey = null;
 
     function renderStatsVisuals() {
+      renderProcrastination();
       renderHeatmap(buildMonthlyHeatRows(currentHeatmapMonth));
       renderAchievements();
       renderDailyScoreTrend(buildDailyScoreTrend(currentStatsRange));

@@ -1259,6 +1259,23 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 }
 
 /* Review */
+.marker-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:-8px 0 20px; font-size:13px; color:var(--color-text-secondary); }
+.marker-label { white-space:nowrap; }
+.marker-actions { display:flex; align-items:center; gap:8px; }
+.marker-toolbar button { min-height:44px; border:0; padding:0 4px; background:transparent; color:var(--color-text-primary); font:inherit; }
+.marker-stat-section { margin:20px 0 24px; }
+.marker-stat-section h2 { font-size:18px; margin:0 0 12px; }
+.marker-summary { display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-secondary); margin-bottom:10px; }
+.marker-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+.marker-cell { min-width:0; min-height:44px; border:0; border-radius:5px; font-size:12px; color:#43554c; }
+.marker-level-0 { background:#eeefef; }
+.marker-level-1 { background:#e1eee5; }
+.marker-level-2 { background:#afccba; }
+.marker-level-3 { background:#567d66; color:white; }
+.marker-cell[aria-pressed="true"] { outline:1px solid var(--color-text-secondary); outline-offset:1px; }
+.marker-caption { font-size:12px; color:var(--color-text-secondary); margin:10px 0; }
+#markerDayDetail { font-size:13px; }
+.marker-times { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:8px; color:var(--color-text-secondary); }
 .review-plan-row { display:flex; align-items:center; gap:2px; border-bottom:1px solid var(--color-border); min-width:0; }
 .review-plan-row input { flex:1; min-width:0; height:44px; padding:8px 0; border:0; background:transparent; font-size:16px; }
 .review-plan-row button { flex-shrink:0; width:44px; height:44px; border:0; background:transparent; color:var(--color-text-secondary); }

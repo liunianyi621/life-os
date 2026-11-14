@@ -816,6 +816,7 @@
     }
 
     function render() {
+      renderSafely(renderProcrastination);
       renderSafely(scheduleTaskDeadlineCheck);
       renderSafely(updatePrimaryReadouts);
       renderSafely(renderActiveView);

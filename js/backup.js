@@ -32,6 +32,13 @@
         }
       };
       visit(data);
+      if (data.procrastinationMarkers !== undefined && (!Array.isArray(data.procrastinationMarkers)
+        || new Set(data.procrastinationMarkers.map(e=>e?.id)).size !== data.procrastinationMarkers.length
+        || data.procrastinationMarkers.some(e=>!backupObject(e) || typeof e.id!=="string" || !e.id
+          || e.type!=="procrastination_marker" || !Number.isFinite(Date.parse(e.createdAt))
+          || !/^\d{4}-\d{2}-\d{2}$/.test(e.localDateKey) || dateKey(dateFromKey(e.localDateKey))!==e.localDateKey
+          || (e.localTime!==undefined && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(e.localTime))
+          || (e.revokedAt!==undefined && !Number.isFinite(Date.parse(e.revokedAt)))))) invalid();
       if(data.unifiedPriorities!==undefined && (!backupObject(data.unifiedPriorities) || data.unifiedPriorities.version!==1
         || !/^\d{4}-\d{2}-\d{2}$/.test(data.unifiedPriorities.from) || !backupObject(data.unifiedPriorities.imports)
         || dateKey(dateFromKey(data.unifiedPriorities.from))!==data.unifiedPriorities.from
