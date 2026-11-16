@@ -17,6 +17,7 @@ module.exports=async function run(scenario){
       const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
       await page.clock.install({time:new Date('2026-10-12T10:00:00+01:00')});
       await page.goto(process.env.LIFEOS_TEST_URL || 'http://127.0.0.1:'+server.address().port);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
       await page.evaluate(scenario=>{
         state=cloneEmptyState();state.coins=1000;state.fixedRewardRulesSince='2026-08-01';state.settledThroughDate='2026-08-01';
@@ -111,7 +112,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>state.dailyTasks.map(t=>t.name).join(',')),'联系两位客户,整理摄影作品集,购买摄影配件');
         assert.equal(await page.evaluate(()=>state.habits.map(h=>h.id).join(',')),'a,b,c');
         await page.locator('[data-habit-handle="c"]').tap();await page.locator('[data-move-habit="c"][data-direction="-1"]').tap();await page.evaluate(()=>closeSheet());
-        await page.reload();await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
+        await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
         assert.equal(await page.evaluate(()=>state.dailyTasks[0].id),b);
         assert.equal(await page.evaluate(()=>state.habits.map(h=>h.id).join(',')),'a,c,b');
         await begin(b);await page.locator(`[data-daily-task-actions="${b}"]`).tap();await page.locator(`[data-edit-daily-task="${b}"]`).tap();
@@ -130,7 +131,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>state.coins),250);assert.equal(await page.evaluate(id=>completeHabitFocus(id),oldSession),false);
         assert.equal(await page.locator('#dailyTaskProgress').innerText(),'0 / 0');assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
         assert.equal(await page.locator('[data-open-focus-picker]').count(),1);
-        await page.reload();assert.equal(await page.evaluate(()=>state.coins),250);
+        await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);assert.equal(await page.evaluate(()=>state.coins),250);
         await page.evaluate(()=>{const backup=createLifeOSBackup();restoreLifeOSBackup(backup);render();});
         assert.equal(await page.evaluate(()=>state.tasks[0].id),'old');assert.equal(await page.evaluate(()=>state.dailyTasks.length),3);
         await page.evaluate(()=>{state.habits=[];saveState();render();});await page.locator('[data-open-focus-picker]').tap();
@@ -179,7 +180,7 @@ module.exports=async function run(scenario){
         await page.clock.setSystemTime(new Date('2026-10-12T10:50:00+01:00'));
         await visibility('visible');
         assert.equal(await page.locator('#focusTime').innerText(),'15:00');
-        await page.reload();
+        await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
         await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
         assert.equal(await page.locator('#focusTime').innerText(),'15:00');
         const first=await page.evaluate(()=>state.currentFocus.id);
@@ -207,7 +208,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.locator('.focus-task-status').innerText(),'时间已到');
         assert.equal(await page.evaluate(()=>focusTickTimer),null);
         assert.equal(await page.evaluate(()=>state.coins),1000);assert.equal(await page.evaluate(()=>state.history.length),0);
-        await page.reload();assert.equal(await page.locator('#focusTime').innerText(),'00:00');
+        await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);assert.equal(await page.locator('#focusTime').innerText(),'00:00');
         await page.locator('[data-complete-focus]').tap();assert.equal(await page.evaluate(()=>state.coins),1010);
         await page.locator('[data-contextual-undo]').tap();
         await start('b');await page.locator('[data-habit-actions="b"]').tap();
@@ -222,7 +223,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.locator('[data-open-focus-picker]').count(),1);
         assert.equal(await page.evaluate(()=>state.coins),700);
         assert.equal(await page.evaluate(id=>completeHabitFocus(id),oldSession),false);
-        await page.reload();assert.equal(await page.evaluate(()=>state.coins),700);
+        await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);assert.equal(await page.evaluate(()=>state.coins),700);
         await start('a');await page.locator('[data-complete-focus]').tap();assert.equal(await page.evaluate(()=>state.coins),710);
         assert.equal(await page.evaluate(()=>state.memos.length),1);
         await page.clock.setSystemTime(new Date('2026-10-13T23:40:00+01:00'));await start('c');
@@ -271,7 +272,7 @@ module.exports=async function run(scenario){
         assert.equal(await page.evaluate(()=>state.coins),1010);
         assert.equal(await page.locator('[data-complete-daily-task]').count(),1);
         assert.equal(await page.locator('[data-fail-priority]').count(),0);
-        await page.reload();assert.equal(await page.locator('[data-habit-row="a"]').count(),0);
+        await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);assert.equal(await page.locator('[data-habit-row="a"]').count(),0);
         await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
         assert.equal(await page.locator('#habitProgress').innerText(),'1 / 3');
         const saved=await page.evaluate(()=>localStorage.getItem(STORAGE_KEY));
@@ -333,10 +334,10 @@ module.exports=async function run(scenario){
         await page.locator('[data-habit-handle="c"]').focus();
         await page.locator('[data-habit-handle="c"]').press('Enter');
         await page.locator('[data-move-habit="c"][data-direction="1"]').tap();
-        await page.evaluate(()=>closeSheet());await page.reload();
+        await page.evaluate(()=>closeSheet());await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
         assert.equal(await page.evaluate(()=>state.habits.map(h=>h.id).join(',')),'a,c,b');
         await page.locator('[data-complete-habit="a"]').tap();assert.equal(await page.locator('.habit-drag-preview').count(),0);
-        await page.clock.setFixedTime(new Date('2026-10-13T10:00:00+01:00'));await page.reload();
+        await page.clock.setFixedTime(new Date('2026-10-13T10:00:00+01:00'));await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
         assert.equal(await page.evaluate(()=>state.habits.map(h=>h.id).join(',')),'a,c,b');
         assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
       }
@@ -349,11 +350,11 @@ module.exports=async function run(scenario){
         await page.clock.runFor(1000);
         assert.equal(await page.evaluate(()=>state.coins),760);
         assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
-        await page.clock.setFixedTime(new Date('2026-10-15T10:00:00+01:00'));await page.reload();
+        await page.clock.setFixedTime(new Date('2026-10-15T10:00:00+01:00'));await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
         assert.equal(await page.evaluate(()=>state.coins),60); // +10 -250 -350 -350
         assert.equal(await page.evaluate(()=>state.tasks[0].status),'pending');
         const snapshot=await page.evaluate(()=>JSON.stringify(state.history));
-        await page.reload();assert.equal(await page.evaluate(()=>JSON.stringify(state.history)),snapshot);
+        await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);assert.equal(await page.evaluate(()=>JSON.stringify(state.history)),snapshot);
         assert.equal(await page.locator('#habitProgress').innerText(),'0 / 3');
       }
       if(scenario==='editor'){
@@ -366,7 +367,7 @@ module.exports=async function run(scenario){
         await page.locator('[data-edit-habit="b"]').tap();
         await page.locator('#sheetForm [name="coins"]').fill('20');
         await page.locator('#sheetForm [type="submit"]').tap();
-        await page.reload();assert.equal(await page.evaluate(()=>habitRewardAmount(state.habits.find(h=>h.id==='b'))),20);
+        await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);assert.equal(await page.evaluate(()=>habitRewardAmount(state.habits.find(h=>h.id==='b'))),20);
         assert.equal(await page.locator('[data-schedule-habit], [data-arrange-source]').count(),0);
         await page.evaluate(()=>{const b=createLifeOSBackup();restoreLifeOSBackup(b);});
         assert.equal(await page.evaluate(()=>dailyHabitSystemEnabled()),true);

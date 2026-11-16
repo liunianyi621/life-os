@@ -1259,6 +1259,20 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 }
 
 /* Review */
+#storageOwnerNotice { position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:16px; right:16px; z-index:10001; padding:16px; background:white; border:1px solid var(--color-border); border-radius:8px; font-size:14px; }
+#storageOwnerNotice[hidden] { display:none; }
+#storageOwnerNotice button { min-height:44px; margin-top:8px; border:0; background:transparent; color:var(--color-text-primary); }
+.goal-card { display:flex; flex-direction:column; text-align:left; gap:10px; width:100%; padding:20px; margin-top:14px; border:1px solid var(--color-border); border-radius:8px; background:white; color:var(--color-text-primary); }
+.goal-card strong { font-size:19px; overflow-wrap:anywhere; }
+.goal-card span,.goal-card small { font-size:13px; color:var(--color-text-secondary); overflow-wrap:anywhere; }
+.goal-card progress { width:100%; height:5px; accent-color:var(--success-fg); }
+.goal-fund-entry { margin:20px 0; }
+.goal-fund-entry h2 { font-size:18px; }
+.goal-fund-entry > button { display:flex; justify-content:space-between; width:100%; min-height:64px; border:0; border-radius:8px; background:white; text-align:left; padding:16px; font-size:14px; line-height:1.6; }
+.goal-milestone { display:flex; align-items:center; gap:6px; }
+.goal-milestone input[type=text] { min-width:0; flex:1; }
+.goal-milestone input[type=checkbox] { width:24px; min-height:44px; accent-color:var(--success-fg); }
+.goal-milestone button { min-width:44px; min-height:44px; border:0; background:transparent; }
 .marker-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:-8px 0 20px; font-size:13px; color:var(--color-text-secondary); }
 .marker-label { white-space:nowrap; }
 .marker-actions { display:flex; align-items:center; gap:8px; }

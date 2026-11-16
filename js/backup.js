@@ -32,6 +32,10 @@
         }
       };
       visit(data);
+      if(backup.legacyConflictCopies!==undefined && (!Array.isArray(backup.legacyConflictCopies)
+        || backup.legacyConflictCopies.some(copy=>!backupObject(copy)||typeof copy.raw!=='string')))invalid();
+      if(data.longTermGoals!==undefined && (!Array.isArray(data.longTermGoals) || data.longTermGoals.some(g=>!goalValid(g))
+        || new Set(data.longTermGoals.map(g=>g.id)).size!==data.longTermGoals.length)) invalid();
       if (data.procrastinationMarkers !== undefined && (!Array.isArray(data.procrastinationMarkers)
         || new Set(data.procrastinationMarkers.map(e=>e?.id)).size !== data.procrastinationMarkers.length
         || data.procrastinationMarkers.some(e=>!backupObject(e) || typeof e.id!=="string" || !e.id
@@ -121,7 +125,8 @@
       return {
         app: "LifeOS", version: LIFEOS_BACKUP_VERSION, schemaVersion: 1,
         appVersion: "0.1.0", exportedAt: new Date().toISOString(),
-        data: JSON.parse(JSON.stringify({ ...state, settings: currentSettings() }))
+        data: JSON.parse(JSON.stringify({ ...state, settings: currentSettings() })),
+        ...(typeof LifeOSPersistence!=='undefined'?{legacyConflictCopies:LifeOSPersistence.conflicts()}:{} )
       };
     }
 
@@ -137,11 +142,13 @@
     }
 
     function restoreLifeOSBackup(backup) {
+      assertStorageWriter();
       const candidate = validateLifeOSBackup(backup);
       const serialized = JSON.stringify(candidate);
       const previous = storageReadBlocked ? localStorage.getItem(STORAGE_KEY) : JSON.stringify(state);
       // Both writes must succeed before memory changes. setItem is atomic for the main key.
       localStorage.setItem(LIFEOS_BEFORE_IMPORT_KEY, previous);
+      if(typeof LifeOSPersistence!=='undefined')LifeOSPersistence.restoreConflicts(backup.legacyConflictCopies);
       localStorage.setItem(STORAGE_KEY, serialized);
       state = candidate;
       storageReadBlocked = false;

@@ -23,6 +23,7 @@ const server = http.createServer((req,res) => {
  const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.LIFEOS_TEST_URL||`http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
  await page.evaluate(()=>{state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();runAutomaticChecks({initializeDailyHabits:true,showToast:false});render();});
  const ids=await page.evaluate(()=>Array.from({length:10},(_,i)=>saveDailyTask({name:'重点 '+i,reward:10})));
  assert.equal(await page.locator('[data-complete-daily-task]').count(),10);
@@ -46,7 +47,7 @@ const server = http.createServer((req,res) => {
  await page.locator('#dailyReviewForm button[type="submit"]').click();
  assert.equal(await page.evaluate(()=>state.dailyTasks.filter(t=>t.localDateKey===shiftDateKey(dateKey(),1)).length),4);
  assert.equal(await page.evaluate(()=>state.dailyTasks.filter(t=>t.localDateKey===shiftDateKey(dateKey(),1)).map(t=>t.name).join()),'明天 A,明天 B,明天 D,明天 C');
- await page.reload();await page.locator('[data-nav="review"]').click();
+ await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);await page.locator('[data-nav="review"]').click();
  assert.equal(await page.locator('[data-completion-ref]').count(),1);
  assert.equal(await page.locator('[data-review-priority]').count(),4);
  assert.equal(await page.locator('#reviewDailyScore').inputValue(),'7');

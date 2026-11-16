@@ -22,6 +22,7 @@ const server=http.createServer((req,res)=>{
       const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true,timezoneId:'Europe/London',acceptDownloads:true});
       const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
       await page.goto(`http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.evaluate(()=>{state=cloneEmptyState();state.coins=500;state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();saveState();render();});
       assert.equal(await page.locator('[data-nav]').count(),4);
       await page.locator('[data-nav="stats"]').click();
@@ -57,7 +58,7 @@ const server=http.createServer((req,res)=>{
       assert.notEqual(await page.evaluate(()=>taskDeadlineTimer),null); // Daily habits still wake at local midnight.
       await page.screenshot({path:path.join(evidence,`settings-settlement-${width}.png`)});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.evaluate(()=>currentSettings().settlement.autoFailTimedTasks),false);
       assert.equal(await page.evaluate(()=>defaultTaskReward()),20);
       await page.evaluate(()=>openTaskSheet()); // Legacy task editor remains compatible, but is no longer a Today action.

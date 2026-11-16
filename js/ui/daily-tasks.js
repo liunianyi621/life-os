@@ -55,6 +55,7 @@
       sheetMode = "daily-task-actions"; editingId = null;
       els.sheetTitle.textContent = task.name;
       els.sheetForm.innerHTML = `<div class="habit-focus-menu">
+        ${task.goalLink?`<button type="button" class="q-secondary-button" data-goal-detail="${escapeAttr(task.goalLink.goalId)}">所属长期目标</button>`:''}
         <button class="q-primary-button" type="button" data-start-daily-focus="${escapeAttr(task.id)}">开始专注</button>
         <button class="q-secondary-button" type="button" data-edit-daily-task="${escapeAttr(task.id)}">编辑任务</button>
         <button class="focus-cancel-button daily-task-delete" type="button" data-delete-daily-task="${escapeAttr(task.id)}">删除任务</button>

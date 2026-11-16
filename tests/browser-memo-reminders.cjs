@@ -17,6 +17,7 @@ const server=http.createServer((req,res)=>{
       const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
       await page.clock.install({time:new Date('2026-09-13T10:30:00Z')});
       await page.goto('http://127.0.0.1:'+server.address().port);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.addStyleTag({content:'* {animation:none !important;transition:none !important}'});
       await page.evaluate(()=>{
         state=cloneEmptyState();state.coins=100;state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();
@@ -61,7 +62,7 @@ const server=http.createServer((req,res)=>{
       await page.locator('#memoEditDelete').tap();
       await page.locator('#confirmAcceptBtn').tap();
       assert.equal(await page.evaluate(()=>state.memos.length),4);
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.locator('#homeMemoList [data-toggle-memo="m0"]').count(),0);
       assert.equal(await page.evaluate(()=>state.memos.find(m=>m.id==='m0').status),'COMPLETED');
       assert.equal(await page.evaluate(()=>state.tasks.length),0);

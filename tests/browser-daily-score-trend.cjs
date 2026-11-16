@@ -24,6 +24,7 @@ const server = http.createServer((req, res) => {
       const page = await context.newPage(), errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.goto(`http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.evaluate(() => {
         state = cloneEmptyState(); state.fixedRewardRulesSince = dateKey(); state.settledThroughDate = yesterdayKey();
         for (let i = 0; i < 365; i++) {

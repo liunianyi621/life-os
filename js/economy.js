@@ -718,6 +718,7 @@
     }
 
     function runAutomaticChecks(options = {}) {
+      if(typeof LifeOSPersistence!=='undefined' && !LifeOSPersistence.writable)return false;
       if (storageReadBlocked) return false;
       if (options.initializeDailyHabits) dailyHabitActivationRequested = true;
       const before = JSON.stringify(state);

@@ -24,6 +24,7 @@ const server = http.createServer((req,res) => {
  const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.LIFEOS_TEST_URL||`http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
  await page.evaluate(()=>{
  state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();
  state.coins=123.45;
@@ -37,15 +38,15 @@ const server = http.createServer((req,res) => {
  runAutomaticChecks({initializeDailyHabits:true,showToast:false});saveState();
  saveDailyTask({name:'实验期新增任务',reward:20});render();
  });
- await page.reload();
+ await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
  const before=await page.evaluate(()=>createLifeOSBackup().data);
- await page.reload();
- assert.deepEqual(await page.locator('.bottom-nav [data-nav]').evaluateAll(nodes=>nodes.map(n=>n.innerText.trim())),['今天','复盘','奖励','统计']);
+ await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
+ assert.deepEqual(await page.locator('.bottom-nav [data-nav]').evaluateAll(nodes=>nodes.map(n=>n.innerText.trim())),['今天','复盘','目标','统计']);
  assert.equal(await page.locator('#winToday,#winRecords,[data-win-toggle],[data-win-choose]').count(),0);
  assert.equal(await page.evaluate(()=>winEnabled()),false);
  assert.equal(await page.locator('#currentFocusTask').isVisible(),true);
  assert.equal(await page.locator('[data-task-timeline-slot],[data-nav="calendar"]').count(),0);
- await page.locator('[data-nav="rewards"]').click();
+ await page.locator('[data-nav="stats"]').click(); await page.locator('[data-open-funds]').click();
  assert.equal(await page.locator('[data-view="rewards"] h1').innerText(),'主线基金');
  assert.equal(await page.locator('#rewardList').isVisible(),true);
  await page.locator('[data-nav="stats"]').click();await page.locator('[data-open-settings]').click();
@@ -53,7 +54,7 @@ const server = http.createServer((req,res) => {
  await page.locator('[data-nav="today"]').click();
  const id=await page.evaluate(()=>state.dailyTasks.find(t=>t.name==='实验期新增任务').id);
  await page.evaluate(id=>{startFocusSession('dailyTask',id);render();},id);
- await page.reload();
+ await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
  assert.equal(await page.evaluate(()=>state.currentFocus.sourceId),id);
  await page.evaluate(id=>{completeDailyTask(id);completeDailyTask(id);render();},id);
  assert.equal(await page.evaluate(()=>state.coins),173.45);
@@ -63,7 +64,7 @@ const server = http.createServer((req,res) => {
  for(const key of ['winStreak','habits','dailyReviews','priorityTaskByDate','rewards','calendarEvents','memos']) assert.deepEqual(after[key],before[key],key+' preserved');
  assert.deepEqual(after.history,before.history);
  await page.evaluate(()=>{const backup=createLifeOSBackup();restoreLifeOSBackup(backup);saveState();render();});
- await page.reload();
+ await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
  assert.equal(await page.evaluate(()=>winEnabled()),false);
  assert.deepEqual(await page.evaluate(()=>state.winStreak),before.winStreak);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);

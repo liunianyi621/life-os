@@ -28,6 +28,7 @@ const server = http.createServer((req, res) => {
       await page.clock.setFixedTime(new Date('2026-10-28T12:00:00+08:00'));
       const cdp = safari ? null : await context.newCDPSession(page);
       await page.goto(process.env.LIFEOS_TEST_URL || 'http://127.0.0.1:' + server.address().port);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.addStyleTag({ content: '* {animation:none !important;transition:none !important}' });
       // Supply notch/Home Indicator insets to the same CSS variables used by the real device env() values.
       await page.addStyleTag({ content: `#dayDetailBackdrop {--day-detail-safe-top:${width === 320 ? 20 : 59}px;--day-detail-safe-bottom:${width === 320 ? 0 : 34}px}` });

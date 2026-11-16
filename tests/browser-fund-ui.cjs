@@ -24,6 +24,7 @@ const server = http.createServer((req,res) => {
       const page=await context.newPage(),errors=[];
       page.on('pageerror',error=>errors.push(error.message));
       await page.goto(`http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.evaluate(()=>{
         state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();state.coins=150.79;
         state.rewards=[
@@ -32,7 +33,7 @@ const server = http.createServer((req,res) => {
           {id:'east',name:'中东基金',totalCoins:10000,currentCoins:9000,amountPerDeposit:100}
         ];setWinEnabled(false);saveState();render();
       });
-      await page.locator('[data-nav="rewards"]').click();
+      await page.locator('[data-nav="stats"]').click(); await page.locator('[data-open-funds]').click();
       await page.waitForTimeout(350);
       assert.equal(await page.locator('#rewardList .q-row-tile').count(),0);
       assert.deepEqual(await page.locator('.fund-percentage').allTextContents(),['0%','0%','90%']);

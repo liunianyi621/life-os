@@ -31,6 +31,7 @@ const server = http.createServer((req, res) => {
       page.on('pageerror', error => errors.push(error.message));
       await page.clock.setFixedTime(new Date('2026-10-29T10:30:00Z'));
       await page.goto(base);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.evaluate(() => {
         state = cloneEmptyState();
         state.fixedRewardRulesSince = dateKey();
@@ -45,7 +46,7 @@ const server = http.createServer((req, res) => {
       const original = await page.evaluate(() => JSON.stringify(state.calendarEvents));
       const ledger = await page.evaluate(() => JSON.stringify({ coins: state.coins, history: state.history }));
       assert.deepEqual(await page.locator('.bottom-nav [data-nav]').evaluateAll(nodes => nodes.map(node => [node.dataset.nav, node.innerText.trim()])),
-        [['today', '今天'], ['review', '复盘'], ['rewards', '奖励'], ['stats', '统计']]);
+        [['today', '今天'], ['review', '复盘'], ['goals', '目标'], ['stats', '统计']]);
       assert.equal(await page.locator('[data-view="calendar"], [data-calendar-day], [data-calendar-event], [data-calendar-add-selected]').count(), 0);
       const boxes = await page.locator('.bottom-nav [data-nav]').evaluateAll(nodes => nodes.map(node => {
         const box = node.getBoundingClientRect(), style = getComputedStyle(node);
@@ -53,7 +54,7 @@ const server = http.createServer((req, res) => {
       }));
       assert.ok(boxes.every(box => box.width >= 44 && box.height >= 44 && Math.abs(box.width - boxes[0].width) < 1
         && box.align === 'center' && box.justify === 'center'));
-      for (const view of ['review', 'rewards', 'stats', 'today']) {
+      for (const view of ['review', 'goals', 'stats', 'today']) {
         await page.locator(`[data-nav="${view}"]`).click();
         assert.equal(await page.locator('.view.active').getAttribute('data-view'), view);
       }
@@ -70,11 +71,12 @@ const server = http.createServer((req, res) => {
       await page.evaluate(backup => restoreLifeOSBackup(backup), backup);
       for (const suffix of ['/#calendar', '/?view=calendar', '/calendar', '/calendar/', '/calendar.html', '/calendar/2026-09']) {
         await page.goto(base.replace(/\/$/, '') + suffix);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
         assert.equal(await page.locator('.view.active').getAttribute('data-view'), 'today');
         assert.equal(await page.evaluate(() => JSON.stringify(state.calendarEvents)), original);
         assert.equal(await page.evaluate(() => JSON.stringify({ coins: state.coins, history: state.history })), ledger);
       }
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.locator('.nav-button.active').getAttribute('data-nav'), 'today');
       assert.equal(await page.evaluate(() => JSON.stringify(createLifeOSBackup().data.calendarEvents)), original);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);

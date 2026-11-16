@@ -29,6 +29,7 @@ const server = http.createServer((req,res) => {
       page.on('pageerror',error => errors.push(error.message));
       await page.clock.setFixedTime(new Date('2026-09-10T11:30:00Z'));
       await page.goto(`http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.evaluate(() => {
         state = cloneEmptyState(); state.fixedRewardRulesSince = dateKey(); state.settledThroughDate = yesterdayKey();
         state.habits = Array.from({length:8},(_,i) => ({id:'h'+i,name:'今日习惯'+i,createdDate:dateKey()}));
@@ -99,13 +100,13 @@ const server = http.createServer((req,res) => {
       await page.locator('#confirmAcceptBtn').click();
       await page.waitForTimeout(100);
       assert.equal(await page.evaluate(() => JSON.stringify(state)),before);
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.evaluate(() => state.coins),5);
       assert.equal(await page.evaluate(() => state.history.filter(item => item.type==='habit_completed'||item.type==='task_completed').length),1);
       await page.clock.setFixedTime(new Date('2026-09-11T11:30:00Z'));
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.evaluate(() => state.coins),5-7*50);
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.evaluate(() => state.coins),5-7*50);
       assert.deepEqual(errors,[]);
       console.log(JSON.stringify({width,backupRoundtrip:true,habitCrossDay:'7 x -50 once',pageErrors:errors}));

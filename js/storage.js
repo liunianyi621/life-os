@@ -1,4 +1,9 @@
-    const STORAGE_KEY = "minimal-discipline-v1";
+    const STORAGE_KEY = typeof LifeOSPersistence==='undefined'
+      ? (typeof document!=='undefined' && document.documentElement ? "minimal-discipline-v2" : "minimal-discipline-v1") : LifeOSPersistence.key;
+    function assertStorageWriter() {
+      if(typeof document!=='undefined' && document.documentElement && typeof LifeOSPersistence==='undefined')throw Error('安全存储模块尚未加载，已停止保存');
+      if(typeof LifeOSPersistence!=='undefined')LifeOSPersistence.assertWrite();
+    }
     const FOCUS_DURATION_MS = 60 * 60 * 1000;
 
     function normalizeFocusSession(value) {
@@ -860,7 +865,7 @@
         }
         if (needsLegacyCleanup || migrationApplied || needsRecoveryCleanup) {
           // A write failure must never replace successfully read user data with an empty state.
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); }
+          try { assertStorageWriter();localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); }
           catch (error) { storageRecoveryMessage = "数据已读取，但暂时无法保存。原数据仍保留。"; }
         }
 
@@ -892,6 +897,7 @@
     let suppressNextCardTap = false;
 
     function saveState() {
+      assertStorageWriter();
       if (storageReadBlocked) throw new Error("Storage is protected after a read failure");
       if (typeof syncWinStreak === "function") syncWinStreak();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));

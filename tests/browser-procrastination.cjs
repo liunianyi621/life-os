@@ -23,6 +23,7 @@ const server = http.createServer((req,res) => {
  const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.LIFEOS_TEST_URL||`http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
  await page.evaluate(()=>{state=cloneEmptyState();state.coins=123.45;state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();runAutomaticChecks({initializeDailyHabits:true,showToast:false});render();});
  await page.locator('[data-record-marker]').tap();
  assert.equal(await page.evaluate(()=>procrastinationEvents().length),1);
@@ -30,7 +31,7 @@ const server = http.createServer((req,res) => {
  assert.equal(await page.evaluate(()=>procrastinationEvents().length),2);
  await page.locator('[data-undo-marker]').tap();
  assert.equal(await page.evaluate(()=>procrastinationEvents().length),1);
- await page.reload();assert.match(await page.locator('#procrastinationToolbar').innerText(),/今日 1 次/);
+ await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);assert.match(await page.locator('#procrastinationToolbar').innerText(),/今日 1 次/);
  await page.locator('[data-nav="stats"]').tap();await page.waitForTimeout(300);
  assert.equal(await page.locator('[data-marker-day]').count(),28);
  const today=await page.evaluate(()=>dateKey());

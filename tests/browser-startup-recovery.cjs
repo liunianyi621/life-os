@@ -16,28 +16,29 @@ const server=http.createServer((req,res)=>{
       const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true,timezoneId:'Europe/London'});
       const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
       await page.goto(url);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.locator('[data-view="today"]').isVisible(),true);
       await page.evaluate(()=>{
         state=cloneEmptyState();state.coins=1234;state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();
         state.memos=[{id:'keep',text:'保留旧提醒'},null];state.tasks=[null];state.habits=[null];saveState();
       });
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.locator('#homeMemoList [data-toggle-memo="keep"]').count(),1);
       assert.equal(await page.evaluate(()=>state.coins),1234);
       assert.equal(await page.evaluate(()=>state.storageRecovery[0].records.length),3);
-      for(const view of ['review','rewards','stats','today']){
+      for(const view of ['review','goals','stats','today']){
         await page.locator('[data-nav="'+view+'"]').tap();
         assert.equal(await page.locator('[data-view="'+view+'"]').isVisible(),true);
         assert.ok((await page.locator('[data-view="'+view+'"]').innerText()).length>10);
       }
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.evaluate(()=>state.storageRecovery.length),1);
       assert.deepEqual(errors,[]);
       await page.evaluate(()=>{renderMemoSummary=()=>{throw Error('isolated render fixture')};render();});
       assert.equal(await page.locator('#appRecoveryNotice').isVisible(),true);
       assert.ok((await page.locator('#habitList').innerHTML()).length>0);
       await page.evaluate(()=>localStorage.setItem(STORAGE_KEY,'{broken'));
-      await page.reload();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       assert.equal(await page.locator('#appRecoveryNotice').isVisible(),true);
       assert.equal(await page.evaluate(()=>localStorage.getItem(STORAGE_KEY)),'{broken');
       await page.evaluate(()=>runAutomaticChecks());
@@ -48,6 +49,7 @@ const server=http.createServer((req,res)=>{
     const context=await browser.newContext(),page=await context.newPage();
     await page.route('**/js/ui.js*',route=>route.abort());
     await page.goto(url);
+
     assert.equal(await page.locator('#appRecoveryNotice').isVisible(),true);
     assert.match(await page.locator('#appRecoveryNotice').innerText(),/加载失败/);
     await context.close();

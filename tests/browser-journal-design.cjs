@@ -21,6 +21,7 @@ const server = http.createServer((req,res) => {
       const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
       await page.clock.setFixedTime(new Date('2026-09-12T10:30:00Z'));
       await page.goto(process.env.LIFEOS_TEST_URL || `http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
       await page.evaluate(()=>{
         state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();
         state.dailyReviews={'2026-09-11':{best:'该干的都干了',mistake:'睡得有点晚',priority:'整理冰岛行程',dailyScore:6},'2026-09-10':{best:'终于完成拍摄',dailyScore:9},'2025-12-31':{best:'慢下来的一天',dailyScore:null}};
@@ -60,7 +61,7 @@ const server = http.createServer((req,res) => {
       assert.equal(await page.locator('#sheetForm [data-review-priority]').first().inputValue(),'整理冰岛行程');
       await page.locator('#editReviewDailyScore').fill('7');
       await page.locator('#sheetForm button[type="submit"]').click();
-      await page.reload();await page.locator('[data-nav="review"]').click();
+      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);await page.locator('[data-nav="review"]').click();
       assert.match(await card.innerText(),/该干的都干了/);
       await page.locator('#reviewDateInput').fill('2026-09-11');
       await page.locator('#reviewDateInput').dispatchEvent('change');

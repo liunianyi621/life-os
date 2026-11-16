@@ -24,6 +24,7 @@ const server = http.createServer((req,res) => {
  const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.LIFEOS_TEST_URL||`http://127.0.0.1:${server.address().port}`);
+ await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
  for(const [tasks,habits] of [[2,3],[0,2],[2,0],[0,0],[35,35]]){
  await page.evaluate(({tasks,habits})=>{
  state=cloneEmptyState();state.fixedRewardRulesSince=dateKey();state.settledThroughDate=yesterdayKey();
