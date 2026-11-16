@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
   <script src="js/startup.js?v=20260915-stability"></script>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20261116-goals">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20261116-modes">
 </head>
 <body>
   <div class="app q-app">
@@ -24,6 +24,7 @@
           <div class="home-header__title">
             <h1>今天</h1>
             <span class="eyebrow" id="todayDate">今天</span>
+            <button type="button" class="day-mode-button" id="dayModeButton" data-open-day-mode aria-label="普通模式"></button>
           </div>
           <div class="home-coin-balance" aria-label="当前金币">
             <span class="home-coin-balance__amount">
@@ -34,6 +35,7 @@
         </header>
         <section class="today-section focus-task" id="currentFocusTask" aria-label="当前任务"></section>
         <div class="marker-toolbar" id="procrastinationToolbar" aria-label="拖延标记"></div>
+        <section class="today-section" id="sprintSection" hidden><div class="section-heading"><h2>今日时间线</h2><button type="button" class="icon-button section-add-button" data-new-sprint data-icon-button="plus" aria-label="新增时间任务"></button></div><div class="daily-habit-list" id="sprintList"></div></section>
 
         <section class="today-section today-daily-task-section">
           <div class="section-heading q-section-header">
@@ -379,32 +381,34 @@
 
   <div class="contextual-undo-host" id="toast" aria-live="polite"></div>
 
-  <script src="js/persistence.js?v=20261116-goals"></script>
+  <script src="js/persistence.js?v=20261116-modes"></script>
   <script src="js/storage.js?v=20261116-goals"></script>
-  <script src="js/backup.js?v=20261116-goals"></script>
-  <script src="js/tasks.js?v=20261012-daily-habits"></script>
-  <script src="js/habits.js?v=20261017-focus"></script>
-  <script src="js/economy.js?v=20261116-goals"></script>
-  <script src="js/daily-tasks.js?v=20261113-unified"></script>
+  <script src="js/backup.js?v=20261116-modes"></script>
+  <script src="js/tasks.js?v=20261116-modes"></script>
+  <script src="js/habits.js?v=20261116-modes"></script>
+  <script src="js/economy.js?v=20261116-modes"></script>
+  <script src="js/daily-tasks.js?v=20261116-modes"></script>
   <script src="js/focus.js?v=20261018-daily-tasks"></script>
-  <script src="js/settlement.js?v=20261113-unified"></script>
-  <script src="js/priority-plan.js?v=20261113-unified"></script>
+  <script src="js/settlement.js?v=20261116-modes"></script>
+  <script src="js/priority-plan.js?v=20261116-modes"></script>
   <script src="js/unified-priorities.js?v=20261113-unified"></script>
+  <script src="js/day-modes.js?v=20261116-modes"></script>
   <script src="js/win-streak.js?v=20261112-restore-legacy"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
-  <script src="js/stats.js?v=20261114-marker"></script>
-  <script src="js/ui/elements.js?v=20260912-settings"></script>
-  <script src="js/ui/feedback.js?v=20261116-goals"></script>
+  <script src="js/stats.js?v=20261116-modes"></script>
+  <script src="js/ui/elements.js?v=20261116-modes"></script>
+  <script src="js/ui/feedback.js?v=20261116-modes"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
   <script src="js/ui/review-editor.js?v=20261113-unified"></script>
   <script src="js/ui/sheets.js?v=20261113-unified"></script>
   <script src="js/memos.js?v=20260913-reminders"></script>
   <script src="js/ui/settings.js?v=20260912-settings"></script>
-  <script src="js/ui/focus.js?v=20261113-unified"></script>
-  <script src="js/ui/daily-tasks.js?v=20261116-goals"></script>
+  <script src="js/ui/focus.js?v=20261116-modes"></script>
+  <script src="js/ui/daily-tasks.js?v=20261116-modes"></script>
   <script src="js/procrastination.js?v=20261114-marker"></script>
   <script src="js/goals.js?v=20261116-goals"></script>
   <script src="js/ui/goals.js?v=20261116-goals"></script>
-  <script src="js/ui.js?v=20261116-goals"></script>
+  <script src="js/ui/day-modes.js?v=20261116-modes"></script>
+  <script src="js/ui.js?v=20261116-modes"></script>
 </body>
 </html>

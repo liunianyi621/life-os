@@ -1,8 +1,8 @@
-// Legacy builds keep writing v1. Never read that branch over an existing v2 state.
+// Isolate older builds that do not understand mode-specific settlement rules.
 const LifeOSPersistence = (() => {
-  const key='minimal-discipline-v2',legacy='minimal-discipline-v1',source=key+'-legacy-source';
+  const key='minimal-discipline-v3',legacy='minimal-discipline-v2',older='minimal-discipline-v1',source=key+'-legacy-source';
   let writable=false,release=null,requesting=false;
-  const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('lifeos-editor-v2'):null;
+  const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('lifeos-editor-v3'):null;
   function paint(message='另一窗口正在编辑。可切换到此窗口继续，数据不会被旧页面覆盖。') {
     for(const node of document.body.children)if(!['storageOwnerNotice','appRecoveryNotice'].includes(node.id)&&node.tagName!=='SCRIPT')node.toggleAttribute('inert',!writable);
     let notice=document.getElementById('storageOwnerNotice');
@@ -17,17 +17,17 @@ const LifeOSPersistence = (() => {
     try{localStorage.setItem(id,raw);}catch{reportAppFailure('旧窗口有独立修改，原始数据仍保留，请勿清理浏览器存储。');}
     reportAppFailure('检测到旧版窗口的独立修改，已保留副本。请关闭旧窗口；新旧金币不会自动合并。');
   }
-  function conflicts(){return Object.keys(localStorage).filter(k=>k.startsWith(key+'-legacy-conflict-')).map(k=>({key:k,raw:localStorage.getItem(k)}));}
+  function conflicts(){return Object.keys(localStorage).filter(k=>[key,legacy].some(prefix=>k.startsWith(prefix+'-legacy-conflict-'))).map(k=>({key:k,raw:localStorage.getItem(k)}));}
   async function acquire(takeover=false){
     if(writable||requesting)return;
     if(!navigator.locks?.request){paint('浏览器不支持安全保存，请使用新版 Safari 或 Chrome；原数据未修改。');return;}
     requesting=true;
     if(takeover)channel?.postMessage('release');
-    navigator.locks.request('lifeos-editor-v2',takeover?{}:{ifAvailable:true},async lock=>{
+    navigator.locks.request('lifeos-editor-v3',takeover?{}:{ifAvailable:true},async lock=>{
       requesting=false;if(!lock){paint();return;}
       if(typeof render!=='function'){paint('应用文件未完整加载，请重新加载。');return;}
       try{
-        const raw=localStorage.getItem(legacy);
+        const raw=localStorage.getItem(legacy)??localStorage.getItem(older);
         if(localStorage.getItem(key)===null && raw!==null){
           // Keep the exact pre-upgrade bytes; no balance or transaction is recomputed.
           localStorage.setItem(source,raw);localStorage.setItem(key,raw);
@@ -50,7 +50,7 @@ const LifeOSPersistence = (() => {
     writable=false;paint();release?.();
   });
   window.addEventListener('storage',event=>{
-    if(event.key===legacy)archiveLegacy(event.newValue);
+    if(event.key===legacy||event.key===older)archiveLegacy(event.newValue);
     if(event.key===key&&!writable){state=loadState();render();}
   });
   window.addEventListener('pageshow',()=>{if(!writable&&typeof render==='function'){state=loadState();render();paint();}});

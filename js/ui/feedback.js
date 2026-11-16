@@ -136,8 +136,15 @@
       if (balanceRect) {
         const centeredTop = balanceRect.top + Math.max(0, (balanceRect.height - 40) / 2);
         const safeTop = Math.max(16, Math.round(window.visualViewport?.offsetTop || 0) + 16);
-        els.toast.style.setProperty("--contextual-undo-top", `${Math.max(safeTop, Math.round(centeredTop))}px`);
-        const rightEdge = els.toast.dataset.habitUndo === "true" ? balanceRect.left - 8 : balanceRect.right;
+        let top=Math.max(safeTop, Math.round(centeredTop));
+        let rightEdge = els.toast.dataset.habitUndo === "true" ? balanceRect.left - 8 : balanceRect.right;
+        const mode=document.querySelector('.view.active #dayModeButton')?.getBoundingClientRect();
+        const width=els.toast.querySelector('.contextual-undo-capsule')?.getBoundingClientRect().width||120;
+        if(mode && top<mode.bottom && top+44>mode.top && rightEdge>mode.left && rightEdge-width<mode.right){
+          if(mode.left-8-width>=16)rightEdge=mode.left-8;
+          else top=Math.max(top,mode.bottom+8);
+        }
+        els.toast.style.setProperty("--contextual-undo-top", `${top}px`);
         els.toast.style.setProperty("--contextual-undo-right", `${Math.max(16, Math.round(viewportWidth - rightEdge))}px`);
         return;
       }
@@ -182,6 +189,7 @@
         capsule.append(button);
       }
       els.toast.append(capsule);
+      syncContextualUndoPosition();
       window.requestAnimationFrame(() => els.toast.classList.add("show"));
     }
 

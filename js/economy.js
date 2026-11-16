@@ -33,6 +33,7 @@
       const historyId = history.id || createId("history");
       const coinDelta = parseCoinAmount(amount);
       const entry = {
+        ...(typeof dayMode==='function'?{dayMode:dayMode(history.date||date)}:{}),
         ...history,
         id: historyId,
         type,
@@ -296,6 +297,7 @@
     }
 
     function completePriorityTask(day = dateKey(), sourceEl = null) {
+      if(typeof vacationDay==='function'&&vacationDay(day))return false;
       if(typeof prioritySourceImported==="function" && prioritySourceImported(day)) return completeDailyTask(state.unifiedPriorities.imports[unifiedSourceKey(day)],sourceEl);
       const date = normalizeReviewDateKey(day);
       const task = priorityTaskForDate(date);
@@ -726,12 +728,15 @@
       const now = options.now instanceof Date ? options.now : new Date();
       let deadlines, settlementResult;
       try {
+        if(state.dayModes!==undefined && (typeof modeDataValid!=='function' || !modeDataValid(state.dayModes)))throw Error('Invalid or unavailable day-mode data');
         const activated = dailyHabitActivationRequested ? activateDailyHabitSystem(now) : false;
         const unifiedChanged=typeof migrateUnifiedPriorities==="function" && migrateUnifiedPriorities(now);
+        const modeObserved=typeof observeDayMode==='function' && observeDayMode(now);
         deadlines = settleTaskSlotDeadlines(now);
         settlementResult = runPendingSettlements({ now });
         settlementResult.changed ||= activated;
         settlementResult.changed ||= unifiedChanged;
+        settlementResult.changed ||= modeObserved;
         if (typeof reconcileFocusSession === "function" && reconcileFocusSession(now)) settlementResult.changed = true;
         if (typeof syncWinStreak === "function" && syncWinStreak(now)) settlementResult.changed = true;
       } catch (error) {
@@ -1659,6 +1664,10 @@
         entries.forEach(entry => {
           if (entry.taskKind === "dailyTask") {
             const task = (state.dailyTasks || []).find(item => item.id === entry.taskId);
+            if(task?.sprintWindow && task.localDateKey===dateKey()){
+              state.dailyTasks=state.dailyTasks.map(item=>item.id===task.id?{...entry.previousTask,
+                ...(Date.parse(entry.sprintDeadline)<=Date.now()?{reversedSprintDeadline:entry.sprintDeadline}:{})}:item);
+            } else
             // Reversing a past-day penalty must not charge that obligation again.
             if (task) Object.assign(task, entry.previousTask, { settlementKey: dailyTaskSettlementKey(task),
               settlementHistoryId: null, settlementReversedAt: new Date().toISOString() });

@@ -36,7 +36,7 @@ const server = http.createServer((req,res) => {
  assert.equal(await other.evaluate(()=>state.coins),1500);
  await other.evaluate(()=>recordProcrastination());
  assert.equal(await page.evaluate(()=>{try{state.coins=1;saveState();return false;}catch{return true;}}),true);
- await page.evaluate(()=>localStorage.setItem('minimal-discipline-v1',JSON.stringify({coins:1050,history:[]})));
+ await page.evaluate(()=>{localStorage.setItem('minimal-discipline-v1',JSON.stringify({coins:1050,history:[]}));localStorage.setItem('minimal-discipline-v2',JSON.stringify({coins:1060,history:[]}));});
  await other.waitForTimeout(200);
  assert.equal(await other.evaluate(()=>JSON.parse(localStorage.getItem(STORAGE_KEY)).coins),1500);
  assert.equal(await other.evaluate(()=>LifeOSPersistence.conflicts().length>0),true);
@@ -62,12 +62,13 @@ const server = http.createServer((req,res) => {
  assert.equal(await page.evaluate(()=>procrastinationEvents().length),1);
  await other.close();
  const url=process.env.LIFEOS_TEST_URL||`http://127.0.0.1:${server.address().port}`;
- const upgradeContext=await browser.newContext({storageState:{cookies:[],origins:[{origin:new URL(url).origin,localStorage:[{name:'minimal-discipline-v1',value:saved}]}]}});
+ const seeds=width===390?[{name:'minimal-discipline-v1',value:saved}]:[{name:'minimal-discipline-v1',value:JSON.stringify({coins:99999})},{name:'minimal-discipline-v2',value:saved}];
+ const upgradeContext=await browser.newContext({storageState:{cookies:[],origins:[{origin:new URL(url).origin,localStorage:seeds}]}});
  const upgrade=await upgradeContext.newPage();upgrade.setDefaultTimeout(15000);await upgrade.goto(url);await upgrade.waitForFunction(()=>LifeOSPersistence.writable);
  assert.equal(await upgrade.evaluate(()=>state.coins),1500);
  assert.equal(await upgrade.evaluate(()=>state.longTermGoals.length),1);
  assert.equal(await upgrade.evaluate(()=>state.history.filter(e=>e.type==='goal_reward').length),1);
- assert.equal(await upgrade.evaluate(()=>localStorage.getItem('minimal-discipline-v2-legacy-source')),saved);
+ assert.equal(await upgrade.evaluate(()=>localStorage.getItem(LifeOSPersistence.key+'-legacy-source')),saved);
  await upgradeContext.close();assert.deepEqual(errors,[]);
  console.log(JSON.stringify({width,exclusiveWriter:true,handoff:true,legacyIsolated:true,reload:true,rewardOnce:true}));
  await context.close();

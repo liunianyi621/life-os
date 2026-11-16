@@ -31,6 +31,7 @@ function syncPriorityPlan(day, titles, source, sourceDate=null) {
   return {changed:true,protected:false,date:day};
 }
 function settlePriorityItem(day,id,outcome,now=new Date()) {
+  if(typeof vacationDay==='function'&&vacationDay(day))return null;
   if(typeof prioritySourceImported==="function" && prioritySourceImported(day,id)) return null;
   const item=state.priorityPlans?.[day]?.items.find(i=>i.id===id);
   if(!item?.title || item.status!=="pending") return null;

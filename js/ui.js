@@ -816,6 +816,7 @@
     }
 
     function render() {
+      if(typeof renderDayMode==='function')renderSafely(renderDayMode);
       renderSafely(renderGoals);
       renderSafely(renderProcrastination);
       renderSafely(scheduleTaskDeadlineCheck);
@@ -1793,6 +1794,7 @@
       if (document.visibilityState !== "visible") return;
       if (storageReadBlocked || !dailyHabitSystemEnabled()) return;
       const deadlines = state.tasks.filter(task => !taskIsSettled(task) && taskAutomaticFailureEnabled(task)).map(taskSlotDeadline).filter(Boolean);
+      for(const task of state.dailyTasks||[])if(task.sprintWindow&&!dailyTaskSettled(task)&&task.reversedSprintDeadline!==task.sprintWindow.endsAt){deadlines.push(new Date(task.sprintWindow.endsAt));if(Date.parse(task.sprintWindow.startsAt)>Date.now())deadlines.push(new Date(task.sprintWindow.startsAt));}
       const today = dateKey();
       if (dailyHabitSystemEnabled() || (currentSettings().settlement.autoFailHabitsDaily && state.habits.some(habit =>
         habitActiveOnDate(habit, today) && !habitCompletedOnDate(habit.id, today) && !habitFailedOnDate(habit.id, today)))) {
@@ -1806,6 +1808,7 @@
         if (document.visibilityState !== "visible") return;
         const dateChanged = syncLocalDateContext();
         const changed = runAutomaticChecks();
+        if(typeof renderDayMode==='function')renderDayMode();
         if ((changed && activeViewName() !== "review") || dateChanged) render();
         else scheduleTaskDeadlineCheck({ retry: !changed });
       }, delay);

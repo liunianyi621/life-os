@@ -4,6 +4,7 @@
         && dateKey(dateFromKey(task.localDateKey)) === task.localDateKey
         && Number.isFinite(task.reward) && task.reward >= 0 && task.reward * 10 <= Number.MAX_SAFE_INTEGER
         && (task.ruleVersion===2 ? task.reward===50 && task.penalty===200 : task.penalty === parseCoinAmount(task.reward * 10))
+        && (task.sprintWindow===undefined || (typeof validSprintWindow==='function' && validSprintWindow(task)))
         && ["pending", "completed", "failed", "deleted"].includes(task.status));
     }
 
@@ -24,6 +25,7 @@
     function pendingDailyTasks() { return dailyTasksForToday().filter(task => !dailyTaskSettled(task)); }
 
     function saveDailyTask({ id = null, name, reward }, { startFocus = false } = {}) {
+      if(typeof vacationDay==='function'&&vacationDay()){showToast('休假日只执行休假习惯');return null;}
       runAutomaticChecks({ showToast: false });
       if(state.unifiedPriorities) reward=50;
       name = String(name || "").trim();

@@ -260,6 +260,7 @@
     }
 
     function taskAutomaticFailureEnabled(task) {
+      if(typeof vacationDay==='function'&&vacationDay(taskSettlementDay(task)))return false;
       if (typeof dailyHabitSystemEnabled === "function" && dailyHabitSystemEnabled()) return false;
       const deadline = taskSlotDeadline(task) || settlementDayEnd(taskSettlementDay(task));
       return !taskDeadlineFailureReversed(task) && currentSettings().settlement.autoFailTimedTasks

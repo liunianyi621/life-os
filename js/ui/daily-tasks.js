@@ -1,5 +1,5 @@
     function renderDailyTaskProgress() {
-      const tasks = dailyTasksForToday();
+      const tasks = dailyTasksForToday().filter(task=>!task.sprintWindow);
       const legacyCompleted = unifiedCompletedRecords(dateKey()).filter(row=>!row.id.startsWith("task:")).length;
       const completed = tasks.filter(task => task.status === "completed").length + legacyCompleted;
       const total = tasks.length + legacyCompleted;
@@ -11,7 +11,7 @@
       const list = document.getElementById("dailyTaskList");
       if (!list) return;
       const { total, completed } = renderDailyTaskProgress();
-      const tasks = pendingDailyTasks();
+      const tasks = pendingDailyTasks().filter(task=>!task.sprintWindow);
       if (!tasks.length) {
         list.innerHTML = `<div class="daily-task-empty"><span>${total ? completed === total ? "今日重点已全部完成 ✓" : "今日重点已结算" : "今天还没有任务"}</span>
           ${!total ? '<button type="button" data-open-daily-task>＋ 新增今日重点</button>' : ""}</div>`;

@@ -1259,6 +1259,23 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 }
 
 /* Review */
+.today-page [hidden] { display:none !important; }
+.day-mode-button { position:absolute; left:140px; top:10px; width:44px; height:44px; border:0; border-radius:50%; background:transparent; color:var(--color-text-secondary); display:grid; place-items:center; }
+.home-header { position:relative; }
+.mode-options { display:flex; flex-direction:column; gap:4px; }
+.mode-options > button,.mode-options > label { min-height:56px; display:flex; align-items:center; gap:12px; border:0; border-radius:8px; padding:8px 12px; text-align:left; background:var(--color-surface-muted); color:var(--color-text-primary); }
+.mode-options small { display:block; font-size:12px; color:var(--color-text-secondary); margin-top:4px; }
+.mode-options input[type=radio] { width:22px; min-height:44px; accent-color:#444; }
+.mode-options button:disabled { opacity:.5; }
+.sprint-time-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; min-width:0; }
+.sprint-time-pair input { min-width:0; max-width:100%; }
+.sprint-row { padding:12px 16px; border-bottom:1px solid var(--color-border); }
+.sprint-row strong { display:block; margin:8px 0 4px; overflow-wrap:anywhere; }
+.sprint-row small,.sprint-row-title { font-size:12px; color:var(--color-text-secondary); }
+.sprint-row-title { display:flex; justify-content:space-between; }
+.sprint-row-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.sprint-row-actions button { min-height:44px; border:0; background:transparent; color:var(--color-text-secondary); padding:0 8px; }
+.sprint-row-actions [data-complete-daily-task] { color:var(--color-success); }
 #storageOwnerNotice { position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:16px; right:16px; z-index:10001; padding:16px; background:white; border:1px solid var(--color-border); border-radius:8px; font-size:14px; }
 #storageOwnerNotice[hidden] { display:none; }
 #storageOwnerNotice button { min-height:44px; margin-top:8px; border:0; background:transparent; color:var(--color-text-primary); }

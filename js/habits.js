@@ -34,6 +34,7 @@
     }
 
     function saveHabit(habitData) {
+      if(editingId && typeof habitAppliesToDay==='function' && !state.habits.some(h=>h.id===editingId&&habitAppliesToDay(h,dateKey()))){showToast('模式已变化，请重新打开习惯');return;}
       const coins = Number(habitData.coins);
       if (!Number.isFinite(coins) || coins < 0 || coins * 10 > Number.MAX_SAFE_INTEGER) {
         showToast("请输入有效的奖励金额"); return;
@@ -58,6 +59,7 @@
         showToast("习惯已更新");
       } else {
         state.habits.push({
+          ...(typeof dayMode==='function'?{modeScope:vacationDay()?'vacation':'normal'}:{}),
           id: createId("habit"),
           ...habitData,
           createdDate: today,
@@ -120,6 +122,7 @@
     }
 
     function habitActiveOnDate(habit, day) {
+      if(typeof habitAppliesToDay==='function' && !habitAppliesToDay(habit,day))return false;
       const created = new Date(habit.createdAt || "");
       const createdDate = habit.createdDate || (!Number.isNaN(created.getTime()) ? dateKey(created) : "");
       return habit.active !== false && habit.archived !== true && (!createdDate || createdDate <= day)
@@ -177,6 +180,7 @@
       ));
     }
     function deleteHabit(habitId) {
+      if(typeof habitAppliesToDay==='function'&&!state.habits.some(h=>h.id===habitId&&habitAppliesToDay(h,dateKey())))return;
       runAutomaticChecks({ showToast: false });
       const before = JSON.stringify(state);
       state.habits = state.habits.map(habit => habit.id === habitId ? { ...habit, deletedDate: dateKey() } : habit);
@@ -189,6 +193,7 @@
 
     function reorderHabit(habitId, targetId, after = false) {
       if (habitId === targetId) return false;
+      if(typeof habitAppliesToDay==='function' && ![habitId,targetId].every(id=>state.habits.some(h=>h.id===id && habitAppliesToDay(h,dateKey()))))return false;
       const habit = state.habits.find(item => item.id === habitId);
       if (!habit || !state.habits.some(item => item.id === targetId)) return false;
       const before = JSON.stringify(state);

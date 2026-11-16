@@ -32,6 +32,8 @@
         }
       };
       visit(data);
+      if(data.dayModes!==undefined && (typeof modeDataValid!=='function'||!modeDataValid(data.dayModes)))invalid();
+      if(data.habits.some(h=>h.modeScope!==undefined&&!['normal','vacation'].includes(h.modeScope)))invalid();
       if(backup.legacyConflictCopies!==undefined && (!Array.isArray(backup.legacyConflictCopies)
         || backup.legacyConflictCopies.some(copy=>!backupObject(copy)||typeof copy.raw!=='string')))invalid();
       if(data.longTermGoals!==undefined && (!Array.isArray(data.longTermGoals) || data.longTermGoals.some(g=>!goalValid(g))

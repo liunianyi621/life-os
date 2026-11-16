@@ -79,6 +79,7 @@
 
     function settleHabitFailure(habit, day, settledEventKeys = buildSettledEventKeys(), now = new Date(), automatic = true,
       ruleTime = new Date(Math.min(now.getTime(), settlementDayEnd(day).getTime()))) {
+      if(typeof habitAppliesToDay==='function'&&!habitAppliesToDay(habit,day))return null;
       const identity = habitFailureSettlementIdentity(habit.id, day);
       if (habitCompletedOnDate(habit.id, day) || habitFailedOnDate(habit.id, day) || settledEventKeys.has(identity)) return null;
       const rewardAmount = habitRewardAmount(habit, day, now);
@@ -223,6 +224,7 @@
       let totalPenalty = 0;
 
       Object.entries(tasksByDate).forEach(([day, task]) => {
+        if(typeof vacationDay==='function'&&vacationDay(day))return;
         if(typeof prioritySourceImported==="function" && prioritySourceImported(day)) return;
         if (!task || day >= today) return;
         if (task.status !== "pending") return;
@@ -276,10 +278,16 @@
       return { count: entries.length, totalPenalty, entries };
     }
 
-    function settleDailyTask(task, outcome, now = new Date(), settledKeys = buildSettledEventKeys()) {
+    function settleDailyTask(task, outcome, now = new Date(), settledKeys = buildSettledEventKeys(), options = {}) {
       if (typeof dailyTaskSettled !== "function" || dailyTaskSettled(task, settledKeys)) return null;
       const day = dateKey(now);
-      if (outcome === "completed" ? task.localDateKey !== day : outcome !== "failed" || task.localDateKey >= day) return null;
+      const sprint=Boolean(task.sprintWindow),deadline=task.sprintWindow?.endsAt;
+      if(!sprint && typeof vacationDay==='function' && vacationDay(task.localDateKey))return null;
+      if(outcome==='completed') {
+        if(task.localDateKey!==day)return null;
+        if(sprint && Date.parse(deadline)<=now.getTime() && task.reversedSprintDeadline!==deadline)return null;
+      }
+      else if(outcome!=='failed' || (sprint ? !options.manual && (Date.parse(deadline)>now.getTime() || task.reversedSprintDeadline===deadline) : task.localDateKey>=day))return null;
       const previousTask = cloneForUndo(task);
       const amount = outcome === "completed" ? task.reward : task.penalty;
       const key = dailyTaskSettlementKey(task);
@@ -288,7 +296,8 @@
         amount: outcome === "completed" ? amount : -amount, date: task.localDateKey, timestamp,
         history: { taskKind: "dailyTask", taskId: task.id, name: task.name, coins: amount,
           rewardAmount: task.reward, penaltyAmount: task.penalty, penaltyMultiplier: task.ruleVersion===2 ? 4 : 10,
-          settlementKey: key, reason: outcome === "failed" ? "day_end" : "completed",
+          settlementKey: key, reason: outcome === "failed" ? sprint ? options.manual?'manual':'sprint_deadline' : "day_end" : "completed",
+          ...(sprint?{deadline,scheduledStart:task.sprintWindow.startsAt}:{}),
           ...(outcome === "completed" ? { earnedCoins: amount, durationSeconds: 0, durationMinutes: 0 } : {}) } });
       Object.assign(task, { status: outcome, settlementKey: key, settlementHistoryId: event.historyId,
         settledAt: timestamp, updatedAt: timestamp });
@@ -298,7 +307,8 @@
         updateStreakForCompletion(task.localDateKey);
       } else state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
       settledKeys.add(key);
-      return { taskKind: "dailyTask", taskId: task.id, date: task.localDateKey, amount, historyId: event.historyId, previousTask };
+      return { taskKind: "dailyTask", taskId: task.id, date: task.localDateKey, amount, historyId: event.historyId, previousTask,
+        ...(sprint?{sprintDeadline:deadline}:{}) };
     }
 
     function runPendingSettlements(options = {}) {

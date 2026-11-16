@@ -80,6 +80,7 @@ function fulfillGoalPenalty(id) {
     g.fulfilledAt=new Date().toISOString();goalLog(g,'penalty_fulfilled');return true;});
 }
 function goalTodayAction(id,name,milestoneId=null) {
+  if(typeof vacationDay==='function'&&vacationDay())return Promise.reject(Error('休假日请保留目标，改日再加入今日重点'));
   return goalTransaction(()=>{
     const g=state.longTermGoals.find(g=>g.id===id);
     if(!g || g.status!=='active' || !String(name).trim()) throw Error('目标或行动无效');

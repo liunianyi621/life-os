@@ -1,5 +1,5 @@
     const STORAGE_KEY = typeof LifeOSPersistence==='undefined'
-      ? (typeof document!=='undefined' && document.documentElement ? "minimal-discipline-v2" : "minimal-discipline-v1") : LifeOSPersistence.key;
+      ? (typeof document!=='undefined' && document.documentElement ? "minimal-discipline-v3" : "minimal-discipline-v1") : LifeOSPersistence.key;
     function assertStorageWriter() {
       if(typeof document!=='undefined' && document.documentElement && typeof LifeOSPersistence==='undefined')throw Error('安全存储模块尚未加载，已停止保存');
       if(typeof LifeOSPersistence!=='undefined')LifeOSPersistence.assertWrite();
@@ -898,6 +898,7 @@
 
     function saveState() {
       assertStorageWriter();
+      if(state.dayModes!==undefined && (typeof modeDataValid!=='function' || !modeDataValid(state.dayModes)))throw Error('模式数据异常或未加载，已停止保存');
       if (storageReadBlocked) throw new Error("Storage is protected after a read failure");
       if (typeof syncWinStreak === "function") syncWinStreak();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));

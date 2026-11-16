@@ -327,6 +327,7 @@
       currentDayDetailDate = day;
       const { month, day: dayNumber } = datePartsFromKey(day);
       els.dayDetailTitle.textContent = month && dayNumber ? `${month}月${dayNumber}日 · 当天记录` : "当天记录";
+      if(typeof dayMode==='function')els.dayDetailTitle.textContent=`${month}月${dayNumber}日 · ${DAY_MODE_NAMES[dayMode(day)]}`;
       els.dayDetailContent.innerHTML = buildDayDetailHtml(day);
       syncSheetViewport();
       els.dayDetailBackdrop.classList.remove("hidden");
