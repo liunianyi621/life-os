@@ -20,7 +20,7 @@ const server=http.createServer((req,res)=>{
    await page.addStyleTag({content:'*{animation:none!important;transition:none!important}'});
    assert.equal(await page.locator('#todayModeBar button').count(),3);
    assert.equal(await page.locator('[data-open-day-mode],.mode-options').count(),0);
-   assert.deepEqual(await page.locator('#todayModeBar svg').evaluateAll(nodes=>nodes.map(n=>n.dataset.lucide)),['sun','coffee','clock']);
+   assert.deepEqual(await page.locator('#todayModeBar svg').evaluateAll(nodes=>nodes.map(n=>n.dataset.lucide)),['coffee','sun','clock']);
    for(const button of await page.locator('#todayModeBar button').all())assert.ok((await button.boundingBox()).height>=44);
    await page.locator('[data-select-day-mode=vacation]').tap();
    assert.match(await page.locator('#confirmTitle').innerText(),/明天/);await page.locator('#confirmCancelBtn').tap();

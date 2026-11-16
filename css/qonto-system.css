@@ -1327,10 +1327,17 @@ body.habit-dragging .task-hour-slot[data-task-timeline-slot].task-hour-slot-drop
 .goal-fund-entry { margin:20px 0; }
 .goal-fund-entry h2 { font-size:18px; }
 .goal-fund-entry > button { display:flex; justify-content:space-between; width:100%; min-height:64px; border:0; border-radius:8px; background:white; text-align:left; padding:16px; font-size:14px; line-height:1.6; }
-.marker-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:-8px 0 20px; font-size:13px; color:var(--color-text-secondary); }
-.marker-label { white-space:nowrap; }
-.marker-actions { display:flex; align-items:center; gap:8px; }
-.marker-toolbar button { min-height:44px; border:0; padding:0 4px; background:transparent; color:var(--color-text-primary); font:inherit; }
+.marker-toolbar { margin:0 0 20px; padding-bottom:6px; border:1px solid var(--color-border); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-secondary); }
+.marker-awareness { display:grid; grid-template-columns:36px minmax(0,1fr) 64px; align-items:center; gap:10px; width:100%; min-height:64px; padding:12px 12px 4px; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--color-text-primary); text-align:left; }
+.marker-hand { display:grid; place-items:center; width:36px; height:36px; border-radius:50%; background:var(--color-surface-muted); }
+.marker-hand .sf-icon { width:21px; height:21px; }
+.marker-copy { display:grid; gap:4px; min-width:0; }
+.marker-copy strong { font-size:15px; font-weight:620; line-height:1.35; }
+.marker-copy > span { color:var(--color-text-secondary); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.marker-record-label { display:grid; place-items:center; width:64px; min-height:32px; border-radius:16px; background:var(--color-surface-muted); font-size:12px; white-space:nowrap; }
+.marker-awareness:active .marker-record-label { background:var(--color-neutral-soft); }
+.marker-awareness-footer { display:flex; align-items:center; justify-content:space-between; height:28px; padding:0 12px 0 58px; font-size:11px; }
+.marker-awareness-footer button { min-height:44px; margin:-8px 0; padding:0 4px; border:0; background:transparent; color:var(--color-text-secondary); font:inherit; }
 .marker-stat-section { margin:20px 0 24px; }
 .marker-stat-section h2 { font-size:18px; margin:0 0 12px; }
 .marker-summary { display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-secondary); margin-bottom:10px; }

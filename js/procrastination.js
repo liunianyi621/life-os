@@ -2,6 +2,7 @@ let markerLastSubmit = -Infinity;
 let markerUndo = null;
 let markerUndoTimer;
 let markerSelectedDay = null;
+let markerFeedbackTimer;
 
 function procrastinationEvents(day) {
   return (Array.isArray(state.procrastinationMarkers) ? state.procrastinationMarkers : [])
@@ -10,7 +11,7 @@ function procrastinationEvents(day) {
 
 function recordProcrastination(now = new Date()) {
   const elapsed = Date.now() - markerLastSubmit;
-  if (elapsed >= 0 && elapsed < 250) return null;
+  if (elapsed >= 0 && elapsed < 2000) return null;
   const previous = state.procrastinationMarkers;
   if (previous !== undefined && !Array.isArray(previous)) return null;
   const event = { id: createId("marker"), type: "procrastination_marker", createdAt: now.toISOString(),
@@ -42,7 +43,11 @@ function procrastinationDays(now = new Date()) {
 function renderProcrastination() {
   const toolbar = document.getElementById("procrastinationToolbar");
   const today = dateKey(), days = procrastinationDays();
-  if (toolbar) toolbar.innerHTML = `<span class="marker-label"><span aria-hidden="true">·</span> 拖延标记</span><span class="marker-actions"><span>今日 ${procrastinationEvents(today).length} 次</span><button type="button" data-record-marker>＋ 记一次</button>${markerUndo && Date.now()<markerUndo.until ? '<button type="button" data-undo-marker>撤回</button>' : ''}</span>`;
+  const recorded=Boolean(markerUndo)&&Date.now()-markerLastSubmit>=0&&Date.now()-markerLastSubmit<1000;
+  if (toolbar) toolbar.innerHTML = `<button class="marker-awareness" type="button" data-record-marker aria-label="记录一次拖延觉察">
+    <span class="marker-hand" aria-hidden="true">${actionIcons.hand}</span><span class="marker-copy"><strong>我又在拖延了</strong><span>意识到了，就从现在重新开始</span></span>
+    <span class="marker-record-label" aria-live="polite">${recorded?'已记录 ✓':'记一次'}</span></button>
+    <div class="marker-awareness-footer"><span aria-live="polite">今日觉察 ${procrastinationEvents(today).length} 次</span>${markerUndo && Date.now()<markerUndo.until ? '<button type="button" data-undo-marker>撤回</button>' : ''}</div>`;
   const chart = document.getElementById("procrastinationChart");
   if (!chart) return;
   const week = days.slice(-7).reduce((sum,d)=>sum+d.count,0);
@@ -60,6 +65,8 @@ document.addEventListener("click",event=>{
     markerUndo = {id:record.id,until:Date.now()+4000};
     clearTimeout(markerUndoTimer);
     markerUndoTimer = setTimeout(()=>{markerUndo=null;renderProcrastination();},4000);
+    clearTimeout(markerFeedbackTimer);
+    markerFeedbackTimer=setTimeout(renderProcrastination,1000);
     renderProcrastination();
   } else if (event.target.closest("[data-undo-marker]") && markerUndo && Date.now()<markerUndo.until) {
     if (revokeProcrastination(markerUndo.id)) {markerUndo=null;clearTimeout(markerUndoTimer);renderProcrastination();}

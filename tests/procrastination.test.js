@@ -9,7 +9,7 @@ function runtime(){
 }
 test('Independent marker events persist, debounce duplicates, Undo only the chosen ID and leave other data unchanged',()=>{
  const {run,advance}=runtime();run('saveState();state=loadState();const original=JSON.stringify(state);const a=recordProcrastination();recordProcrastination()');
- assert.equal(run('procrastinationEvents().length'),1);advance(300);run('const b=recordProcrastination();state=loadState()');
+ assert.equal(run('procrastinationEvents().length'),1);advance(1999);assert.equal(run('recordProcrastination()'),null);advance(1);run('const b=recordProcrastination();state=loadState()');
  assert.equal(run('procrastinationEvents().length'),2);assert.equal(run('revokeProcrastination(b.id)'),true);
  assert.equal(run('revokeProcrastination(b.id)'),false);assert.equal(run('procrastinationEvents()[0].id'),run('a.id'));
  assert.equal(run('state.coins'),123.45);assert.equal(run('state.history.length'),0);

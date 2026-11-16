@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
   <script src="js/startup.js?v=20260915-stability"></script>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20261116-goals-ui">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20261116-awareness">
 </head>
 <body>
   <div class="app q-app">
@@ -33,12 +33,12 @@
           </div>
         </header>
         <div class="today-mode-bar" id="todayModeBar" role="group" aria-label="今天的模式">
-          <button type="button" data-select-day-mode="normal" aria-pressed="true"><span data-mode-icon="sun" aria-hidden="true"></span><span>普通</span></button>
           <button type="button" data-select-day-mode="vacation" aria-pressed="false"><span data-mode-icon="coffee" aria-hidden="true"></span><span class="mode-option-label">休假<small id="tomorrowVacationLabel" hidden>明天已预约</small></span></button>
+          <button type="button" data-select-day-mode="normal" aria-pressed="true"><span data-mode-icon="sun" aria-hidden="true"></span><span>普通</span></button>
           <button type="button" data-select-day-mode="sprint" aria-pressed="false"><span data-mode-icon="clock" aria-hidden="true"></span><span>冲刺</span></button>
         </div>
         <section class="today-section focus-task" id="currentFocusTask" aria-label="当前任务"></section>
-        <div class="marker-toolbar" id="procrastinationToolbar" aria-label="拖延标记"></div>
+        <div class="marker-toolbar" id="procrastinationToolbar" aria-label="拖延觉察"></div>
         <section class="today-section" id="sprintSection" hidden><div class="section-heading"><h2>今日时间线</h2><button type="button" class="icon-button section-add-button" data-new-sprint data-icon-button="plus" aria-label="新增时间任务"></button></div><div class="daily-habit-list" id="sprintList"></div></section>
 
         <section class="today-section today-daily-task-section">
@@ -402,7 +402,7 @@
   <script src="js/win-streak.js?v=20261112-restore-legacy"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
   <script src="js/stats.js?v=20261116-modes"></script>
-  <script src="js/ui/elements.js?v=20261116-goals-ui"></script>
+  <script src="js/ui/elements.js?v=20261116-awareness"></script>
   <script src="js/ui/feedback.js?v=20261116-modes"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
   <script src="js/ui/review-editor.js?v=20261113-unified"></script>
@@ -411,7 +411,7 @@
   <script src="js/ui/settings.js?v=20260912-settings"></script>
   <script src="js/ui/focus.js?v=20261116-modes"></script>
   <script src="js/ui/daily-tasks.js?v=20261116-modes"></script>
-  <script src="js/procrastination.js?v=20261114-marker"></script>
+  <script src="js/procrastination.js?v=20261116-awareness"></script>
   <script src="js/goals.js?v=20261116-goals"></script>
   <script src="js/ui/goals.js?v=20261116-goals-ui"></script>
   <script src="js/ui/day-modes.js?v=20261116-goals-ui"></script>
