@@ -38,8 +38,10 @@ const server=http.createServer((req,res)=>{
       assert.equal(await page.locator('#appRecoveryNotice').isVisible(),true);
       assert.ok((await page.locator('#habitList').innerHTML()).length>0);
       await page.evaluate(()=>localStorage.setItem(STORAGE_KEY,'{broken'));
-      await page.reload(); await page.waitForFunction(()=>typeof LifeOSPersistence==='undefined'||LifeOSPersistence.writable);
-      assert.equal(await page.locator('#appRecoveryNotice').isVisible(),true);
+      await page.reload(); await page.waitForSelector('#storageOwnerNotice:not([hidden])');
+      assert.equal(await page.evaluate(()=>LifeOSPersistence.writable),false);
+      assert.equal(await page.locator('.app').isVisible(),false);
+      assert.match(await page.locator('#storageOwnerNotice').innerText(),/v3 损坏/);
       assert.equal(await page.evaluate(()=>localStorage.getItem(STORAGE_KEY)),'{broken');
       await page.evaluate(()=>runAutomaticChecks());
       assert.equal(await page.evaluate(()=>localStorage.getItem(STORAGE_KEY)),'{broken');

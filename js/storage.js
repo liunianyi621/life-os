@@ -770,7 +770,9 @@
       storageReadBlocked = false;
       storageRecoveryMessage = "";
       try {
-        const savedRaw = localStorage.getItem(STORAGE_KEY);
+        const browserPersistence = typeof LifeOSPersistence !== 'undefined';
+        if(typeof document!=='undefined' && document.documentElement && !browserPersistence)throw Error('Storage audit unavailable');
+        const savedRaw = browserPersistence ? LifeOSPersistence.readRaw() : localStorage.getItem(STORAGE_KEY);
         let saved = JSON.parse(savedRaw);
         if (savedRaw && (!saved || typeof saved !== "object" || Array.isArray(saved))) {
           throw new Error("Invalid saved state root");
@@ -778,7 +780,7 @@
         if (saved) saved = normalizeStoredCollections(saved);
         const needsRecoveryCleanup = Boolean(storageRecoveryMessage);
         let migrationApplied = false;
-        if (saved) {
+        if (saved && !browserPersistence) {
           if (!pastCoinHistoryScaleMigrationApplied(saved)) {
             try {
               if (!localStorage.getItem(PAST_COIN_HISTORY_SCALE_BACKUP_KEY)) {
@@ -793,7 +795,7 @@
           migrationApplied = migration.applied;
         }
         const normalizedCalendarEvents = Array.isArray(saved?.calendarEvents)
-          ? normalizeCalendarEvents(saved.calendarEvents)
+          ? (browserPersistence ? saved.calendarEvents : normalizeCalendarEvents(saved.calendarEvents))
           : [];
         const needsCalendarEventCleanup = Boolean(Array.isArray(saved?.calendarEvents) && (
           JSON.stringify(normalizedCalendarEvents) !== JSON.stringify(saved.calendarEvents)
@@ -863,7 +865,7 @@
         if (!merged.settledThroughDate) {
           merged.settledThroughDate = yesterdayKey();
         }
-        if (needsLegacyCleanup || migrationApplied || needsRecoveryCleanup) {
+        if (!browserPersistence && (needsLegacyCleanup || migrationApplied || needsRecoveryCleanup)) {
           // A write failure must never replace successfully read user data with an empty state.
           try { assertStorageWriter();localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); }
           catch (error) { storageRecoveryMessage = "数据已读取，但暂时无法保存。原数据仍保留。"; }
@@ -873,6 +875,7 @@
       } catch (error) {
         storageReadBlocked = true;
         storageRecoveryMessage = "本机数据暂时无法读取，原始数据已保留，已停止写入。";
+        if(typeof LifeOSPersistence!=='undefined')LifeOSPersistence.protectRead(storageRecoveryMessage);
         console.error("LifeOS storage read failed; original storage is protected", error);
         const fresh = cloneEmptyState();
         fresh.rewards = defaultFundRewards();
@@ -901,7 +904,8 @@
       if(state.dayModes!==undefined && (typeof modeDataValid!=='function' || !modeDataValid(state.dayModes)))throw Error('模式数据异常或未加载，已停止保存');
       if (storageReadBlocked) throw new Error("Storage is protected after a read failure");
       if (typeof syncWinStreak === "function") syncWinStreak();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if(typeof LifeOSPersistence!=='undefined')LifeOSPersistence.write(JSON.stringify(state));
+      else localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
     function cloneDebugValue(value) {
@@ -1333,7 +1337,7 @@
       if (typeof activateDailyHabitSystem === "function") activateDailyHabitSystem();
       try { saveState(); }
       catch { state = previous; showToast("重置失败，原数据未更改"); return false; }
-      OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      if(typeof LifeOSPersistence==='undefined'||!LifeOSPersistence.isolated)OLD_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
       pendingUndo = null;
       if (typeof UndoController !== "undefined") UndoController.clear({ refresh: false });
       currentCalendarMonth = monthKey();

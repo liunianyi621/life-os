@@ -123,6 +123,8 @@
     }
 
     function createLifeOSBackup() {
+      if(typeof LifeOSPersistence!=='undefined' && !LifeOSPersistence.canRender)throw Error('原始存储尚未核对，不能把默认空状态导出为备份。');
+      if(typeof LifeOSPersistence!=='undefined')LifeOSPersistence.assertWrite();
       if (storageReadBlocked) throw new Error("本机数据尚未成功读取，不能导出空白备份。原始数据仍保留。");
       return {
         app: "LifeOS", version: LIFEOS_BACKUP_VERSION, schemaVersion: 1,
@@ -151,7 +153,8 @@
       // Both writes must succeed before memory changes. setItem is atomic for the main key.
       localStorage.setItem(LIFEOS_BEFORE_IMPORT_KEY, previous);
       if(typeof LifeOSPersistence!=='undefined')LifeOSPersistence.restoreConflicts(backup.legacyConflictCopies);
-      localStorage.setItem(STORAGE_KEY, serialized);
+      if(typeof LifeOSPersistence!=='undefined')LifeOSPersistence.write(serialized);
+      else localStorage.setItem(STORAGE_KEY, serialized);
       state = candidate;
       storageReadBlocked = false;
       storageRecoveryMessage = "";

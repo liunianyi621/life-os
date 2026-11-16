@@ -72,7 +72,11 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',async e=>{if(e.target!==els.sheetForm||sheetMode!=='goal-action')return;e.preventDefault();try{await goalTodayAction(els.sheetForm.dataset.actionGoal,new FormData(els.sheetForm).get('goalActionName'));closeSheet();render();}catch(error){showToast(error.message);}});
 window.addEventListener('focus',refreshGoals);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshGoals();});
-window.addEventListener('storage',()=>{state=loadState();render();renderGoals();});
+window.addEventListener('storage',()=>{
+  // The central owner must decide whether a cross-window snapshot is safe to read.
+  if(typeof LifeOSPersistence!=='undefined')return;
+  state=loadState();if(!storageReadBlocked){render();renderGoals();}
+});
 setTimeout(refreshGoals,0);
 let goalMidnightTimer;
 function scheduleGoalMidnight(){clearTimeout(goalMidnightTimer);const next=new Date();next.setHours(24,0,0,0);goalMidnightTimer=setTimeout(async()=>{await refreshGoals();scheduleGoalMidnight();},Math.max(1,next-Date.now()));}

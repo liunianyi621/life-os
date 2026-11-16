@@ -816,6 +816,7 @@
     }
 
     function render() {
+      if(typeof LifeOSPersistence!=='undefined' && !LifeOSPersistence.canRender){LifeOSPersistence.paint();return;}
       if(typeof renderDayMode==='function')renderSafely(renderDayMode);
       renderSafely(renderGoals);
       renderSafely(renderProcrastination);
