@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
   <script src="js/startup.js?v=20260915-stability"></script>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20261116-fresh-start">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20261116-goals-ui">
 </head>
 <body>
   <div class="app q-app">
@@ -24,7 +24,6 @@
           <div class="home-header__title">
             <h1>今天</h1>
             <span class="eyebrow" id="todayDate">今天</span>
-            <button type="button" class="day-mode-button" id="dayModeButton" data-open-day-mode aria-label="普通模式"></button>
           </div>
           <div class="home-coin-balance" aria-label="当前金币">
             <span class="home-coin-balance__amount">
@@ -33,6 +32,11 @@
             <span class="home-coin-balance__label">金币</span>
           </div>
         </header>
+        <div class="today-mode-bar" id="todayModeBar" role="group" aria-label="今天的模式">
+          <button type="button" data-select-day-mode="normal" aria-pressed="true"><span data-mode-icon="sun" aria-hidden="true"></span><span>普通</span></button>
+          <button type="button" data-select-day-mode="vacation" aria-pressed="false"><span data-mode-icon="coffee" aria-hidden="true"></span><span class="mode-option-label">休假<small id="tomorrowVacationLabel" hidden>明天已预约</small></span></button>
+          <button type="button" data-select-day-mode="sprint" aria-pressed="false"><span data-mode-icon="clock" aria-hidden="true"></span><span>冲刺</span></button>
+        </div>
         <section class="today-section focus-task" id="currentFocusTask" aria-label="当前任务"></section>
         <div class="marker-toolbar" id="procrastinationToolbar" aria-label="拖延标记"></div>
         <section class="today-section" id="sprintSection" hidden><div class="section-heading"><h2>今日时间线</h2><button type="button" class="icon-button section-add-button" data-new-sprint data-icon-button="plus" aria-label="新增时间任务"></button></div><div class="daily-habit-list" id="sprintList"></div></section>
@@ -289,16 +293,16 @@
         </div>
       </section>
 
-      <section class="view" data-view="goals"><header class="header q-page-header"><h1>我的目标</h1><button class="icon-button" data-open-goal data-icon-button="plus" aria-label="新建目标"></button></header><div class="segmented"><button class="segment-button active" data-goal-filter="active">进行中</button><button class="segment-button" data-goal-filter="ended">已结束</button></div><div id="goalList"></div></section>
+      <section class="view goals-page" data-view="goals"><header class="header q-page-header"><h1>我的目标</h1><button class="icon-button" data-open-goal data-icon-button="plus" aria-label="新建目标"></button></header><div class="segmented"><button class="segment-button active" data-goal-filter="active">进行中</button><button class="segment-button" data-goal-filter="ended">已结束</button></div><div id="goalList"></div></section>
     </main>
 
     <nav class="bottom-nav q-tab-bar" aria-label="主要导航">
       <button class="nav-button q-tab-item active" data-nav="today">
-        <span class="nav-icon today" data-icon-button="checklist" aria-hidden="true"></span>
+        <span class="nav-icon today" data-icon-button="list-checks" aria-hidden="true"></span>
         <span>今天</span>
       </button>
       <button class="nav-button q-tab-item" data-nav="review">
-        <span class="nav-icon review" data-icon-button="book.closed" aria-hidden="true"></span>
+        <span class="nav-icon review" data-icon-button="book-open" aria-hidden="true"></span>
         <span>复盘</span>
       </button>
       <button class="nav-button q-tab-item" data-nav="goals">
@@ -306,7 +310,7 @@
         <span>目标</span>
       </button>
       <button class="nav-button q-tab-item" data-nav="stats">
-        <span class="nav-icon stats" data-icon-button="chart.xyaxis.line" aria-hidden="true"></span>
+        <span class="nav-icon stats" data-icon-button="chart-no-axes-column" aria-hidden="true"></span>
         <span>统计</span>
       </button>
     </nav>
@@ -398,7 +402,7 @@
   <script src="js/win-streak.js?v=20261112-restore-legacy"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
   <script src="js/stats.js?v=20261116-modes"></script>
-  <script src="js/ui/elements.js?v=20261116-modes"></script>
+  <script src="js/ui/elements.js?v=20261116-goals-ui"></script>
   <script src="js/ui/feedback.js?v=20261116-modes"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
   <script src="js/ui/review-editor.js?v=20261113-unified"></script>
@@ -409,8 +413,8 @@
   <script src="js/ui/daily-tasks.js?v=20261116-modes"></script>
   <script src="js/procrastination.js?v=20261114-marker"></script>
   <script src="js/goals.js?v=20261116-goals"></script>
-  <script src="js/ui/goals.js?v=20261116-recovery"></script>
-  <script src="js/ui/day-modes.js?v=20261116-modes"></script>
+  <script src="js/ui/goals.js?v=20261116-goals-ui"></script>
+  <script src="js/ui/day-modes.js?v=20261116-goals-ui"></script>
   <script src="js/ui.js?v=20261116-recovery"></script>
 </body>
 </html>

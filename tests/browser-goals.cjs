@@ -41,7 +41,7 @@ const server = http.createServer((req,res) => {
  assert.equal(await page.locator('[data-daily-task-row]').count(),1);
  await page.locator('[data-nav=goals]').tap();
  await page.locator('[data-goal-detail]').tap();
- await page.locator('[data-goal-settle]').tap();await page.locator('#confirmAcceptBtn').tap();
+ await page.locator('#sheetForm [data-goal-settle]').tap();await page.locator('#confirmAcceptBtn').tap();
  await page.waitForTimeout(300);
  assert.equal(await page.evaluate(()=>state.longTermGoals[0].status),'achieved');
  assert.equal(await page.evaluate(()=>state.history.filter(e=>e.type==='goal_reward').length),1);

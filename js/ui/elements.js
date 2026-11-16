@@ -1,7 +1,44 @@
+    /* Lucide icon geometry: https://github.com/lucide-icons/lucide
+     * ISC License - Copyright (c) 2026 Lucide Icons and Contributors
+     * Permission to use, copy, modify, and/or distribute this software for any
+     * purpose with or without fee is hereby granted, provided that the above
+     * copyright notice and this permission notice appear in all copies.
+     * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+     * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+     * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+     * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+     * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+     * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+     * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+     *
+     * Clock and target derive from Feather, under the MIT License:
+     * Copyright (c) 2013-present Cole Bemis
+     * Permission is hereby granted, free of charge, to any person obtaining a copy
+     * of this software and associated documentation files (the "Software"), to deal
+     * in the Software without restriction, including without limitation the rights
+     * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+     * copies of the Software, and to permit persons to whom the Software is
+     * furnished to do so, subject to the following conditions:
+     * The above copyright notice and this permission notice shall be included in all
+     * copies or substantial portions of the Software.
+     * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+     * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+     * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+     * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+     * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+     * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+     * SOFTWARE.
+     */
+    function lucideIconSvg(name,paths){
+      return `<svg class="sf-icon lucide lucide-${name}" data-lucide="${name}" viewBox="0 0 24 24" focusable="false" aria-hidden="true">${paths}</svg>`;
+    }
     const actionIcons = {
-      sun: `<svg class="sf-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>`,
-      coffee: `<svg class="sf-icon" viewBox="0 0 24 24"><path d="M5 8h12v8a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4ZM17 9h2a3 3 0 0 1 0 6h-2M8 2v3m5-3v3M3 22h16"/></svg>`,
-      clock: `<svg class="sf-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>`,
+      sun: lucideIconSvg('sun','<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>'),
+      coffee: lucideIconSvg('coffee','<path d="M10 2v2M14 2v2M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1M6 2v2"/>'),
+      clock: lucideIconSvg('clock','<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'),
+      'list-checks': lucideIconSvg('list-checks','<path d="M13 5h8M13 12h8M13 19h8m-18-2 2 2 4-4M3 7l2 2 4-4"/>'),
+      'book-open': lucideIconSvg('book-open','<path d="M12 5v16M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/>'),
+      'chart-no-axes-column': lucideIconSvg('chart-no-axes-column','<path d="M5 21v-6M12 21V3M19 21V9"/>'),
       gearshape: `<svg class="sf-icon" viewBox="0 0 24 24" focusable="false"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"></path><path d="m9 3-.6 2.2-2 .9-2.1-.6L2.5 8.6l1.6 1.6v2.4l-1.6 1.6 1.8 3.1 2.1-.6 2 .9L9 20h4l.6-2.4 2-.9 2.1.6 1.8-3.1-1.6-1.6v-2.4l1.6-1.6-1.8-3.1-2.1.6-2-.9L13 3Z"></path></svg>`,
       "arrow.left": `<svg class="sf-icon" viewBox="0 0 24 24" focusable="false"><path d="m12 5-7 7 7 7M5 12h14"></path></svg>`,
       "checkmark.circle": `
@@ -101,16 +138,7 @@
           <path d="M9.2 7.7h5.4"></path>
         </svg>
       `,
-      target: `
-        <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
-          <circle cx="12" cy="12" r="7.5"></circle>
-          <circle cx="12" cy="12" r="3.25"></circle>
-          <path d="M12 3.8v2.1"></path>
-          <path d="M12 18.1v2.1"></path>
-          <path d="M3.8 12h2.1"></path>
-          <path d="M18.1 12h2.1"></path>
-        </svg>
-      `,
+      target: lucideIconSvg('target','<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'),
       "chart.xyaxis.line": `
         <svg class="sf-icon" viewBox="0 0 24 24" focusable="false">
           <path d="M5.2 18.8V5.2"></path>
