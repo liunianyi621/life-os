@@ -51,7 +51,7 @@ test('Fixed groups map old values without migration; legacy unassigned records r
  const {run}=runtime();assert.throws(()=>run("saveWorkbenchTask({name:'没有项目'})"));
  run("const a=task({name:'旧低优先级',priority:'low',status:'active'});const snapshot=JSON.stringify(wbTask(a));const group=wbGroup(wbTask(a));");
  assert.equal(run('group'),'important');assert.equal(run('JSON.stringify(wbTask(a))'),run('snapshot'));
- run("wbMutate(d=>d.tasks.push({...wbTask(a),id:'legacy',projectId:null}));state=loadState()");assert.equal(run("wbTask('legacy').projectId"),null);
+ run("wbMutate(d=>d.tasks.push({...wbTask(a),id:'legacy',groupId:undefined,projectId:null}));state=loadState()");assert.equal(run("wbTask('legacy').projectId"),null);
  run("assignWorkbenchProject(['legacy'],defaultProject);moveWorkbenchGroup(a,'waiting');state=loadState()");assert.equal(run('wbGroup(wbTask(a))'),'waiting');assert.equal(run('wbTask(a).priority'),'low');
  run("moveWorkbenchGroup(a,'urgent');moveWorkbenchGroup(a,'important')");assert.equal(run('wbGroup(wbTask(a))'),'important');assert.equal(run('state.coins'),1000);
 });
@@ -65,4 +65,20 @@ test('Edits made in Today retain the linked name after canceling and scheduling 
  const {run,at}=runtime();run("const a=task({name:'原始'});const e=addWorkbenchToday(a)");at('2026-11-17T10:01:00');
  run("saveDailyTask({id:e,name:'今天修改的名称',reward:50});cancelWorkbenchToday(a);addWorkbenchToday(a)");
  assert.equal(run('wbTaskName(wbTask(a))'),'今天修改的名称');assert.equal(run('state.dailyTasks.length'),1);
+});
+test('Custom groups are project-owned, stable across rename/reload and independently ordered',()=>{
+ const {run}=runtime();run("const p=saveWorkbenchProject({name:'A'}),q=saveWorkbenchProject({name:'B'});const g=saveWorkbenchGroup(p,{name:'剪辑'}),h=saveWorkbenchGroup(p,{name:'待发布'});const t=saveWorkbenchTask({name:'视频',projectId:p,groupId:g});saveWorkbenchGroup(p,{id:g,name:'编辑中'});reorderWorkbenchGroup(p,h,-1);state=loadState()");
+ assert.equal(run('wbTask(t).groupId'),run('g'));assert.equal(run('wbProjectGroups(p).find(g=>g.id===wbTask(t).groupId).name'),'编辑中');assert.equal(run('wbProjectGroups(q).length'),3);
+ assert.throws(()=>run('moveWorkbenchGroup(t,wbProjectGroups(q)[0].id)'));
+ assert.throws(()=>run('deleteWorkbenchGroup(p,g)'));run('deleteWorkbenchGroup(p,g,h)');assert.equal(run('wbTask(t).groupId'),run('h'));assert.equal(run('state.coins'),1000);
+ run('const backup=createLifeOSBackup();restoreLifeOSBackup(backup);state=loadState()');assert.equal(run('wbTask(t).groupId'),run('h'));
+});
+test('Legacy group conversion is deterministic and idempotent without changing ledger or task identity',()=>{
+ const {run}=runtime();run("const t=task({name:'旧任务',priority:'high'});delete state.workbench.projects[0].groups;delete state.workbench.projects[0].groupsVersion;delete state.workbench.tasks.find(x=>x.id===t).groupId;const old=JSON.stringify(state);const virtual=wbTaskGroupId(wbTask(t));const viewed=wbProjectGroups(defaultProject);const afterView=JSON.stringify(state);saveWorkbenchGroup(defaultProject,{id:viewed[0].id,name:'现在'});const once=JSON.stringify(state);ensureWorkbenchGroups(state.workbench)");
+ assert.equal(run('old'),run('afterView'));assert.equal(run('wbTask(t).groupId'),run('virtual'));assert.equal(run('JSON.stringify(state)'),run('once'));assert.equal(run('state.history.length'),0);
+});
+test('Last populated group cannot be removed and empty custom lists never regenerate defaults',()=>{
+ const {run}=runtime();run('for(const g of [...wbProjectGroups(defaultProject)])deleteWorkbenchGroup(defaultProject,g.id);saveWorkbenchProject({id:defaultProject,name:"仍为空"})');assert.equal(run('wbProjectGroups(defaultProject).length'),0);
+ run("const g=saveWorkbenchGroup(defaultProject,{name:'唯一'});const t=saveWorkbenchTask({name:'保留',projectId:defaultProject,groupId:g})");assert.throws(()=>run('deleteWorkbenchGroup(defaultProject,g)'));
+ run('const backup=createLifeOSBackup();delete backup.data.workbench.projects[0].groups');assert.throws(()=>run('restoreLifeOSBackup(backup)'));assert.equal(run('wbTask(t).groupId'),run('g'));
 });

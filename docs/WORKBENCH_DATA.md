@@ -17,10 +17,20 @@ nonempty project requires a receiving project and confirmation of its task count
 New tasks require a project; old null project IDs remain until the user explicitly
 assigns them through the legacy assignment entry. No automatic assignment runs.
 
-Visible groups are read-only mappings: high becomes urgent, normal/low become
-important, waiting status becomes waiting. Old priority/state values remain in
-storage. Group moves do not change execution IDs or coins. New/edit forms contain
-only name and optional due date, with project/group inferred from the add entry.
+Each project now owns an ordered `groups` array and `groupsVersion: 1`; tasks
+reference stable `groupId` values scoped to their project. The old three-group
+mapping is used only for legacy reads and the initial template of a new project.
+Legacy IDs are deterministic (`wb-group:<projectId>:<legacy-group>`). First
+successful Workbench mutation materializes the groups and missing task links in
+the existing atomic state save; reads never write. Repeating conversion is a no-op.
+Empty custom group arrays never regenerate defaults. Missing arrays with a group
+version marker or invalid references are rejected rather than silently reset.
+
+Rename preserves IDs; reordering only changes that project's array. Deleting a
+populated group requires another group in the same project and moves all its
+non-deleted tasks, including completed history, without changing execution IDs,
+coins, or old priority/status fields. New/edit forms still contain only name and
+optional due date. No global storage key or historical record is removed.
 
 ## Execution
 

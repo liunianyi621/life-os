@@ -21,7 +21,7 @@ const root=path.resolve(__dirname,'..'),server=http.createServer((req,res)=>{
  await hold(page.locator(`[data-wb-filter="${project}"]`));await page.locator('[data-wb-project]').tap();await page.locator('#sheetForm [name=name]').fill('旅行品牌更新');await page.locator('#sheetForm [type=submit]').tap();
  const tag=page.locator(`[data-wb-filter="${project}"]`);await tag.dispatchEvent('pointerdown',{button:0,isPrimary:true,clientX:20,clientY:20});await tag.dispatchEvent('pointermove',{clientX:20,clientY:50});await page.waitForTimeout(550);await tag.dispatchEvent('pointerup');assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
  for(const [group,name] of [['urgent','确认供应商报价'],['important','整理摄影作品集'],['waiting','等待向导回复']]){
-   await page.locator(`[data-wb-add-group=${group}]`).tap();assert.deepEqual(await page.locator('#sheetForm input').evaluateAll(ns=>ns.map(n=>n.name)),['name','dueDate']);assert.equal(await page.locator('#sheetForm select').count(),0);
+   await page.locator(`[data-wb-add-group$=":${group}"]`).tap();assert.deepEqual(await page.locator('#sheetForm input').evaluateAll(ns=>ns.map(n=>n.name)),['name','dueDate']);assert.equal(await page.locator('#sheetForm select').count(),0);
    assert.equal(await page.locator('[name=name]').evaluate(n=>n===document.activeElement),true);await page.locator('[name=name]').fill(name);
    if(group==='urgent'){
      await page.setViewportSize({width,height:500});await page.evaluate(()=>syncSheetViewport());
@@ -31,8 +31,8 @@ const root=path.resolve(__dirname,'..'),server=http.createServer((req,res)=>{
    await page.locator('#sheetForm [type=submit]').tap();await page.setViewportSize({width,height});
  }
  const id=await page.evaluate(()=>state.workbench.tasks[0].id);
- await hold(page.locator(`[data-wb-row="${id}"]`));assert.equal(await page.locator('[data-wb-move=urgent]').count(),0);await page.locator('[data-wb-move=important]').tap();
- assert.equal(await page.locator(`[data-wb-group=important] [data-wb-row="${id}"]`).count(),1);
+ await hold(page.locator(`[data-wb-row="${id}"]`));assert.equal(await page.locator('[data-wb-move$=":urgent"]').count(),0);await page.locator('[data-wb-move$=":important"]').tap();
+ assert.equal(await page.locator(`[data-wb-group$=":important"] [data-wb-row="${id}"]`).count(),1);
  await hold(page.locator(`[data-wb-row="${id}"]`));await page.locator('[data-wb-edit]').tap();await page.locator('[name=name]').fill('编辑后的任务');await page.locator('[name=dueDate]').fill('2026-11-25');await page.locator('#sheetForm [type=submit]').tap();
  await page.locator(`[data-wb-detail="${id}"]`).tap();await page.locator('[data-wb-today]').tap();
  assert.equal(await page.evaluate(()=>state.dailyTasks.filter(t=>t.workbenchTaskId).length),1);
@@ -43,9 +43,9 @@ const root=path.resolve(__dirname,'..'),server=http.createServer((req,res)=>{
  await page.locator('[data-wb-project-new]').tap();await page.locator('[name=name]').fill('接收项目');await page.locator('#sheetForm [type=submit]').tap();const receiver=await page.evaluate(()=>state.workbench.projects[1].id);
  await hold(page.locator(`[data-wb-filter="${project}"]`));await page.locator('[data-wb-project-delete]').tap();await page.locator(`[data-wb-project-choice="${receiver}"]`).tap();assert.match(await page.locator('#confirmMessage').innerText(),/3 项任务/);await page.locator('#confirmCancelBtn').tap();await page.locator('#closeSheetBtn').tap();assert.equal(await page.evaluate(()=>state.workbench.projects[0].status),'active');
  await hold(page.locator(`[data-wb-filter="${project}"]`));await page.locator('[data-wb-project-delete]').tap();await page.locator(`[data-wb-project-choice="${receiver}"]`).tap();await page.locator('#confirmAcceptBtn').tap();assert.equal(await page.evaluate(()=>state.workbench.tasks.every(t=>t.projectId===state.workbench.projects[1].id)),true);
- await page.evaluate(()=>{wbMutate(d=>d.tasks.push({...d.tasks[1],id:'old-unassigned',projectId:null,executionIds:[]}));render();});await page.locator('[data-wb-assign]').tap();await page.locator(`[data-wb-project-choice="${receiver}"]`).tap();assert.equal(await page.locator('[data-wb-assign]').count(),0);
+ await page.evaluate(()=>{wbMutate(d=>d.tasks.push({...d.tasks[1],id:'old-unassigned',groupId:undefined,projectId:null,executionIds:[]}));render();});await page.locator('[data-wb-assign]').tap();await page.locator(`[data-wb-project-choice="${receiver}"]`).tap();assert.equal(await page.locator('[data-wb-assign]').count(),0);
  await hold(page.locator('[data-wb-row="old-unassigned"]'));await page.locator('[data-wb-delete]').tap();await page.locator('#confirmAcceptBtn').tap();assert.equal(await page.locator('[data-wb-row="old-unassigned"]').count(),0);
- await page.locator('[data-wb-add-group=important]').tap();await page.locator('[name=name]').fill('保留的第四项');await page.locator('#sheetForm [type=submit]').tap();
+ await page.locator('[data-wb-add-group$=":important"]').tap();await page.locator('[name=name]').fill('保留的第四项');await page.locator('#sheetForm [type=submit]').tap();
  const out=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(out,{recursive:true});await page.screenshot({path:path.join(out,'workbench-'+width+'.png'),fullPage:true});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.reload();await page.waitForFunction(()=>LifeOSPersistence.writable);await page.locator('[data-nav=workbench]').tap();assert.equal(await page.locator('[data-wb-row]').count(),3);assert.equal(await page.evaluate(()=>state.coins),1050);
@@ -56,6 +56,15 @@ const root=path.resolve(__dirname,'..'),server=http.createServer((req,res)=>{
  assert.equal(await page.evaluate(()=>state.dailyTasks.filter(t=>t.sprintWindow&&t.workbenchTaskId).length),1);
  await page.locator(`[data-wb-detail="${second}"]`).tap();await page.locator('[data-wb-cancel]').tap();assert.equal(await page.evaluate(()=>wbEffectiveStatus(state.workbench.tasks[1])),'todo');
  if(width===390){
+   await page.locator(`[data-wb-filter="${receiver}"]`).tap();await page.locator('[data-wb-group-new]').tap();await page.locator('[name=name]').fill('剪辑中');await page.locator('#sheetForm [type=submit]').tap();
+   const groupId=await page.evaluate(()=>state.workbench.projects[1].groups.at(-1).id);
+   await hold(page.locator(`[data-wb-group-title="${groupId}"]`));await page.locator('[data-wb-group-rename]').tap();await page.locator('[name=name]').fill('待发布');await page.locator('#sheetForm [type=submit]').tap();
+   await hold(page.locator(`[data-wb-group-title="${groupId}"]`));await page.locator('[data-wb-group-order="-1"]').tap();assert.equal(await page.evaluate(()=>state.workbench.projects[1].groups.at(-2).name),'待发布');
+   await page.locator(`[data-wb-add-group="${groupId}"]`).tap();await page.locator('[name=name]').fill('自定义分组任务');await page.locator('#sheetForm [type=submit]').tap();
+   const custom=await page.evaluate(()=>state.workbench.tasks.at(-1).id);
+   await hold(page.locator(`[data-wb-row="${custom}"]`));assert.equal(await page.locator('[data-wb-move]').count(),3);await page.locator('#closeSheetBtn').tap();
+   await hold(page.locator(`[data-wb-group-title="${groupId}"]`));await page.locator('[data-wb-group-delete]').tap();await page.locator('[data-wb-group-target]').first().tap();assert.equal(await page.locator(`[data-wb-row="${custom}"]`).count(),1);
+   await page.reload();await page.waitForFunction(()=>LifeOSPersistence.writable);await page.locator('[data-nav=workbench]').tap();assert.equal(await page.evaluate(()=>state.workbench.tasks.at(-1).id),custom);
    await page.evaluate(()=>{const p=state.workbench.projects[1].id;saveWorkbenchProject({id:p,name:'很长的项目名称 mixed project name '.repeat(5)});for(let i=0;i<120;i++)saveWorkbenchTask({name:'批量任务 '+i,projectId:p});render();});
    assert.ok(await page.locator('[data-wb-row]').count()>120);
    await page.locator('[data-wb-row]').last().scrollIntoViewIfNeeded();

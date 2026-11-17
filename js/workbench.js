@@ -11,6 +11,8 @@ function workbenchValid(data, executions = []) {
   const stamp = value => typeof value==='string' && Number.isFinite(Date.parse(value));
   const ids = records => records.every(r=>wbObject(r)&&typeof r.id==='string'&&r.id) && new Set(records.map(r=>r.id)).size===records.length;
   if (!ids(data.projects) || !ids(data.tasks)) return false;
+  if(!data.projects.every(p=>p.groups===undefined ? p.groupsVersion===undefined : (p.groupsVersion===1&&Array.isArray(p.groups)&&ids(p.groups)&&p.groups.every(g=>typeof g.name==='string'&&g.name.trim()))))return false;
+  if(!data.tasks.every(t=>t.groupId===undefined||t.status==='deleted'||(typeof t.groupId==='string'&&data.projects.find(p=>p.id===t.projectId)?.groups?.some(g=>g.id===t.groupId))))return false;
   const projects=new Set(data.projects.map(p=>p.id)),tasks=new Map(data.tasks.map(t=>[t.id,t]));
   if (!data.projects.every(p=>typeof p.name==='string'&&p.name.trim()&&['active','archived','deleted'].includes(p.status)&&stamp(p.createdAt)&&stamp(p.updatedAt))) return false;
   if (!data.tasks.every(t=>typeof t.name==='string'&&t.name.trim()&&(t.projectId===null||projects.has(t.projectId))
@@ -57,12 +59,39 @@ function wbMutate(change) {
   try {
     workbenchData();
     state.workbench ||= {version:1,projects:[],tasks:[]};
+    ensureWorkbenchGroups(state.workbench);
     const result=change(state.workbench);
+    ensureWorkbenchGroups(state.workbench);
     if(!workbenchValid(state.workbench,state.dailyTasks||[]))throw Error('关联数据校验失败，未保存');
     if(!saveTaskAction(before))throw Error('保存失败，数据未更改，请重试');
     return result;
   } catch(error) {state=JSON.parse(before);throw error;}
 }
+function wbProjectGroups(projectId){
+  const project=(state.workbench?.projects||[]).find(p=>p.id===projectId);
+  if(!project)return [];
+  return project.groups===undefined?['紧急','重要','等待中'].map((name,i)=>({id:`wb-group:${projectId}:${['urgent','important','waiting'][i]}`,name})):project.groups;
+}
+function wbTaskGroupId(task){return task.groupId||`wb-group:${task.projectId}:${wbGroup(task)}`;}
+function ensureWorkbenchGroups(data){
+  for(const p of data.projects)if(p.groups===undefined){p.groups=wbProjectGroups(p.id);p.groupsVersion=1;}
+  for(const t of data.tasks)if(t.projectId&&t.groupId===undefined){const groups=wbProjectGroups(t.projectId);const legacy=`wb-group:${t.projectId}:${wbGroup(t)}`;t.groupId=(groups.find(g=>g.id===legacy)||groups[0])?.id;}
+}
+function saveWorkbenchGroup(projectId,{id=null,name}){
+  name=String(name||'').trim();if(!name)throw Error('请输入分组名称');
+  return wbMutate(data=>{const p=data.projects.find(p=>p.id===projectId&&p.status!=='deleted');if(!p)throw Error('项目已不存在');
+    if(id){const group=p.groups.find(g=>g.id===id);if(!group)throw Error('分组已不存在');group.name=name;return id;}
+    const group={id:createId('work-group'),name};p.groups.push(group);return group.id;
+  });
+}
+function reorderWorkbenchGroup(projectId,id,direction){return wbMutate(data=>{const p=data.projects.find(p=>p.id===projectId);if(!p)throw Error('项目已不存在');const i=p.groups.findIndex(g=>g.id===id),j=i+direction;if(i<0||j<0||j>=p.groups.length)return false;[p.groups[i],p.groups[j]]=[p.groups[j],p.groups[i]];return true;});}
+function deleteWorkbenchGroup(projectId,id,targetId=null){return wbMutate(data=>{
+  const p=data.projects.find(p=>p.id===projectId);if(!p?.groups.some(g=>g.id===id))throw Error('分组已不存在');
+  const tasks=data.tasks.filter(t=>t.projectId===projectId&&t.status!=='deleted'&&wbTaskGroupId(t)===id);
+  if(tasks.length&&!p.groups.some(g=>g.id===targetId&&g.id!==id))throw Error('请先选择其他分组接收任务；没有其他分组时请先新增分组');
+  for(const t of tasks)t.groupId=targetId;
+  p.groups=p.groups.filter(g=>g.id!==id);return true;
+});}
 function saveWorkbenchProject({id=null,name}) {
   name=String(name||'').trim();if(!name)throw Error('请输入项目名称');
   return wbMutate(data=>{
@@ -80,11 +109,11 @@ function setWorkbenchProjectStatus(id,status,{targetProjectId=null}={}) {
     const tasks=data.tasks.filter(t=>t.projectId===id&&t.status!=='deleted');
     if(status==='deleted'&&tasks.length&&(!targetProjectId||targetProjectId===id||!data.projects.some(p=>p.id===targetProjectId&&p.status!=='deleted')))throw Error('请先选择接收任务的项目，任务不会删除');
     project.status=status;project.updatedAt=new Date().toISOString();
-    if(status==='deleted')for(const t of tasks){t.name=wbTaskName(t);t.projectId=targetProjectId;t.updatedAt=project.updatedAt;}
+    if(status==='deleted')for(const t of tasks){if(!wbProjectGroups(targetProjectId).length)throw Error('接收项目需要先新增分组');t.name=wbTaskName(t);t.projectId=targetProjectId;delete t.groupId;t.updatedAt=project.updatedAt;}
     return true;
   });
 }
-function saveWorkbenchTask({id=null,name,projectId=null,priority='normal',dueDate=null,status='todo'}) {
+function saveWorkbenchTask({id=null,name,projectId=null,priority='normal',dueDate=null,status='todo',groupId}) {
   name=String(name||'').trim();dueDate=dueDate||null;projectId=projectId||null;
   if(!name||!Object.hasOwn(WORKBENCH_PRIORITIES,priority)||!Object.hasOwn(WORKBENCH_STATUSES,status)||(dueDate&&!wbDateValid(dueDate)))throw Error('请检查名称、日期和状态');
   if(id&&wbTask(id)&&wbEffectiveStatus(wbTask(id))!==status){
@@ -95,36 +124,42 @@ function saveWorkbenchTask({id=null,name,projectId=null,priority='normal',dueDat
     if(projectId&&!data.projects.some(p=>p.id===projectId&&p.status!=='deleted'))throw Error('项目已不存在');
     const existing=id&&data.tasks.find(t=>t.id===id&&t.status!=='deleted');if(id&&!existing)throw Error('任务已不存在');
     if(!existing&&!projectId)throw Error('新任务必须属于一个项目');
+    if(projectId&&!wbProjectGroups(projectId).length)throw Error('请先新增分组');
+    if(groupId!==undefined&&!wbProjectGroups(projectId).some(g=>g.id===groupId))throw Error('请选择本项目的有效分组');
     const at=new Date().toISOString();
     if(existing) {
       const previous=wbEffectiveStatus(existing);
       if(previous==='completed'&&status!=='completed')existing.reopenedExecutionIds=wbExecutions(existing).filter(e=>e.status==='completed').map(e=>e.id);
       Object.assign(existing,{name,projectId,priority,dueDate,status:previous==='completed'&&status==='completed'?existing.status:status,updatedAt:at,completedAt:status==='completed'?existing.completedAt:null});
+      if(groupId!==undefined)existing.groupId=groupId;
+      else if(existing.groupId&&!wbProjectGroups(projectId).some(g=>g.id===existing.groupId))delete existing.groupId;
       const execution=wbTodayExecution(existing);
       if(execution&&!dailyTaskSettled(execution)){execution.name=name;execution.updatedAt=at;}
       return existing.id;
     }
     if(status==='completed')throw Error('请先保存任务，再标记完成');
     const task={id:createId('work-task'),name,projectId,priority,dueDate,status,createdAt:at,updatedAt:at,completedAt:null,executionIds:[]};
-    data.tasks.push(task);return task.id;
+    if(groupId!==undefined)task.groupId=groupId;data.tasks.push(task);return task.id;
   });
 }
 // Read-only mapping keeps old low-priority and active records intact.
 function wbGroup(task){return wbEffectiveStatus(task)==='waiting'?'waiting':task.priority==='high'?'urgent':'important';}
 function moveWorkbenchGroup(id,group){
-  if(!['urgent','important','waiting'].includes(group))throw Error('无效分组');
   return wbMutate(()=>{
     const task=wbTask(id);if(!task||wbEffectiveStatus(task)==='completed')throw Error('任务已完成或不存在');
+    const groups=wbProjectGroups(task.projectId),target=groups.find(g=>g.id===group)||groups.find(g=>g.id===`wb-group:${task.projectId}:${group}`);
+    if(!target)throw Error('请选择当前项目的分组');task.groupId=target.id;
     task.name=wbTaskName(task);
     if(group==='waiting')task.status='waiting';
-    else {task.priority=group==='urgent'?'high':'normal';task.status='todo';}
+    else if(group==='urgent'||group==='important'){task.priority=group==='urgent'?'high':'normal';task.status='todo';}
     task.updatedAt=new Date().toISOString();return true;
   });
 }
 function assignWorkbenchProject(ids,projectId){
   return wbMutate(data=>{
     if(!data.projects.some(p=>p.id===projectId&&p.status!=='deleted'))throw Error('请选择有效项目');
-    for(const id of ids){const task=wbTask(id);if(!task)throw Error('任务已不存在');task.name=wbTaskName(task);task.projectId=projectId;task.updatedAt=new Date().toISOString();}
+    if(!wbProjectGroups(projectId).length)throw Error('请先在项目中新增分组');
+    for(const id of ids){const task=wbTask(id);if(!task)throw Error('任务已不存在');task.name=wbTaskName(task);task.projectId=projectId;delete task.groupId;task.updatedAt=new Date().toISOString();}
     return true;
   });
 }

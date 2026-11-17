@@ -1,7 +1,7 @@
 let workbenchProjectFilter='all';
 let workbenchShowingCompleted=false;
 let workbenchEditorContext=null;
-const WORKBENCH_GROUPS={urgent:'紧急',important:'重要',waiting:'等待中'};
+let workbenchGroupContext=null;
 function reportWorkbenchError(error) {
   const host=!els.sheetBackdrop.classList.contains('hidden')?(els.sheetForm.querySelector('.keyboard-form-sheet__body')||els.sheetForm):document.getElementById('workbenchList');
   let message=host.querySelector('[data-wb-error]');
@@ -17,14 +17,16 @@ function renderWorkbench() {
   const projects=[{id:'all',name:'全部'},...data.projects.filter(p=>p.status!=='deleted')];
   filters.innerHTML=projects.map(p=>`<button type="button" data-wb-filter="${escapeAttr(p.id)}" aria-pressed="${p.id===workbenchProjectFilter}" title="${escapeAttr(p.name)}" ${p.id==='all'?'':`aria-haspopup="dialog"`}>${escapeHtml(p.name)}</button>`).join('');
   const tasks=wbTasks(workbenchProjectFilter,workbenchShowingCompleted);
-  const groups=workbenchShowingCompleted?[['completed','已完成']]:Object.entries(WORKBENCH_GROUPS);
-  list.innerHTML=groups.map(([key,title])=>{
-    const rows=tasks.filter(t=>key==='completed'||wbGroup(t)===key);
-    return `<section class="workbench-group" data-wb-group="${key}"><div class="workbench-group-heading"><h2>${title}</h2>${key==='completed'?'':`<button type="button" class="habit-complete-control" data-wb-add-group="${key}" aria-label="在${title}新建任务">${actionIcons.plus}</button>`}</div>${rows.length?`<div class="workbench-rows">${rows.map(t=>{
+  const scoped=data.projects.filter(p=>p.status!=='deleted'&&(workbenchProjectFilter==='all'||p.id===workbenchProjectFilter));
+  const groups=workbenchShowingCompleted?[{id:'completed',name:'已完成'}]:scoped.flatMap(p=>wbProjectGroups(p.id).map(g=>({...g,projectId:p.id,name:workbenchProjectFilter==='all'?p.name+' · '+g.name:g.name})));
+  list.innerHTML=groups.map(({id:key,name:title,projectId})=>{
+    const rows=tasks.filter(t=>key==='completed'||(t.projectId===projectId&&wbTaskGroupId(t)===key));
+    return `<section class="workbench-group" data-wb-group="${escapeAttr(key)}"><div class="workbench-group-heading"><h2>${key==='completed'?title:`<button type="button" data-wb-group-title="${escapeAttr(key)}" data-project-id="${escapeAttr(projectId)}" aria-haspopup="dialog">${escapeHtml(title)}</button>`}</h2>${key==='completed'?'':`<button type="button" class="habit-complete-control" data-wb-add-group="${escapeAttr(key)}" data-project-id="${escapeAttr(projectId)}" aria-label="在${escapeAttr(title)}新建任务">${actionIcons.plus}</button>`}</div>${rows.length?`<div class="workbench-rows">${rows.map(t=>{
       const meta=t.dueDate?journalDateLabel(t.dueDate).split(' · ')[0]:'';
       return `<div class="workbench-row" data-wb-row="${escapeAttr(t.id)}"><button type="button" class="habit-complete-control" data-wb-complete="${escapeAttr(t.id)}" aria-label="完成${escapeAttr(wbTaskName(t))}" ${workbenchShowingCompleted?'disabled':''}>${workbenchShowingCompleted?actionIcons['checkmark.circle']:'<span class="habit-empty-circle" aria-hidden="true"></span>'}</button><button type="button" class="workbench-task-content" data-wb-detail="${escapeAttr(t.id)}" aria-haspopup="dialog"><span><strong>${escapeHtml(wbTaskName(t))}</strong>${meta?`<small>${escapeHtml(meta)}</small>`:''}</span></button></div>`;
     }).join('')}</div>`:''}</section>`;
   }).join('');
+  if(!workbenchShowingCompleted)for(const p of scoped)list.insertAdjacentHTML('beforeend',`<button type="button" class="workbench-history" data-wb-group-new="${escapeAttr(p.id)}">＋ 新增分组${workbenchProjectFilter==='all'?' · '+escapeHtml(p.name):''}</button>`);
   const unassigned=data.tasks.filter(t=>t.projectId===null&&t.status!=='deleted');
   if(unassigned.length)list.insertAdjacentHTML('afterbegin',`<button type="button" class="workbench-assign-entry" data-wb-assign>为 ${unassigned.length} 项旧任务选择项目 ›</button>`);
   document.getElementById('workbenchHistory').textContent=workbenchShowingCompleted?'返回待办':'已完成';
@@ -35,7 +37,7 @@ function wbSelect(name,label,options,value) {
 function openWorkbenchTask(id=null,{projectId=workbenchProjectFilter,group='important'}={}) {
   const task=id?wbTask(id):null;if(id&&!task)throw Error('任务已不存在');
   if(!task&&!workbenchData().projects.some(p=>p.id===projectId&&p.status!=='deleted'))return chooseWorkbenchProject({group});
-  workbenchEditorContext={projectId:task?task.projectId:projectId,group:task?wbGroup(task):group};
+  workbenchEditorContext={projectId:task?task.projectId:projectId,group:task?wbTaskGroupId(task):group};
   sheetMode='workbench-task';editingId=id;els.sheetTitle.textContent=task?'编辑任务':'新建任务';
   els.sheetForm.innerHTML=keyboardFormSheetHtml({bodyHtml:`<label class="field"><span>任务名称</span><input name="name" aria-label="任务名称" value="${escapeAttr(task?wbTaskName(task):'')}" required autocomplete="off" enterkeyhint="done"></label><label class="field"><span>截止日期</span><input name="dueDate" aria-label="截止日期" type="date" value="${escapeAttr(task?.dueDate||'')}"></label>`,submitLabel:'保存'});
   openSheet({position:'bottom',kind:'workbench-edit',keyboardForm:true});
@@ -55,8 +57,8 @@ function openWorkbenchProjectMenu(id){
 }
 function openWorkbenchTaskMenu(id){
   const task=wbTask(id);if(!task)return;
-  const group=wbGroup(task),done=wbEffectiveStatus(task)==='completed';
-  workbenchActionSheet(wbTaskName(task),`<button type="button" data-wb-edit="${escapeAttr(id)}">编辑任务</button>${done?`<button type="button" data-wb-restore="${escapeAttr(id)}">恢复待办（保留结算记录）</button>`:Object.entries(WORKBENCH_GROUPS).filter(([key])=>key!==group).map(([key,name])=>`<button type="button" data-wb-move="${key}" data-task-id="${escapeAttr(id)}">移动到${name}</button>`).join('')}<button type="button" data-wb-delete="${escapeAttr(id)}">删除任务</button>`);
+  const group=wbTaskGroupId(task),done=wbEffectiveStatus(task)==='completed';
+  workbenchActionSheet(wbTaskName(task),`<button type="button" data-wb-edit="${escapeAttr(id)}">编辑任务</button>${done?`<button type="button" data-wb-restore="${escapeAttr(id)}">恢复待办（保留结算记录）</button>`:wbProjectGroups(task.projectId).filter(g=>g.id!==group).map(g=>`<button type="button" data-wb-move="${escapeAttr(g.id)}" data-task-id="${escapeAttr(id)}">移动到${escapeHtml(g.name)}</button>`).join('')}<button type="button" data-wb-delete="${escapeAttr(id)}">删除任务</button>`);
 }
 function openWorkbenchDetail(id){
   const task=wbTask(id);if(!task)return;const execution=wbTodayExecution(task),pending=execution&&!dailyTaskSettled(execution);
@@ -76,6 +78,23 @@ async function requestWorkbenchProjectDelete(id,targetProjectId=null){
     setWorkbenchProjectStatus(id,'deleted',{targetProjectId});if(workbenchProjectFilter===id)workbenchProjectFilter=targetProjectId||'all';closeSheet();render();
   }
 }
+function openWorkbenchGroupEditor(projectId,id=null){
+  const group=id&&wbProjectGroups(projectId).find(g=>g.id===id);if(id&&!group)throw Error('分组已不存在');
+  workbenchGroupContext={projectId,id};sheetMode='workbench-group';editingId=null;els.sheetTitle.textContent=id?'重命名分组':'新增分组';
+  els.sheetForm.innerHTML=keyboardFormSheetHtml({bodyHtml:`<label class="field"><span>分组名称</span><input name="name" required value="${escapeAttr(group?.name||'')}" aria-label="分组名称"></label>`,submitLabel:'保存'});
+  openSheet({position:'bottom',kind:'workbench-edit',keyboardForm:true});els.sheetForm.querySelector('input').focus();
+}
+function openWorkbenchGroupMenu(projectId,id){
+  const groups=wbProjectGroups(projectId),i=groups.findIndex(g=>g.id===id);if(i<0)return;
+  workbenchGroupContext={projectId,id};
+  workbenchActionSheet(groups[i].name,`<button type="button" data-wb-group-rename>重命名</button><button type="button" data-wb-group-order="-1" ${i===0?'disabled':''}>上移</button><button type="button" data-wb-group-order="1" ${i===groups.length-1?'disabled':''}>下移</button><button type="button" data-wb-group-delete>删除分组</button>`);
+}
+function requestWorkbenchGroupDelete(){
+  const {projectId,id}=workbenchGroupContext,tasks=workbenchData().tasks.filter(t=>t.projectId===projectId&&t.status!=='deleted'&&wbTaskGroupId(t)===id);
+  if(!tasks.length){deleteWorkbenchGroup(projectId,id);closeSheet();render();return;}
+  const others=wbProjectGroups(projectId).filter(g=>g.id!==id);
+  workbenchActionSheet(`移动 ${tasks.length} 项任务后删除`,others.map(g=>`<button type="button" data-wb-group-target="${escapeAttr(g.id)}">${escapeHtml(g.name)}</button>`).join('')||'<p class="field-help">请先创建新分组，任务不会删除。</p>');
+}
 function openWorkbenchSchedule(id) {
   const task=wbTask(id);if(!task)return;
   if(vacationDay())throw Error('休假日不能安排工作任务');
@@ -94,7 +113,12 @@ document.addEventListener('click',async event=>{
   const b=event.target.closest('button');if(!b)return;
   try {
     if(b.hasAttribute('data-wb-filter')){workbenchProjectFilter=b.dataset.wbFilter;renderWorkbench();}
-    else if(b.dataset.wbAddGroup)openWorkbenchTask(null,{group:b.dataset.wbAddGroup});
+    else if(b.dataset.wbAddGroup)openWorkbenchTask(null,{projectId:b.dataset.projectId,group:b.dataset.wbAddGroup});
+    else if(b.dataset.wbGroupNew)openWorkbenchGroupEditor(b.dataset.wbGroupNew);
+    else if(b.hasAttribute('data-wb-group-rename'))openWorkbenchGroupEditor(workbenchGroupContext.projectId,workbenchGroupContext.id);
+    else if(b.dataset.wbGroupOrder){reorderWorkbenchGroup(workbenchGroupContext.projectId,workbenchGroupContext.id,Number(b.dataset.wbGroupOrder));closeSheet();render();}
+    else if(b.hasAttribute('data-wb-group-delete'))requestWorkbenchGroupDelete();
+    else if(b.dataset.wbGroupTarget){deleteWorkbenchGroup(workbenchGroupContext.projectId,workbenchGroupContext.id,b.dataset.wbGroupTarget);closeSheet();render();}
     else if(b.dataset.wbEdit)openWorkbenchTask(b.dataset.wbEdit);
     else if(b.dataset.wbDetail)openWorkbenchDetail(b.dataset.wbDetail);
     else if(b.dataset.wbMove){moveWorkbenchGroup(b.dataset.taskId,b.dataset.wbMove);closeSheet();render();}
@@ -119,13 +143,14 @@ document.addEventListener('click',async event=>{
   }catch(error){reportWorkbenchError(error);}
 });
 document.addEventListener('submit',event=>{
-  if(event.target!==els.sheetForm||!['workbench-task','workbench-project','workbench-schedule'].includes(sheetMode))return;
+  if(event.target!==els.sheetForm||!['workbench-group','workbench-task','workbench-project','workbench-schedule'].includes(sheetMode))return;
   event.preventDefault();const data=Object.fromEntries(new FormData(els.sheetForm));
   try {
+    if(sheetMode==='workbench-group'){saveWorkbenchGroup(workbenchGroupContext.projectId,{id:workbenchGroupContext.id,name:data.name});closeSheet();render();return;}
     if(sheetMode==='workbench-project'){workbenchProjectFilter=saveWorkbenchProject({id:editingId,name:data.name});workbenchShowingCompleted=false;closeSheet();render();return;}
     if(sheetMode==='workbench-schedule'){addWorkbenchToday(editingId,{hour:Number(data.hour)});closeSheet();render();return;}
     const task=editingId&&wbTask(editingId),context=workbenchEditorContext;
-    saveWorkbenchTask({...data,id:editingId,projectId:context.projectId,priority:task?task.priority:context.group==='urgent'?'high':'normal',status:task?wbEffectiveStatus(task):context.group==='waiting'?'waiting':'todo'});
+    saveWorkbenchTask({...data,id:editingId,projectId:context.projectId,groupId:task?.projectId===null?undefined:context.group,priority:task?task.priority:'normal',status:task?wbEffectiveStatus(task):'todo'});
     closeSheet();render();
   }catch(error){reportWorkbenchError(error);}
 });
@@ -133,10 +158,12 @@ let workbenchPress=null,workbenchSuppressed=null;
 function clearWorkbenchPress(){if(workbenchPress)clearTimeout(workbenchPress.timer);workbenchPress=null;}
 function workbenchPressTarget(target){
   if(target.closest('.habit-complete-control'))return null;
+  const group=target.closest('[data-wb-group-title]');if(group)return {node:group,groupId:group.dataset.wbGroupTitle,projectId:group.dataset.projectId};
   const project=target.closest('[data-wb-filter]');
   if(project&&project.dataset.wbFilter!=='all')return {node:project,projectId:project.dataset.wbFilter};
   const row=target.closest('[data-wb-row]');return row?{node:row,taskId:row.dataset.wbRow}:null;
 }
+function openWorkbenchPressMenu(target){if(target.groupId)openWorkbenchGroupMenu(target.projectId,target.groupId);else if(target.projectId)openWorkbenchProjectMenu(target.projectId);else openWorkbenchTaskMenu(target.taskId);}
 document.addEventListener('pointerdown',event=>{
   clearWorkbenchPress();if(event.button!==0||event.isPrimary===false)return;
   const target=workbenchPressTarget(event.target);if(!target)return;
@@ -144,7 +171,7 @@ document.addEventListener('pointerdown',event=>{
   press.timer=setTimeout(()=>{
     if(workbenchPress!==press)return;
     workbenchSuppressed={node:press.node,until:Date.now()+1200};
-    press.projectId?openWorkbenchProjectMenu(press.projectId):openWorkbenchTaskMenu(press.taskId);
+    openWorkbenchPressMenu(press);
   },500);
 });
 document.addEventListener('pointermove',event=>{if(workbenchPress&&Math.hypot(event.clientX-workbenchPress.x,event.clientY-workbenchPress.y)>10)clearWorkbenchPress();},{passive:true});
@@ -156,6 +183,6 @@ document.addEventListener('contextmenu',event=>{
   const target=workbenchPressTarget(event.target);if(!target)return;event.preventDefault();
   if(workbenchSuppressed&&Date.now()<workbenchSuppressed.until&&workbenchSuppressed.node.contains(event.target))return;
   clearWorkbenchPress();workbenchSuppressed={node:target.node,until:Date.now()+1200};
-  target.projectId?openWorkbenchProjectMenu(target.projectId):openWorkbenchTaskMenu(target.taskId);
+  openWorkbenchPressMenu(target);
 });
-document.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){const target=workbenchPressTarget(event.target);if(target){event.preventDefault();target.projectId?openWorkbenchProjectMenu(target.projectId):openWorkbenchTaskMenu(target.taskId);}}});
+document.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){const target=workbenchPressTarget(event.target);if(target){event.preventDefault();openWorkbenchPressMenu(target);}}});
