@@ -17,7 +17,9 @@ function renderDayMode(){
   const tasks=dailyTasksForToday().filter(t=>t.sprintWindow).sort((a,b)=>Date.parse(a.sprintWindow.startsAt)-Date.parse(b.sprintWindow.startsAt));
   const timeline=document.getElementById('sprintSection');timeline.hidden=holiday || (mode!=='sprint'&&!tasks.some(t=>!dailyTaskSettled(t)));
   timeline.insertAdjacentElement(mode==='sprint'?'afterend':'beforebegin',document.getElementById('procrastinationToolbar'));
-  timeline.querySelector('[data-new-sprint]').hidden=true;
+  const range=state.dayModes?.sprintRanges?.[dateKey()],rangeButton=document.getElementById('sprintRangeButton');
+  rangeButton.hidden=mode!=='sprint';
+  rangeButton.innerHTML=`${actionIcons.clock}<span>${range?`${sprintHourLabel(range.startHour)} – ${sprintHourLabel(range.endHour)}`:'设置时间'}</span><span class="sprint-range-chevron" aria-hidden="true">⌄</span>`;
   timeline.querySelector('h2').textContent=mode==='sprint'?'今日时间线':'待处理时间任务';
   if(timeline.hidden)return;
   if(mode==='sprint')document.querySelector('.today-daily-task-section').hidden=!dailyTasksForToday().some(t=>!t.sprintWindow);
@@ -32,8 +34,6 @@ function renderSprintHours(tasks,mode){
   const list=document.getElementById('sprintList'),day=dateKey(),range=state.dayModes?.sprintRanges?.[day];
   const active=document.activeElement,focused=active?.matches('[data-sprint-hour]')?{hour:active.dataset.sprintHour,value:active.value,start:active.selectionStart,end:active.selectionEnd}:null;
   if(mode!=='sprint'){list.innerHTML=sprintLegacyRows(tasks);return;}
-  const options=(from,to,selected)=>Array.from({length:to-from+1},(_,i)=>`<option value="${i+from}" ${i+from===selected?'selected':''}>${sprintHourLabel(i+from)}</option>`).join('');
-  const controls=`<details class="sprint-range" ${range?'':'open'}><summary>${range?`${sprintHourLabel(range.startHour)} → ${sprintHourLabel(range.endHour)}`:'设置今日时间范围'}</summary><form data-sprint-range data-day="${day}"><label><span class="sr-only">开始时间</span><select name="startHour" aria-label="开始时间">${options(0,23,range?.startHour??new Date().getHours())}</select></label><span aria-hidden="true">→</span><label><span class="sr-only">结束时间</span><select name="endHour" aria-label="结束时间">${options(1,24,range?.endHour??Math.min(24,new Date().getHours()+1))}</select></label><button type="submit">确定</button></form><p class="sprint-error" role="status" hidden></p></details>`;
   const mapped=new Set(),rows=[];
   if(range)for(let hour=range.startHour;hour<range.endHour;hour++){
     const task=sprintHourTask(day,hour),settled=task&&dailyTaskSettled(task);
@@ -41,11 +41,19 @@ function renderSprintHours(tasks,mode){
     const current=new Date().getHours()===hour;
     const window=sprintHourWindow(day,hour),past=window&&Date.parse(window.endsAt)<=Date.now();
     const disabled=settled||!window||(!task&&past);
-    rows.push(`<form class="sprint-hour-row${current?' is-current':''}" data-sprint-hour-form data-day="${day}"><time>${sprintHourLabel(hour)}–${sprintHourLabel(hour+1)}</time><input data-sprint-hour="${hour}" data-day="${day}" aria-label="${sprintHourLabel(hour)}任务" value="${escapeAttr(task?.name||'')}" placeholder="安排这一小时…" ${disabled?'disabled':''} enterkeyhint="done" autocomplete="off">${settled?`<span class="sprint-hour-status ${task.status==='completed'?'is-complete':''}">${task.status==='completed'?'已完成':'已失败'}</span>`:task?`<button type="button" class="habit-complete-control" data-complete-daily-task="${escapeAttr(task.id)}" aria-label="完成 ${escapeAttr(task.name)}"><span class="habit-empty-circle" aria-hidden="true"></span></button>`:'<span class="sprint-hour-empty" aria-hidden="true">○</span>'}</form>`);
+    rows.push(`<form class="sprint-hour-row${current?' is-current':''}" data-sprint-hour-form data-day="${day}"><time>${sprintHourLabel(hour)}</time><input data-sprint-hour="${hour}" data-day="${day}" aria-label="${sprintHourLabel(hour)}任务" value="${escapeAttr(task?.name||'')}" ${disabled?'disabled':''} enterkeyhint="done" autocomplete="off">${settled?`<span class="sprint-hour-status ${task.status==='completed'?'is-complete':''}">${task.status==='completed'?'已完成':'已失败'}</span>`:task?`<button type="button" class="habit-complete-control" data-complete-daily-task="${escapeAttr(task.id)}" aria-label="完成 ${escapeAttr(task.name)}"><span class="habit-empty-circle" aria-hidden="true"></span></button>`:'<button class="habit-complete-control sprint-hour-empty" type="button" disabled aria-label="该时段暂无任务"><span class="habit-empty-circle" aria-hidden="true"></span></button>'}</form>`);
   }
   const legacy=tasks.filter(t=>!mapped.has(t.id));
-  list.innerHTML=controls+(rows.length?`<div class="sprint-hours">${rows.join('')}</div>`:'')+(legacy.length?`<div class="sprint-legacy"><h3>已有时间任务</h3>${sprintLegacyRows(legacy)}</div>`:'');
+  list.innerHTML=(rows.length?`<div class="sprint-hours">${rows.join('')}</div>`:'')+(legacy.length?`<div class="sprint-legacy"><h3>已有时间任务</h3>${sprintLegacyRows(legacy)}</div>`:'');
   if(focused){const input=list.querySelector(`[data-sprint-hour="${focused.hour}"]`);if(input&&!input.disabled){input.value=focused.value;input.focus({preventScroll:true});input.setSelectionRange(focused.start,focused.end);}}
+}
+function openSprintRangeSheet(){
+  if(dayMode()!=='sprint')return;
+  const day=dateKey(),range=state.dayModes?.sprintRanges?.[day];
+  const options=(from,to,selected)=>Array.from({length:to-from+1},(_,i)=>`<option value="${i+from}" ${i+from===selected?'selected':''}>${sprintHourLabel(i+from)}</option>`).join('');
+  sheetMode='sprint-range';editingId=null;els.sheetTitle.textContent='设置时间范围';
+  els.sheetForm.innerHTML=keyboardFormSheetHtml({bodyHtml:`<input type="hidden" name="localDateKey" value="${day}"><div class="sprint-range-fields"><label><span>开始</span><select name="startHour" aria-label="开始时间">${options(0,23,range?.startHour??new Date().getHours())}</select></label><label><span>结束</span><select name="endHour" aria-label="结束时间">${options(1,24,range?.endHour??Math.min(24,new Date().getHours()+1))}</select></label></div><p class="sprint-error" data-sprint-range-error role="alert" hidden></p>`,submitLabel:'保存'});
+  openSheet({position:'bottom',kind:'sprint-range',keyboardForm:true});
 }
 async function toggleTomorrowVacation(){
   const today=dateKey(),tomorrow=shiftDateKey(today,1),scheduled=dayMode(tomorrow)==='vacation';
@@ -71,16 +79,16 @@ document.addEventListener('click',async event=>{
       if(b.dataset.selectDayMode==='vacation')await toggleTomorrowVacation();
       else if(b.dataset.selectDayMode!==dayMode()){saveDayModes(dateKey(),dateKey(),b.dataset.selectDayMode);render();}
     }
-    if(b.hasAttribute('data-new-sprint'))openSprintSheet();
+    if(b.hasAttribute('data-edit-sprint-range'))openSprintRangeSheet();
     if(b.dataset.editSprint)openSprintSheet(b.dataset.editSprint);
     if(b.dataset.failSprint)failSprintTask(b.dataset.failSprint);
   }catch(error){showToast(error.message);render();}
 });
 document.addEventListener('submit',event=>{
-  if(event.target.matches('[data-sprint-range]')){
+  if(event.target===els.sheetForm&&sheetMode==='sprint-range'){
     event.preventDefault();const form=event.target,data=new FormData(form);
-    try{saveSprintRange(data.get('startHour'),data.get('endHour'),form.dataset.day);render();}
-    catch(error){const message=form.parentElement.querySelector('.sprint-error');message.hidden=false;message.textContent=error.message;}
+    try{saveSprintRange(data.get('startHour'),data.get('endHour'),data.get('localDateKey'));closeSheet();render();}
+    catch(error){const message=form.querySelector('[data-sprint-range-error]');message.hidden=false;message.textContent=error.message;}
     return;
   }
   if(event.target.matches('[data-sprint-hour-form]')){event.preventDefault();event.target.querySelector('input').blur();return;}

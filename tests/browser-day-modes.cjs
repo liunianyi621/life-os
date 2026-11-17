@@ -19,7 +19,7 @@ const server = http.createServer((req,res) => {
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
  browser=await (process.env.LIFEOS_BROWSER==='webkit'?webkit:chromium).launch({executablePath:process.env.LIFEOS_BROWSER==='webkit'?process.env.WEBKIT_PATH:process.env.CHROMIUM_PATH,...(process.env.LIFEOS_TEST_PROXY?{proxy:{server:process.env.LIFEOS_TEST_PROXY,bypass:'127.0.0.1,localhost'}}:{})});
- for(const [width,height] of [[390,844],[393,852],[430,932]]){
+ for(const [width,height] of [[375,812],[390,844],[393,852],[430,932]]){
  const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true,timezoneId:'Asia/Shanghai'});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.LIFEOS_TEST_URL||`http://127.0.0.1:${server.address().port}`);
@@ -41,20 +41,45 @@ const server = http.createServer((req,res) => {
  await page.locator('[data-select-day-mode=sprint]').tap();
  assert.equal(await page.locator('#currentFocusTask').isVisible(),false);
  assert.equal(await page.locator('[data-sprint-hour]').count(),0);
- await page.locator('[name=startHour]').selectOption('12');await page.locator('[name=endHour]').selectOption('21');await page.locator('[data-sprint-range] button').tap();
+ assert.equal(await page.locator('#sprintRangeButton > span').first().innerText(),'设置时间');
+ await page.locator('[data-edit-sprint-range]').tap();
+ assert.equal(await page.locator('#sheetTitle').innerText(),'设置时间范围');
+ assert.equal(await page.locator('body').evaluate(node=>node.classList.contains('modal-open')),true);
+ const out=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(out,{recursive:true});
+ await page.screenshot({path:path.join(out,'sprint-range-sheet-'+width+'.png'),fullPage:true});
+ const sheetGeometry=await page.locator('#sheetBackdrop .sheet').boundingBox();assert.ok(sheetGeometry.height<height*0.55);
+ await page.locator('[name=startHour]').selectOption('13');await page.locator('[name=endHour]').selectOption('22');await page.locator('#sheetForm button[type=submit]').tap();
+ assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
  assert.equal(await page.locator('[data-sprint-hour]').count(),9);
- await page.locator('[data-sprint-hour="12"]').fill('剪辑视频与一个很长的中文小时任务名称');await page.locator('[data-sprint-hour="12"]').press('Enter');
- await page.locator('[data-sprint-hour="12"]').fill('编辑后直接点完成');
+ assert.equal(await page.locator('.sprint-range, #sprintList details, #sprintList select, #sprintList input[placeholder]').count(),0);
+ assert.deepEqual(await page.locator('.sprint-hour-row time').allTextContents(),['13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00']);
+ assert.equal(await page.locator('.sprint-hour-empty:disabled').count(),9);
+ const heading=await page.locator('#sprintSection h2').boundingBox(),pill=await page.locator('#sprintRangeButton').boundingBox();
+ assert.ok(Math.abs(heading.y+heading.height/2-pill.y-pill.height/2)<2);
+ assert.ok(pill.x>heading.x+heading.width&&pill.x+pill.width<=width-16);
+ const blank=page.locator('[data-sprint-hour="13"]');await blank.tap();assert.equal(await blank.evaluate(n=>n===document.activeElement),true);
+ await blank.fill('剪辑视频与一个很长的中文小时任务名称');await blank.press('Enter');
+ await page.locator('[data-sprint-hour="13"]').fill('编辑后直接点完成');
  await page.locator('#sprintList [data-complete-daily-task]').tap();assert.equal(await page.evaluate(()=>state.coins),1050);
- assert.equal(await page.locator('[data-sprint-hour="12"]').isDisabled(),true);
+ assert.equal(await page.locator('[data-sprint-hour="13"]').isDisabled(),true);
+ const settled=await page.evaluate(()=>JSON.stringify({tasks:state.dailyTasks,history:state.history,coins:state.coins}));
+ await page.locator('[data-edit-sprint-range]').tap();await page.locator('[name=startHour]').selectOption('14');await page.locator('#sheetForm button[type=submit]').tap();
+ assert.equal(await page.locator('#sheetBackdrop').isVisible(),true);assert.match(await page.locator('[data-sprint-range-error]').innerText(),/范围外已有任务/);
+ assert.equal(await page.evaluate(()=>JSON.stringify({tasks:state.dailyTasks,history:state.history,coins:state.coins})),settled);
+ await page.locator('#closeSheetBtn').tap();
+ // Opening the range sheet preserves the existing Undo window.
  await page.locator('[data-contextual-undo]').tap();
- await page.locator('[data-sprint-hour="12"]').fill('');await page.locator('[data-sprint-hour="12"]').press('Enter');
- await page.locator('.sprint-range summary').tap();await page.locator('[name=startHour]').selectOption('10');await page.locator('[data-sprint-range] button').tap();
+ await page.locator('[data-sprint-hour="13"]').fill('');await page.locator('[data-sprint-hour="13"]').press('Enter');
+ assert.equal(await page.locator('[data-sprint-hour="13"]').inputValue(),'');assert.equal(await page.locator('.sprint-hour-empty:disabled').count(),9);
+ await page.locator('[data-edit-sprint-range]').tap();await page.locator('[name=startHour]').selectOption('10');await page.locator('#sheetForm button[type=submit]').tap();
  await page.locator('[data-sprint-hour="10"]').fill('一个冲刺行动');await page.locator('[data-sprint-hour="10"]').press('Enter');
- assert.equal(await page.locator('[data-sprint-hour]').count(),11);
+ assert.equal(await page.locator('[data-sprint-hour]').count(),12);
+ await page.locator('[data-sprint-hour="21"]').evaluate(n=>n.scrollIntoView({block:'center'}));
+ const last=await page.locator('[data-sprint-hour="21"]').boundingBox(),nav=await page.locator('.bottom-nav').boundingBox();
+ if(nav)assert.ok(last.y+last.height<nav.y);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.locator('[data-select-day-mode=normal]').tap();
  assert.equal(await page.evaluate(()=>dayMode()),'sprint');assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
- const out=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(out,{recursive:true});
  await page.screenshot({path:path.join(out,'sprint-mode-'+width+'.png'),fullPage:true});
  await page.clock.fastForward(60*60*1000);
  assert.equal(await page.evaluate(()=>state.coins),800);
