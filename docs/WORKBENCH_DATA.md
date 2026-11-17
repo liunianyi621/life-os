@@ -13,7 +13,14 @@ records remain untouched; Review has no navigation or visible form.
 
 Tasks have stable IDs, project ID (or null), priority, status, optional due date,
 timestamps, and execution IDs. Projects are soft archived/deleted. Deleting a
-project moves its tasks to uncategorized; task deletion retains the raw record.
+nonempty project requires a receiving project and confirmation of its task count.
+New tasks require a project; old null project IDs remain until the user explicitly
+assigns them through the legacy assignment entry. No automatic assignment runs.
+
+Visible groups are read-only mappings: high becomes urgent, normal/low become
+important, waiting status becomes waiting. Old priority/state values remain in
+storage. Group moves do not change execution IDs or coins. New/edit forms contain
+only name and optional due date, with project/group inferred from the add entry.
 
 ## Execution
 

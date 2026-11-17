@@ -48,7 +48,7 @@ function wbTaskName(task) {
 function wbTasks(project='all',completed=false) {
   return workbenchData().tasks.filter(t=>t.status!=='deleted' && (project==='all'||(project==='none'?t.projectId===null:t.projectId===project))
     && (wbEffectiveStatus(t)==='completed')===completed).sort((a,b)=>{
-      const rank=t=>wbEffectiveStatus(t)==='waiting'?3:['high','normal','low'].indexOf(t.priority);
+      const rank=t=>({urgent:0,important:1,waiting:2})[wbGroup(t)];
       return rank(a)-rank(b) || (a.dueDate||'9999').localeCompare(b.dueDate||'9999') || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
     });
 }
@@ -73,12 +73,14 @@ function saveWorkbenchProject({id=null,name}) {
     const project={id:createId('project'),name,status:'active',createdAt:at,updatedAt:at};data.projects.push(project);return project.id;
   });
 }
-function setWorkbenchProjectStatus(id,status) {
+function setWorkbenchProjectStatus(id,status,{targetProjectId=null}={}) {
   if(!['active','archived','deleted'].includes(status))throw Error('无效项目状态');
   return wbMutate(data=>{
     const project=data.projects.find(p=>p.id===id&&p.status!=='deleted');if(!project)throw Error('项目已不存在');
+    const tasks=data.tasks.filter(t=>t.projectId===id&&t.status!=='deleted');
+    if(status==='deleted'&&tasks.length&&(!targetProjectId||targetProjectId===id||!data.projects.some(p=>p.id===targetProjectId&&p.status!=='deleted')))throw Error('请先选择接收任务的项目，任务不会删除');
     project.status=status;project.updatedAt=new Date().toISOString();
-    if(status==='deleted')for(const t of data.tasks)if(t.projectId===id){t.name=wbTaskName(t);t.projectId=null;t.updatedAt=project.updatedAt;}
+    if(status==='deleted')for(const t of tasks){t.name=wbTaskName(t);t.projectId=targetProjectId;t.updatedAt=project.updatedAt;}
     return true;
   });
 }
@@ -92,6 +94,7 @@ function saveWorkbenchTask({id=null,name,projectId=null,priority='normal',dueDat
   return wbMutate(data=>{
     if(projectId&&!data.projects.some(p=>p.id===projectId&&p.status!=='deleted'))throw Error('项目已不存在');
     const existing=id&&data.tasks.find(t=>t.id===id&&t.status!=='deleted');if(id&&!existing)throw Error('任务已不存在');
+    if(!existing&&!projectId)throw Error('新任务必须属于一个项目');
     const at=new Date().toISOString();
     if(existing) {
       const previous=wbEffectiveStatus(existing);
@@ -104,6 +107,25 @@ function saveWorkbenchTask({id=null,name,projectId=null,priority='normal',dueDat
     if(status==='completed')throw Error('请先保存任务，再标记完成');
     const task={id:createId('work-task'),name,projectId,priority,dueDate,status,createdAt:at,updatedAt:at,completedAt:null,executionIds:[]};
     data.tasks.push(task);return task.id;
+  });
+}
+// Read-only mapping keeps old low-priority and active records intact.
+function wbGroup(task){return wbEffectiveStatus(task)==='waiting'?'waiting':task.priority==='high'?'urgent':'important';}
+function moveWorkbenchGroup(id,group){
+  if(!['urgent','important','waiting'].includes(group))throw Error('无效分组');
+  return wbMutate(()=>{
+    const task=wbTask(id);if(!task||wbEffectiveStatus(task)==='completed')throw Error('任务已完成或不存在');
+    task.name=wbTaskName(task);
+    if(group==='waiting')task.status='waiting';
+    else {task.priority=group==='urgent'?'high':'normal';task.status='todo';}
+    task.updatedAt=new Date().toISOString();return true;
+  });
+}
+function assignWorkbenchProject(ids,projectId){
+  return wbMutate(data=>{
+    if(!data.projects.some(p=>p.id===projectId&&p.status!=='deleted'))throw Error('请选择有效项目');
+    for(const id of ids){const task=wbTask(id);if(!task)throw Error('任务已不存在');task.name=wbTaskName(task);task.projectId=projectId;task.updatedAt=new Date().toISOString();}
+    return true;
   });
 }
 function completeWorkbenchTask(id) {
