@@ -53,7 +53,26 @@ settled execution records are preserved, and cannot be scheduled again for the
 same date or generate another reward. The editor explicitly explains this.
 An explicit list of reopened execution IDs keeps this decision auditable.
 
-## Safety
+## Outline UI Addendum
+
+The active UI is a vertical project/category/content outline. Existing project,
+category and task IDs remain unchanged. New UI projects start with an empty
+category array; no sample content is installed. Project folding defaults open,
+category folding defaults closed, with session-only sets keyed by stable IDs.
+Editing preserves those sets and uses local inline drafts until explicit save.
+
+`workbench.notes` is an optional separate array of `type: note` records with
+project/group IDs, raw multiline text, status and timestamps. Notes never enter
+dailyTasks or the settlement service. Optional nonnegative `outlineOrder` values
+order mixed notes/tasks inside their existing parent. Projects and categories
+use their original array order. Dragging cannot reparent records.
+
+Explicit hierarchy removal requires confirmation showing descendant counts,
+soft-deletes tasks/notes and cancels only pending Today executions in the same
+atomic save. Settled executions and coin history remain unchanged. Backups
+already include all optional fields and now validate note references as well.
+
+## Safety (Continued)
 
 Workbench writes use the existing exclusive editor lock and raw-version check.
 Failed writes restore in-memory state and report an error. Invalid versions,

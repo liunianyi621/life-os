@@ -82,3 +82,9 @@ test('Last populated group cannot be removed and empty custom lists never regene
  run("const g=saveWorkbenchGroup(defaultProject,{name:'唯一'});const t=saveWorkbenchTask({name:'保留',projectId:defaultProject,groupId:g})");assert.throws(()=>run('deleteWorkbenchGroup(defaultProject,g)'));
  run('const backup=createLifeOSBackup();delete backup.data.workbench.projects[0].groups');assert.throws(()=>run('restoreLifeOSBackup(backup)'));assert.equal(run('wbTask(t).groupId'),run('g'));
 });
+test('Outline notes, sibling orders and confirmed hierarchy removal preserve ledger and raw history',()=>{
+ const {run}=runtime();run("const p=saveOutlineProject({name:'大纲'});const a=saveWorkbenchGroup(p,{name:'A'}),b=saveWorkbenchGroup(p,{name:'B'});const t=saveWorkbenchTask({name:'行动',projectId:p,groupId:a});const n=saveWorkbenchNote({projectId:p,groupId:a,text:'第一行\\nhttps://example.com'});const second=saveWorkbenchNote({projectId:p,groupId:a,text:'第二条'});reorderWorkbenchOutline('content',second,t,p,a);reorderWorkbenchOutline('group',b,a,p);const backup=createLifeOSBackup();restoreLifeOSBackup(backup);state=loadState()");
+ assert.equal(run('wbProjectGroups(p)[0].id'),run('b'));assert.equal(run('wbOutlineContents(p,a)[0].item.id'),run('second'));assert.equal(run('state.workbench.notes[0].text'),'第一行\nhttps://example.com');assert.equal(run('state.coins'),1000);assert.equal(run('state.history.length'),0);
+ assert.throws(()=>run('reorderWorkbenchOutline("content",n,t,p,b)'));
+ run('const execution=addWorkbenchToday(t);deleteWorkbenchOutline("project",p)');assert.equal(run('state.dailyTasks[0].status'),'deleted');assert.equal(run('state.workbench.notes[0].status'),'deleted');assert.equal(run('state.workbench.projects.find(x=>x.id===p).status'),'deleted');assert.equal(run('state.coins'),1000);
+});

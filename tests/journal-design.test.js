@@ -25,6 +25,6 @@ test('Journal history preserves missing score in compact summary rows',()=>{
 });
 test('Workbench uses project filters and one task list, without a review form',()=>{
   const html=read('index.html');
-  assert.match(html,/id="workbenchFilters"/);assert.match(html,/id="workbenchList"/);
+  assert.doesNotMatch(html,/id="workbenchFilters"/);assert.match(html,/id="workbenchList"/);
   assert.doesNotMatch(html,/id="reviewDateInput"/);
 });

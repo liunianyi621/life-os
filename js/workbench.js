@@ -11,6 +11,8 @@ function workbenchValid(data, executions = []) {
   const stamp = value => typeof value==='string' && Number.isFinite(Date.parse(value));
   const ids = records => records.every(r=>wbObject(r)&&typeof r.id==='string'&&r.id) && new Set(records.map(r=>r.id)).size===records.length;
   if (!ids(data.projects) || !ids(data.tasks)) return false;
+  if(data.notes!==undefined&&(!Array.isArray(data.notes)||!ids(data.notes)||!data.notes.every(n=>n.type==='note'&&typeof n.text==='string'&&['active','deleted'].includes(n.status)&&stamp(n.createdAt)&&stamp(n.updatedAt)&&data.projects.some(p=>p.id===n.projectId&&(n.status==='deleted'||p.groups?.some(g=>g.id===n.groupId))))))return false;
+  if([...(data.notes||[]),...data.tasks].some(t=>t.outlineOrder!==undefined&&(!Number.isSafeInteger(t.outlineOrder)||t.outlineOrder<0)))return false;
   if(!data.projects.every(p=>p.groups===undefined ? p.groupsVersion===undefined : (p.groupsVersion===1&&Array.isArray(p.groups)&&ids(p.groups)&&p.groups.every(g=>typeof g.name==='string'&&g.name.trim()))))return false;
   if(!data.tasks.every(t=>t.groupId===undefined||t.status==='deleted'||(typeof t.groupId==='string'&&data.projects.find(p=>p.id===t.projectId)?.groups?.some(g=>g.id===t.groupId))))return false;
   const projects=new Set(data.projects.map(p=>p.id)),tasks=new Map(data.tasks.map(t=>[t.id,t]));
@@ -229,4 +231,44 @@ function addWorkbenchToday(id,{hour=null}={}) {
 }
 function dailyTaskSettlementEvidence(task) {
   return Boolean(task.settlementKey||task.settlementHistoryId||buildSettledEventKeys().has(dailyTaskSettlementKey(task)));
+}
+function saveOutlineProject({id=null,name}){
+  if(id)return saveWorkbenchProject({id,name});
+  name=String(name||'').trim();if(!name)throw Error('请输入项目名称');
+  return wbMutate(data=>{const at=new Date().toISOString(),p={id:createId('project'),name,status:'active',createdAt:at,updatedAt:at,groups:[],groupsVersion:1};data.projects.push(p);return p.id;});
+}
+function saveWorkbenchNote({id=null,projectId,groupId,text}){
+  if(!String(text||'').trim())throw Error('请输入备注内容');
+  return wbMutate(data=>{if(!data.projects.some(p=>p.id===projectId&&p.status!=='deleted'&&p.groups.some(g=>g.id===groupId)))throw Error('分类已不存在');
+    data.notes ||= [];const existing=id&&data.notes.find(n=>n.id===id&&n.status==='active');if(id&&!existing)throw Error('备注已不存在');
+    const at=new Date().toISOString();if(existing){existing.text=String(text);existing.updatedAt=at;return id;}
+    const note={id:createId('work-note'),type:'note',projectId,groupId,text:String(text),status:'active',createdAt:at,updatedAt:at};data.notes.push(note);return note.id;
+  });
+}
+function wbOutlineContents(projectId,groupId){
+  const data=workbenchData(),items=[...data.tasks.filter(t=>t.status!=='deleted'&&t.projectId===projectId&&wbTaskGroupId(t)===groupId).map(t=>({kind:'task',item:t})),...(data.notes||[]).filter(n=>n.status==='active'&&n.projectId===projectId&&n.groupId===groupId).map(n=>({kind:'note',item:n}))];
+  return items.map((x,i)=>({...x,index:i})).sort((a,b)=>(a.item.outlineOrder??items.length+a.index)-(b.item.outlineOrder??items.length+b.index));
+}
+function reorderWorkbenchOutline(kind,id,targetId,projectId=null,groupId=null){return wbMutate(data=>{
+  let items;if(kind==='project')items=data.projects.filter(p=>p.status!=='deleted');
+  else if(kind==='group')items=data.projects.find(p=>p.id===projectId)?.groups||[];
+  else items=wbOutlineContents(projectId,groupId).map(x=>x.item);
+  const from=items.findIndex(x=>x.id===id),to=items.findIndex(x=>x.id===targetId);if(from<0||to<0)throw Error('只能在同一父级内排序');
+  const ordered=[...items];ordered.splice(to,0,ordered.splice(from,1)[0]);
+  if(kind==='project'){const queue=[...ordered];data.projects=data.projects.map(p=>p.status==='deleted'?p:queue.shift());}
+  else if(kind==='group')data.projects.find(p=>p.id===projectId).groups=ordered;
+  else ordered.forEach((item,i)=>item.outlineOrder=i);
+  return true;
+});}
+function deleteWorkbenchOutline(kind,id,projectId=null){
+  runAutomaticChecks({showToast:false});
+  return wbMutate(data=>{
+    const tasks=data.tasks.filter(t=>t.status!=='deleted'&&(kind==='project'?t.projectId===id:kind==='group'?t.projectId===projectId&&wbTaskGroupId(t)===id:kind==='task'&&t.id===id));
+    const notes=(data.notes||[]).filter(n=>n.status==='active'&&(kind==='project'?n.projectId===id:kind==='group'?n.projectId===projectId&&n.groupId===id:kind==='note'&&n.id===id));
+    for(const t of tasks){const e=wbTodayExecution(t);if(e&&!dailyTaskSettled(e))wbCancelExecution(t);t.status='deleted';t.updatedAt=new Date().toISOString();}
+    for(const n of notes){n.status='deleted';n.updatedAt=new Date().toISOString();}
+    if(kind==='project'){const p=data.projects.find(p=>p.id===id);if(p){p.status='deleted';p.updatedAt=new Date().toISOString();}}
+    if(kind==='group'){const p=data.projects.find(p=>p.id===projectId);if(p)p.groups=p.groups.filter(g=>g.id!==id);}
+    return true;
+  });
 }

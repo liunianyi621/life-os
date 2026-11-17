@@ -33,7 +33,7 @@
       const activeElement = document.activeElement;
       const editableFocused = activeElement instanceof HTMLElement
         && activeElement.matches("input:not([type='hidden']), textarea, select");
-      const reviewFormFocused = editableFocused && Boolean(activeElement.closest?.(".review-keyboard-form"));
+      const reviewFormFocused = editableFocused && Boolean(activeElement.closest?.(".review-keyboard-form, .outline-editor"));
       syncSheetViewport.stableHeight = Math.max(syncSheetViewport.stableHeight || 0, layoutHeight);
       const viewportKeyboardOffset = viewport
         ? Math.max(0, Math.round((window.innerHeight || viewportHeight) - viewport.height - viewport.offsetTop))
@@ -51,6 +51,11 @@
 
     function ensureFocusedFormFieldVisible(target = document.activeElement) {
       if (!(target instanceof HTMLElement) || !target.matches("input, textarea, select")) return;
+      if(target.closest('.outline-editor')){
+        const rect=target.getBoundingClientRect(),top=window.visualViewport?.offsetTop||0,bottom=top+(window.visualViewport?.height||innerHeight)-16;
+        if(rect.bottom>bottom)window.scrollBy(0,rect.bottom-bottom);else if(rect.top<top+12)window.scrollBy(0,rect.top-top-12);
+        return;
+      }
       const body = target.closest(".keyboard-form-sheet__body");
       if (body) {
         const fieldRect = target.getBoundingClientRect();
@@ -98,6 +103,7 @@
           document.body.classList.contains("modal-open")
           || document.querySelector(".q-review-page.active")
           || document.activeElement?.closest?.(".review-keyboard-form")
+          || document.activeElement?.closest?.(".outline-editor")
         ) {
           syncSheetViewport();
         }
@@ -114,13 +120,13 @@
       window.addEventListener("scroll", syncContextualUndoPosition, { passive: true });
       window.addEventListener("orientationchange", updateOrientation);
       document.addEventListener("focusin", event => {
-        if (event.target?.matches?.(".keyboard-form-sheet input, .keyboard-form-sheet textarea, .keyboard-form-sheet select, .review-keyboard-form input, .review-keyboard-form textarea")) {
+        if (event.target?.matches?.(".keyboard-form-sheet input, .keyboard-form-sheet textarea, .keyboard-form-sheet select, .review-keyboard-form input, .review-keyboard-form textarea, .outline-editor input, .outline-editor textarea")) {
           syncSheetViewport();
           window.requestAnimationFrame(() => ensureFocusedFormFieldVisible(event.target));
         }
       });
       document.addEventListener("focusout", event => {
-        if (event.target?.closest?.(".review-keyboard-form")) {
+        if (event.target?.closest?.(".review-keyboard-form, .outline-editor")) {
           window.requestAnimationFrame(syncSheetViewport);
         }
       });

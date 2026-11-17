@@ -9,7 +9,8 @@ function reportWorkbenchError(error) {
   message.textContent=error.message||'保存未成功，请重试';
 }
 function wbProjectName(id) { return state.workbench?.projects.find(p=>p.id===id)?.name||'未分类'; }
-function renderWorkbench() {
+function renderWorkbench(){return renderWorkbenchOutline();}
+function renderWorkbenchLegacy() {
   const filters=document.getElementById('workbenchFilters'),list=document.getElementById('workbenchList');
   if(!filters||!list)return;
   const data=workbenchData();
@@ -147,7 +148,7 @@ document.addEventListener('submit',event=>{
   event.preventDefault();const data=Object.fromEntries(new FormData(els.sheetForm));
   try {
     if(sheetMode==='workbench-group'){saveWorkbenchGroup(workbenchGroupContext.projectId,{id:workbenchGroupContext.id,name:data.name});closeSheet();render();return;}
-    if(sheetMode==='workbench-project'){workbenchProjectFilter=saveWorkbenchProject({id:editingId,name:data.name});workbenchShowingCompleted=false;closeSheet();render();return;}
+    if(sheetMode==='workbench-project'){workbenchProjectFilter=saveOutlineProject({id:editingId,name:data.name});workbenchShowingCompleted=false;closeSheet();render();return;}
     if(sheetMode==='workbench-schedule'){addWorkbenchToday(editingId,{hour:Number(data.hour)});closeSheet();render();return;}
     const task=editingId&&wbTask(editingId),context=workbenchEditorContext;
     saveWorkbenchTask({...data,id:editingId,projectId:context.projectId,groupId:task?.projectId===null?undefined:context.group,priority:task?task.priority:'normal',status:task?wbEffectiveStatus(task):'todo'});
@@ -157,13 +158,15 @@ document.addEventListener('submit',event=>{
 let workbenchPress=null,workbenchSuppressed=null;
 function clearWorkbenchPress(){if(workbenchPress)clearTimeout(workbenchPress.timer);workbenchPress=null;}
 function workbenchPressTarget(target){
+  if(target.closest('[data-outline-handle],.outline-editor,.habit-complete-control'))return null;
+  const outline=target.closest('[data-outline-edit-kind]');if(outline)return {node:outline,outlineKind:outline.dataset.outlineEditKind,id:outline.dataset.id,projectId:outline.dataset.projectId,groupId:outline.dataset.groupId};
   if(target.closest('.habit-complete-control'))return null;
   const group=target.closest('[data-wb-group-title]');if(group)return {node:group,groupId:group.dataset.wbGroupTitle,projectId:group.dataset.projectId};
   const project=target.closest('[data-wb-filter]');
   if(project&&project.dataset.wbFilter!=='all')return {node:project,projectId:project.dataset.wbFilter};
   const row=target.closest('[data-wb-row]');return row?{node:row,taskId:row.dataset.wbRow}:null;
 }
-function openWorkbenchPressMenu(target){if(target.groupId)openWorkbenchGroupMenu(target.projectId,target.groupId);else if(target.projectId)openWorkbenchProjectMenu(target.projectId);else openWorkbenchTaskMenu(target.taskId);}
+function openWorkbenchPressMenu(target){if(target.outlineKind)startOutlineEdit(target.outlineKind,target.id,target.projectId,target.groupId);else if(target.groupId)openWorkbenchGroupMenu(target.projectId,target.groupId);else if(target.projectId)openWorkbenchProjectMenu(target.projectId);else openWorkbenchTaskMenu(target.taskId);}
 document.addEventListener('pointerdown',event=>{
   clearWorkbenchPress();if(event.button!==0||event.isPrimary===false)return;
   const target=workbenchPressTarget(event.target);if(!target)return;
