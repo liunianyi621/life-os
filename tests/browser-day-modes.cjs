@@ -18,7 +18,7 @@ const server = http.createServer((req,res) => {
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
- browser=await (process.env.LIFEOS_BROWSER==='webkit'?webkit:chromium).launch({executablePath:process.env.LIFEOS_BROWSER==='webkit'?process.env.WEBKIT_PATH:process.env.CHROMIUM_PATH});
+ browser=await (process.env.LIFEOS_BROWSER==='webkit'?webkit:chromium).launch({executablePath:process.env.LIFEOS_BROWSER==='webkit'?process.env.WEBKIT_PATH:process.env.CHROMIUM_PATH,...(process.env.LIFEOS_TEST_PROXY?{proxy:{server:process.env.LIFEOS_TEST_PROXY,bypass:'127.0.0.1,localhost'}}:{})});
  for(const [width,height] of [[390,844],[393,852],[430,932]]){
  const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true,timezoneId:'Asia/Shanghai'});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -39,8 +39,19 @@ const server = http.createServer((req,res) => {
  // Existing multi-day reservations remain compatible; the new shortcut only edits tomorrow.
  await page.evaluate(()=>saveDayModes('2026-11-18','2026-11-18','vacation'));
  await page.locator('[data-select-day-mode=sprint]').tap();
- await page.locator('[data-new-sprint]').tap();await page.locator('#sheetForm [name=name]').fill('一个冲刺行动');await page.locator('[name=start]').fill('10:00');await page.locator('[name=end]').fill('11:00');await page.locator('#sheetForm button[type=submit]').tap();
- assert.equal(await page.locator('.sprint-row').count(),1);
+ assert.equal(await page.locator('#currentFocusTask').isVisible(),false);
+ assert.equal(await page.locator('[data-sprint-hour]').count(),0);
+ await page.locator('[name=startHour]').selectOption('12');await page.locator('[name=endHour]').selectOption('21');await page.locator('[data-sprint-range] button').tap();
+ assert.equal(await page.locator('[data-sprint-hour]').count(),9);
+ await page.locator('[data-sprint-hour="12"]').fill('剪辑视频与一个很长的中文小时任务名称');await page.locator('[data-sprint-hour="12"]').press('Enter');
+ await page.locator('[data-sprint-hour="12"]').fill('编辑后直接点完成');
+ await page.locator('#sprintList [data-complete-daily-task]').tap();assert.equal(await page.evaluate(()=>state.coins),1050);
+ assert.equal(await page.locator('[data-sprint-hour="12"]').isDisabled(),true);
+ await page.locator('[data-contextual-undo]').tap();
+ await page.locator('[data-sprint-hour="12"]').fill('');await page.locator('[data-sprint-hour="12"]').press('Enter');
+ await page.locator('.sprint-range summary').tap();await page.locator('[name=startHour]').selectOption('10');await page.locator('[data-sprint-range] button').tap();
+ await page.locator('[data-sprint-hour="10"]').fill('一个冲刺行动');await page.locator('[data-sprint-hour="10"]').press('Enter');
+ assert.equal(await page.locator('[data-sprint-hour]').count(),11);
  await page.locator('[data-select-day-mode=normal]').tap();
  assert.equal(await page.evaluate(()=>dayMode()),'sprint');assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
  const out=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(out,{recursive:true});
@@ -51,6 +62,7 @@ const server = http.createServer((req,res) => {
  await page.locator('[data-contextual-undo]').tap();await page.evaluate(()=>runAutomaticChecks());
  assert.equal(await page.evaluate(()=>state.coins),1000);
  assert.equal(await page.locator('#sprintSection').isVisible(),true);
+ assert.equal(await page.locator('#currentFocusTask').isVisible(),true);
  assert.match(await page.locator('#sprintSection h2').innerText(),/待处理/);
  await page.locator('.sprint-row [data-complete-daily-task]').tap();
  assert.equal(await page.evaluate(()=>state.coins),1050);

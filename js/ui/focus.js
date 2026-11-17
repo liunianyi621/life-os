@@ -67,7 +67,7 @@
       editingId = null;
       els.sheetTitle.textContent = habit.name;
       els.sheetForm.innerHTML = `<div class="habit-focus-menu">
-        ${typeof vacationDay==='function'&&vacationDay()?'':`<button class="q-primary-button" type="button" data-start-focus="${escapeAttr(habitId)}" ${focusHabitAvailable(habitId) ? "" : "disabled"}>开始专注</button>`}
+        ${typeof dayMode==='function'&&dayMode()!=='normal'?'':`<button class="q-primary-button" type="button" data-start-focus="${escapeAttr(habitId)}" ${focusHabitAvailable(habitId) ? "" : "disabled"}>开始专注</button>`}
         <button class="q-secondary-button" type="button" data-edit-habit="${escapeAttr(habitId)}">编辑习惯</button>
       </div>`;
       openSheet({ position: "bottom", kind: "habit-actions" });

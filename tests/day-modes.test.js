@@ -107,3 +107,44 @@ test('Settlement itself rejects a completion crossing the deadline, even before 
  at('2026-10-18T11:00:00');assert.equal(run("settleDailyTask(state.dailyTasks[0],'completed')"),null);
  assert.equal(run('state.coins'),1000);run('runAutomaticChecks();runAutomaticChecks()');assert.equal(run('state.coins'),800);
 });
+
+test('Hourly range creates no empty obligations; expansion, shortening and 24:00 retain data',()=>{
+ const {run}=runtime();run("saveDayModes(dateKey(),dateKey(),'sprint');saveSprintRange(12,21)");
+ assert.equal(run('state.dayModes.sprintRanges[dateKey()].endHour-state.dayModes.sprintRanges[dateKey()].startHour'),9);
+ assert.equal(run('state.dailyTasks.length'),0);
+ assert.throws(()=>run('saveSprintRange(21,12)'));assert.throws(()=>run('saveSprintRange(12,12)'));assert.throws(()=>run('saveSprintRange(12.5,21)'));
+ run("const hourId=saveSprintHour(dateKey(),12,'剪辑');saveSprintRange(10,22);state=loadState()");
+ assert.equal(run('sprintHourTask(dateKey(),12).id'),run('hourId'));
+ assert.throws(()=>run('saveSprintRange(13,22)'));
+ run("saveSprintHour(dateKey(),12,'修改');saveSprintHour(dateKey(),12,'');saveSprintRange(13,24)");
+ assert.equal(run('state.dailyTasks[0].status'),'deleted');assert.equal(run('state.history.length'),0);
+ assert.equal(run("dateKey(new Date(sprintWindowForDay(dateKey(),'23:00','24:00').endsAt))"),'2026-10-19');
+ run('const b=createLifeOSBackup();restoreLifeOSBackup(b)');assert.equal(run('state.dayModes.sprintRanges[dateKey()].endHour'),24);
+});
+test('Hourly completion, Undo and timeout share stable settlement; settled slots cannot be recycled',()=>{
+ const {run,at}=runtime();run("saveDayModes(dateKey(),dateKey(),'sprint');saveSprintRange(10,14);const hourId=saveSprintHour(dateKey(),10,'工作');completeDailyTask(hourId);completeDailyTask(hourId)");
+ assert.equal(run('state.coins'),1050);assert.throws(()=>run("saveSprintHour(dateKey(),10,'')"));assert.throws(()=>run('saveSprintRange(11,14)'));
+ run('undoLastAction();completeDailyTask(hourId)');assert.equal(run('state.coins'),1050);
+ run("saveSprintHour(dateKey(),11,'后续')");at('2026-10-18T12:00:00');run('runAutomaticChecks();state=loadState();runAutomaticChecks()');
+ assert.equal(run('state.coins'),850);assert.equal(run("state.history.filter(h=>h.type==='task_failed').length"),1);
+ run('undoLastAction();state=loadState();runAutomaticChecks()');assert.equal(run('state.coins'),1050);
+ run('completeDailyTask(sprintHourTask(dateKey(),11).id)');assert.equal(run('state.coins'),1100);
+ run("saveDayModes(dateKey(),dateKey(),'normal');saveDayModes(dateKey(),dateKey(),'sprint')");assert.equal(run('sprintHourTask(dateKey(),11).status'),'completed');
+ at('2026-10-19T12:00:00');run('runAutomaticChecks();state=loadState();runAutomaticChecks()');assert.equal(run('state.coins'),1100);assert.equal(run('state.dayModes.sprintRanges[dateKey()]'),undefined);
+});
+test('Empty hours never settle; year-boundary deadlines retain one historical penalty',()=>{
+ const {run,at}=runtime('2026-12-31T22:00:00');
+ run("saveDayModes(dateKey(),dateKey(),'sprint');saveSprintRange(0,24);saveSprintHour(dateKey(),23,'年末行动')");
+ at('2027-01-01T00:00:00');run('runAutomaticChecks();state=loadState();runAutomaticChecks()');
+ assert.equal(run('state.coins'),800);assert.equal(run('state.history.length'),1);
+ assert.equal(run('state.history[0].date'),'2026-12-31');assert.equal(run('dailyTasksForToday().length'),0);
+ assert.throws(()=>run("saveSprintHour('2026-12-31',23,'修改历史')"));
+ const empty=runtime();empty.run("saveDayModes(dateKey(),dateKey(),'sprint');saveSprintRange(0,24)");empty.at('2026-10-19T10:00:00');empty.run('runAutomaticChecks();state=loadState();runAutomaticChecks()');
+ assert.equal(empty.run('state.coins'),1000);assert.equal(empty.run('state.history.length'),0);
+});
+test('A nonexistent daylight-saving hour cannot crash or create a billable obligation',()=>{
+ const {run}=runtime('2026-03-29T00:00:00');run("saveDayModes(dateKey(),dateKey(),'sprint');saveSprintRange(0,24)");
+ assert.equal(run('sprintHourWindow(dateKey(),1)'),null);
+ assert.throws(()=>run("saveSprintHour(dateKey(),1,'不存在的小时')"));
+ assert.equal(run('state.dailyTasks.length'),0);assert.equal(run('state.coins'),1000);
+});

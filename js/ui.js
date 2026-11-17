@@ -1795,6 +1795,9 @@
       if (document.visibilityState !== "visible") return;
       if (storageReadBlocked || !dailyHabitSystemEnabled()) return;
       const deadlines = state.tasks.filter(task => !taskIsSettled(task) && taskAutomaticFailureEnabled(task)).map(taskSlotDeadline).filter(Boolean);
+      if(typeof dayMode==='function' && dayMode()==='sprint' && state.dayModes?.sprintRanges?.[dateKey()]){
+        const nextHour=new Date();nextHour.setHours(nextHour.getHours()+1,0,0,0);deadlines.push(nextHour);
+      }
       for(const task of state.dailyTasks||[])if(task.sprintWindow&&!dailyTaskSettled(task)&&task.reversedSprintDeadline!==task.sprintWindow.endsAt){deadlines.push(new Date(task.sprintWindow.endsAt));if(Date.parse(task.sprintWindow.startsAt)>Date.now())deadlines.push(new Date(task.sprintWindow.startsAt));}
       const today = dateKey();
       if (dailyHabitSystemEnabled() || (currentSettings().settlement.autoFailHabitsDaily && state.habits.some(habit =>
