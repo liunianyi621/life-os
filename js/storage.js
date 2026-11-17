@@ -777,6 +777,8 @@
         if (savedRaw && (!saved || typeof saved !== "object" || Array.isArray(saved))) {
           throw new Error("Invalid saved state root");
         }
+        if(saved && ((saved.workbench!==undefined || (Array.isArray(saved.dailyTasks)&&saved.dailyTasks.some(t=>t?.workbenchTaskId!==undefined)))
+          && (typeof validateWorkbenchState!=='function'||!validateWorkbenchState(saved))))throw Error('Invalid workbench data; original storage preserved');
         if (saved) saved = normalizeStoredCollections(saved);
         const needsRecoveryCleanup = Boolean(storageRecoveryMessage);
         let migrationApplied = false;
@@ -901,6 +903,8 @@
 
     function saveState() {
       assertStorageWriter();
+      if((state.workbench!==undefined || (state.dailyTasks||[]).some(t=>t?.workbenchTaskId!==undefined))
+        && (typeof validateWorkbenchState!=='function'||!validateWorkbenchState(state)))throw Error('工作台关联数据异常，已停止保存');
       if(state.dayModes!==undefined && (typeof modeDataValid!=='function' || !modeDataValid(state.dayModes)))throw Error('模式数据异常或未加载，已停止保存');
       if (storageReadBlocked) throw new Error("Storage is protected after a read failure");
       if (typeof syncWinStreak === "function") syncWinStreak();

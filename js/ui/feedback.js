@@ -214,7 +214,7 @@
       function renderGlobal() {
         if (!current || current.mode !== "global") return;
         const label = current.amountLabel ? `${current.amountLabel} · 撤回` : "撤回";
-        const completed = current.actionId.startsWith("task_completed:") || current.actionId.startsWith("memo_completed:");
+        const completed = current.actionId.startsWith("workbench_completed:") || current.actionId.startsWith("task_completed:") || current.actionId.startsWith("memo_completed:");
         const habitUndo = current.actionId.startsWith("habit_completed:") || current.actionId.startsWith("daily_task_completed:");
         renderTopNotice({ message: completed ? "已完成" : habitUndo ? "撤回" : label, undo: true, completed, habitUndo });
         els.toast.classList.toggle("is-exiting", Boolean(current.exiting));
@@ -378,6 +378,7 @@
 
     function switchView(view, options = {}) {
       if (view === "calendar") view = "today";
+      if(view==='review')view='workbench';
       const activeElement = document.activeElement;
       if (view !== "review" && activeElement?.closest?.(".review-keyboard-form")) {
         activeElement.blur();

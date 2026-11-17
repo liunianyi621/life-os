@@ -14,7 +14,7 @@ const timePickerSource = fs.readFileSync(path.join(ROOT, "js/ui/time-picker.js")
 const statsSource = fs.readFileSync(path.join(ROOT, "js/stats.js"), "utf8");
 
 test("Calendar UI removed while legacy storage and four-tab navigation remain safe", () => {
-  assert.deepEqual([...indexHtml.matchAll(/data-nav="([^"]+)"/g)].map(match => match[1]), ["today", "review", "goals", "stats"]);
+  assert.deepEqual([...indexHtml.matchAll(/data-nav="([^"]+)"/g)].map(match => match[1]), ["today", "workbench", "goals", "stats"]);
   assert.doesNotMatch(indexHtml, /data-view="calendar"|id="calendarGrid"|data-calendar-add-selected/);
   assert.match(productionCss, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(feedbackSource, /if \(view === "calendar"\) view = "today"/);

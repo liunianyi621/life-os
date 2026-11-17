@@ -10,12 +10,11 @@ test('Today focuses on daily habits and independent reminders, without a task ti
   for(const action of ['data-open-habit','data-open-memo','habitProgress']) assert.ok(today.includes(action));
   assert.doesNotMatch(today,/data-open-task|todayTaskList/);
 });
-test('Review journal retains data fields but removes repeated prompts and score endpoints',()=>{
-  const review=read('index.html').split('data-view="review"')[1].split('data-view="rewards"')[0];
-  for(const label of ['今日完成记录','今日评分','明日重点']) assert.ok(review.includes(label));
-  assert.doesNotMatch(review,/今天做得最好的事情是什么|今天最大的失误是什么|id="reviewHistoryCount"/);
-  for(const id of ['reviewAutoGood','reviewDailyScore','reviewPriorityFields']) assert.ok(review.includes(`id="${id}"`));
-  assert.doesNotMatch(review,/reviewBestFields|reviewMistake/);
+test('Workbench replaces Review UI while review storage stays compatible',()=>{
+  const html=read('index.html');
+  assert.doesNotMatch(html,/data-view="review"|data-nav="review"|id="dailyReviewForm"|id="reviewHistoryList"/);
+  assert.match(html,/data-view="workbench"/);
+  assert.match(read('js/storage.js'),/dailyReviews: saved.dailyReviews/);
 });
 test('Journal history preserves missing score in compact summary rows',()=>{
   const ui=read('js/ui.js');
@@ -24,12 +23,8 @@ test('Journal history preserves missing score in compact summary rows',()=>{
   assert.match(ui,/function journalDateLabel/);
   assert.doesNotMatch(read('js/storage.js'),/showToast\("复盘已保存"/);
 });
-test('Review uses one writing group, separate tomorrow area and existing date control',()=>{
+test('Workbench uses project filters and one task list, without a review form',()=>{
   const html=read('index.html');
-  assert.match(html,/class="review-journal-group"/);
-  assert.match(html,/review-question review-tomorrow/);
-  assert.match(html,/id="reviewDateInput" type="date"/);
-  const css=read('css/qonto-system.css');
-  assert.match(css,/\.review-journal-group > \.review-question \+ \.review-question/);
-  assert.match(css,/body.keyboard-open \.review-journal-group/);
+  assert.match(html,/id="workbenchFilters"/);assert.match(html,/id="workbenchList"/);
+  assert.doesNotMatch(html,/id="reviewDateInput"/);
 });

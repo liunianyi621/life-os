@@ -32,6 +32,8 @@
         }
       };
       visit(data);
+      if((data.workbench!==undefined || (data.dailyTasks||[]).some(t=>t.workbenchTaskId!==undefined))
+        && (typeof validateWorkbenchState!=='function'||!validateWorkbenchState(data)))invalid();
       if(data.dayModes!==undefined && (typeof modeDataValid!=='function'||!modeDataValid(data.dayModes)))invalid();
       if(data.habits.some(h=>h.modeScope!==undefined&&!['normal','vacation'].includes(h.modeScope)))invalid();
       if(backup.legacyConflictCopies!==undefined && (!Array.isArray(backup.legacyConflictCopies)

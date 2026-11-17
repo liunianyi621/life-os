@@ -794,8 +794,8 @@
         renderNotes();
         return;
       }
-      if (view === "review") {
-        renderDailyReview();
+      if (view === "workbench") {
+        renderWorkbench();
         return;
       }
       if (view === "rewards") {
@@ -1683,21 +1683,6 @@
       const confirmed = await askForConfirmation({ title: "删除提醒", message: "删除这条备忘录？", confirmText: "删除" });
       if (confirmed) deleteMemo(memoId);
     });
-    els.reviewDateButton.addEventListener("click", () => {
-      if (!els.reviewDateInput) return;
-      els.reviewDateInput.value = selectedReviewDate;
-      els.reviewDateInput.max = dateKey();
-      if (typeof els.reviewDateInput.showPicker === "function") {
-        els.reviewDateInput.showPicker();
-        return;
-      }
-      els.reviewDateInput.focus();
-    });
-    els.reviewDateInput.addEventListener("change", event => {
-      const nextDate = setSelectedReviewDate(event.target.value);
-      event.target.value = nextDate;
-      renderDailyReview();
-    });
     document.addEventListener("input", event => {
       if (event.target?.matches?.("[data-daily-score]")) {
         syncDailyScoreControl(event.target, true);
@@ -1708,17 +1693,6 @@
       if (document.activeElement?.matches?.("textarea, input:not([type='range'])")) {
         document.activeElement.blur();
       }
-    });
-    els.dailyReviewForm.addEventListener("submit", event => {
-      event.preventDefault();
-      const formData = new FormData(els.dailyReviewForm);
-      saveDailyReview({
-        mistake: readReviewDraft(selectedReviewDate)?.mistake ?? state.dailyReviews?.[selectedReviewDate]?.mistake ?? "",
-        priorityEntries: collectPlanEntries(els.dailyReviewForm),
-        dailyScore: els.reviewDailyScore.dataset.hasValue === "true"
-          ? formData.get("dailyScore")
-          : null
-      }, selectedReviewDate);
     });
     els.resetAllBtn.addEventListener("click", async () => {
       const confirmed = await askForConfirmation({

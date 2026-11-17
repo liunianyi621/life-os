@@ -38,6 +38,7 @@
       coffee: lucideIconSvg('coffee','<path d="M10 2v2M14 2v2M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1M6 2v2"/>'),
       clock: lucideIconSvg('clock','<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'),
       'list-checks': lucideIconSvg('list-checks','<path d="M13 5h8M13 12h8M13 19h8m-18-2 2 2 4-4M3 7l2 2 4-4"/>'),
+      'list-todo': lucideIconSvg('list-todo','<rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4M13 6h8M13 10h8M13 16h8M13 20h8"/>'),
       'book-open': lucideIconSvg('book-open','<path d="M12 5v16M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/>'),
       'chart-no-axes-column': lucideIconSvg('chart-no-axes-column','<path d="M5 21v-6M12 21V3M19 21V9"/>'),
       gearshape: `<svg class="sf-icon" viewBox="0 0 24 24" focusable="false"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"></path><path d="m9 3-.6 2.2-2 .9-2.1-.6L2.5 8.6l1.6 1.6v2.4l-1.6 1.6 1.8 3.1 2.1-.6 2 .9L9 20h4l.6-2.4 2-.9 2.1.6 1.8-3.1-1.6-1.6v-2.4l1.6-1.6-1.8-3.1-2.1.6-2-.9L13 3Z"></path></svg>`,

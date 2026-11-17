@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <title>自律系统</title>
   <script src="js/startup.js?v=20260915-stability"></script>
-  <link rel="stylesheet" href="css/qonto-system.css?v=20261117-sprint-polish">
+  <link rel="stylesheet" href="css/qonto-system.css?v=20261117-workbench">
 </head>
 <body>
   <div class="app q-app">
@@ -89,52 +89,11 @@
         <div class="list q-list-section" id="noteList"></div>
       </section>
 
-      <section class="view q-review-page" data-view="review">
-        <header class="header q-page-header">
-          <div>
-            <h1>每日复盘</h1>
-            <div class="review-date-control">
-              <button class="review-date-button" type="button" id="reviewDateButton" aria-label="切换复盘日期">
-                <span id="reviewDate">今天</span>
-                <span class="review-date-chevron" aria-hidden="true">⌄</span>
-              </button>
-              <input class="review-date-input" id="reviewDateInput" type="date" aria-label="选择复盘日期">
-            </div>
-          </div>
-        </header>
-
-        <form class="review-form q-form-section review-keyboard-form keyboard-form-sheet__form" id="dailyReviewForm">
-          <div class="keyboard-form-sheet__body review-keyboard-form__body">
-            <div class="review-journal-group">
-            <div class="review-question">
-              <span class="field-label">今日完成记录</span>
-              <span id="reviewAutoGood"></span>
-            </div>
-            <div class="review-question review-score-field">
-              <div class="review-score-heading">
-                <label class="field-label" for="reviewDailyScore">今日评分</label>
-                <output id="reviewDailyScoreValue" for="reviewDailyScore">5 / 10</output>
-              </div>
-              <div class="review-score-control">
-                <input id="reviewDailyScore" name="dailyScore" type="range" min="1" max="10" step="1" value="5" data-daily-score data-score-output="reviewDailyScoreValue">
-              </div>
-            </div>
-            <div class="review-question review-tomorrow">
-              <span class="field-label">明日重点</span>
-              <span id="reviewPriorityFields"></span>
-            </div>
-            </div>
-          </div>
-          <div class="review-save-row keyboard-form-sheet__footer">
-            <span class="review-save-status" id="reviewSaveStatus" role="status" aria-live="polite">✓ 已保存</span>
-            <button class="button q-primary-button" type="submit">保存复盘</button>
-          </div>
-        </form>
-
-        <div class="section-heading q-section-header">
-          <h2>历史复盘</h2>
-        </div>
-        <div class="review-history-list q-list-section" id="reviewHistoryList"></div>
+      <section class="view workbench-page" data-view="workbench">
+        <header class="header q-page-header"><h1>工作台</h1><button type="button" class="icon-button q-icon-button" data-wb-new data-icon-button="plus" aria-label="新建任务"></button></header>
+        <div class="workbench-filters" id="workbenchFilters" role="group" aria-label="项目筛选"></div>
+        <div id="workbenchList"></div>
+        <button type="button" class="workbench-history" id="workbenchHistory" data-wb-history>已完成</button>
       </section>
 
       <section class="view q-rewards-page" data-view="rewards">
@@ -301,9 +260,9 @@
         <span class="nav-icon today" data-icon-button="list-checks" aria-hidden="true"></span>
         <span>今天</span>
       </button>
-      <button class="nav-button q-tab-item" data-nav="review">
-        <span class="nav-icon review" data-icon-button="book-open" aria-hidden="true"></span>
-        <span>复盘</span>
+      <button class="nav-button q-tab-item" data-nav="workbench">
+        <span class="nav-icon" data-icon-button="list-todo" aria-hidden="true"></span>
+        <span>工作台</span>
       </button>
       <button class="nav-button q-tab-item" data-nav="goals">
         <span class="nav-icon rewards" data-icon-button="target" aria-hidden="true"></span>
@@ -385,14 +344,15 @@
 
   <div class="contextual-undo-host" id="toast" aria-live="polite"></div>
 
-  <script src="js/storage-audit.js?v=20261116-fresh-start"></script>
+  <script src="js/workbench.js?v=20261117-workbench"></script>
+  <script src="js/storage-audit.js?v=20261117-workbench"></script>
   <script src="js/storage-profiles.js?v=20261116-fresh-start"></script>
   <script src="js/persistence.js?v=20261116-fresh-start"></script>
-  <script src="js/storage.js?v=20261116-fresh-start"></script>
-  <script src="js/backup.js?v=20261116-recovery"></script>
+  <script src="js/storage.js?v=20261117-workbench"></script>
+  <script src="js/backup.js?v=20261117-workbench"></script>
   <script src="js/tasks.js?v=20261116-modes"></script>
   <script src="js/habits.js?v=20261116-modes"></script>
-  <script src="js/economy.js?v=20261116-modes"></script>
+  <script src="js/economy.js?v=20261117-workbench"></script>
   <script src="js/daily-tasks.js?v=20261116-modes"></script>
   <script src="js/focus.js?v=20261018-daily-tasks"></script>
   <script src="js/settlement.js?v=20261116-modes"></script>
@@ -402,11 +362,11 @@
   <script src="js/win-streak.js?v=20261112-restore-legacy"></script>
   <script src="js/stats-data.js?v=20260911-score-trend"></script>
   <script src="js/stats.js?v=20261116-modes"></script>
-  <script src="js/ui/elements.js?v=20261116-awareness"></script>
-  <script src="js/ui/feedback.js?v=20261116-modes"></script>
+  <script src="js/ui/elements.js?v=20261117-workbench"></script>
+  <script src="js/ui/feedback.js?v=20261117-workbench"></script>
   <script src="js/ui/time-picker.js?v=20260829-hourly-task-timeline-3"></script>
   <script src="js/ui/review-editor.js?v=20261113-unified"></script>
-  <script src="js/ui/sheets.js?v=20261113-unified"></script>
+  <script src="js/ui/sheets.js?v=20261117-workbench"></script>
   <script src="js/memos.js?v=20260913-reminders"></script>
   <script src="js/ui/settings.js?v=20260912-settings"></script>
   <script src="js/ui/focus.js?v=20261117-hourly-sprint"></script>
@@ -415,6 +375,7 @@
   <script src="js/goals.js?v=20261116-goals"></script>
   <script src="js/ui/goals.js?v=20261116-goals-ui"></script>
   <script src="js/ui/day-modes.js?v=20261117-sprint-polish"></script>
-  <script src="js/ui.js?v=20261117-hourly-sprint"></script>
+  <script src="js/ui/workbench.js?v=20261117-workbench"></script>
+  <script src="js/ui.js?v=20261117-workbench"></script>
 </body>
 </html>

@@ -428,6 +428,7 @@
     }
 
     function openReviewEditSheet(day) {
+      if(!document.querySelector('[data-view="review"]'))return switchView('workbench');
       const reviewDate = normalizeReviewDateKey(day);
       const review = state.dailyReviews?.[reviewDate];
       if (!review) {

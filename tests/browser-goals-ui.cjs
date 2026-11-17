@@ -35,7 +35,7 @@ const server=http.createServer((req,res)=>{
    const evidence=path.join(root,'outputs/life-rpg/test-evidence');fs.mkdirSync(evidence,{recursive:true});
    await page.screenshot({path:path.join(evidence,`today-mode-ui-${safari?'webkit':'chrome'}-${width}.png`),fullPage:true});
    const icons=await page.locator('.bottom-nav svg').evaluateAll(nodes=>nodes.map(n=>({name:n.dataset.lucide,width:n.getBoundingClientRect().width,stroke:getComputedStyle(n).strokeWidth})));
-   assert.deepEqual(icons.map(i=>i.name),['list-checks','book-open','target','chart-no-axes-column']);
+   assert.deepEqual(icons.map(i=>i.name),['list-checks','list-todo','target','chart-no-axes-column']);
    assert.equal(new Set(icons.map(i=>i.width)).size,1);assert.equal(new Set(icons.map(i=>i.stroke)).size,1);
    assert.ok((await page.locator('.bottom-nav').boundingBox()).height<=70);
    for(const button of await page.locator('.bottom-nav button').all())assert.ok((await button.boundingBox()).height>=44);

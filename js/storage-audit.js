@@ -10,6 +10,8 @@ const LifeOSStorageAudit = (() => {
     for(const key of ['tasks','dailyTasks','habits','badHabits','notes','memos','history','rewards','achievements','longTermGoals','procrastinationMarkers','calendarEvents'])
       result.counts[key]=Array.isArray(data[key])?data[key].length:0;
     for(const key of ['dailyReviews','priorityTaskByDate','priorityPlans','reviewDrafts','completions','taskResults','habitCompletions','habitFailures','taskAutoFailures','reviewRewards'])result.counts[key]=data[key]&&typeof data[key]==='object'?Object.keys(data[key]).length:0;
+    result.counts.workbenchProjects=Array.isArray(data.workbench?.projects)?data.workbench.projects.length:0;
+    result.counts.workbenchTasks=Array.isArray(data.workbench?.tasks)?data.workbench.tasks.length:0;
     result.coins=Number.isFinite(data.coins)?data.coins:null;
     result.validState=Number.isFinite(data.coins)&&['tasks','habits','memos','history','rewards'].every(k=>Array.isArray(data[k]))
       && data.dailyReviews!==null&&typeof data.dailyReviews==='object'&&!Array.isArray(data.dailyReviews);

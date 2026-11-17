@@ -1560,7 +1560,7 @@
 
     function contextualUndoLabel(undoData = {}) {
       if (undoData.type === "habit_task_scheduled" || undoData.type === "memo_task_scheduled") return "已安排";
-      if (["priority_item_completed", "task_completed", "daily_task_completed", "memo_completed", "habit_completed"].includes(undoData.type)) return "已完成";
+      if (["workbench_completed", "priority_item_completed", "task_completed", "daily_task_completed", "memo_completed", "habit_completed"].includes(undoData.type)) return "已完成";
       if (undoData.type === "task_failed") return "未完成";
       return "操作已完成";
     }
@@ -1601,6 +1601,10 @@
       const undo = pendingUndo;
       clearPendingUndo(true);
       clearTimeout(scheduleRender.timer);
+      if(undo.type==='workbench_completed') {
+        try {if(!undoWorkbenchCompletion(undo))showToast('无法撤回');}
+        catch(error){showUndoToast(undo);showToast(error.message);}return;
+      }
       if(undo.type==="priority_item_completed") {undoPriorityItem(undo);return;}
 
       if (undo.type === "memo_completed") {
