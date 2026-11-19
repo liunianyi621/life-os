@@ -4458,33 +4458,38 @@ body.keyboard-open .keyboard-form-sheet__footer .q-primary-button {
 .outline-content-text.is-note:not(.is-expanded) { display:block; overflow:visible; -webkit-line-clamp:unset; }
 
 /* A single page scroll, with independently sized execution columns. */
-.today-execution-columns.is-dual { display:grid; grid-template-columns:minmax(0,58fr) minmax(0,42fr); align-items:start; gap:8px; margin-top:20px; }
-.today-execution-columns.is-dual > .today-section { min-width:0; margin:0; padding:10px 6px 0; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-sm); }
+.today-execution-columns.is-dual { display:grid; grid-template-columns:minmax(0,1.38fr) minmax(0,1fr); min-width:0; align-items:start; gap:8px; margin-top:20px; }
+.today-execution-columns.is-dual > .today-section { min-width:0; margin:0; padding:12px 10px 6px; background:var(--color-surface); border:0; border-radius:20px; box-shadow:none; }
 .today-execution-columns.is-dual .daily-habit-list { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
-.today-execution-columns.is-dual .section-heading { min-height:44px; margin:0; gap:0; }
-.today-execution-columns.is-dual .section-heading h2 { font-size:15px !important; white-space:normal !important; line-height:1.4; }
-.today-execution-columns.is-dual #sprintSection > .section-heading { flex-direction:column; align-items:flex-start; gap:0; margin-bottom:4px; }
-.today-execution-columns.is-dual .sprint-range-button { max-width:100%; min-height:44px; gap:3px; padding:0; border:0; background:transparent; font-size:11px; white-space:nowrap; }
+.today-execution-columns.is-dual .section-heading,
+.today-execution-columns.is-dual #sprintSection > .section-heading { display:grid; grid-template-columns:minmax(0,1fr) 24px; grid-template-rows:24px 32px; align-items:center; min-height:56px; margin:0 0 12px; gap:0; }
+.today-execution-columns.is-dual .section-heading h2 { grid-column:1; grid-row:1; margin:0; font-size:15px !important; font-weight:600; white-space:nowrap !important; line-height:24px; }
+.today-execution-columns.is-dual .sprint-range-button { grid-column:1/-1; grid-row:2; justify-self:start; max-width:100%; min-height:32px; height:32px; gap:3px; padding:0; border:0; background:transparent; color:var(--color-text-secondary); font-size:11px; font-weight:400; white-space:nowrap; }
 .today-execution-columns.is-dual .sprint-range-button .sf-icon { display:none; }
-.today-execution-columns.is-dual .sprint-hour-row { grid-template-columns:18px minmax(0,1fr) 44px; gap:2px; padding:2px 0; min-height:56px; }
+.today-execution-columns.is-dual .sprint-hour-row { grid-template-columns:17px minmax(0,1fr) 36px; gap:2px; margin:0; padding:0; min-height:44px; height:44px; border:0; }
+.today-execution-columns.is-dual .sprint-hour-row.is-current { background:#f7f7f7; border-radius:6px; }
 .today-execution-columns.is-dual .sprint-hour-row time { font-size:12px; }
 .sprint-hour-short { display:none; }
 .today-execution-columns.is-dual .sprint-hour-full { display:none; }
 .today-execution-columns.is-dual .sprint-hour-short { display:inline; }
-.today-execution-columns.is-dual .sprint-hour-row input { font-size:16px; text-overflow:ellipsis; }
-.today-execution-columns.is-dual .sprint-hour-row input:focus { text-overflow:clip; }
-.today-execution-columns.is-dual .habit-empty-circle { width:21px; height:21px; }
+.today-execution-columns.is-dual .sprint-hour-row input { min-height:44px; height:44px; padding:0; font-size:13px; text-overflow:ellipsis; }
+.today-execution-columns.is-dual .sprint-hour-row input:focus { font-size:16px; text-overflow:clip; }
+.today-execution-columns.is-dual .habit-empty-circle { width:19px; height:19px; }
+.today-execution-columns.is-dual .habit-complete-control { width:36px; height:44px; }
 .today-execution-columns.is-dual .sprint-hour-status { font-size:10px; }
-.today-execution-columns.is-dual .today-habit-section .section-heading { flex-wrap:wrap; }
-.today-execution-columns.is-dual .section-heading-actions { gap:0; margin-left:auto; }
-.today-execution-columns.is-dual #habitProgress { display:none; }
-.today-execution-columns.is-dual .habit-add-button { width:44px; height:44px; }
-.today-execution-columns.is-dual .daily-habit-row { grid-template-columns:minmax(0,1fr) 44px; gap:0; min-height:64px; }
-.today-execution-columns.is-dual .daily-habit-content { grid-column:1; grid-row:1; min-height:44px; padding:8px 0; }
-.today-execution-columns.is-dual .daily-habit-name { font-size:14px; font-weight:550; }
+.today-execution-columns.is-dual .section-heading-actions { display:contents; }
+.today-execution-columns.is-dual #habitProgress { display:block; grid-column:1/-1; grid-row:2; height:32px; line-height:32px; font-size:11px; font-weight:400; color:var(--color-text-secondary); }
+.today-execution-columns.is-dual .habit-add-button { grid-column:2; grid-row:1; width:24px; height:32px; min-width:0; min-height:0; padding:0; background:transparent; }
+.today-execution-columns.is-dual .habit-add-button .sf-icon { width:16px; height:16px; }
+.today-execution-columns.is-dual .daily-habit-row { grid-template-columns:18px minmax(0,1fr) 36px; align-items:center; gap:0; min-height:44px; height:44px; border:0; }
+.today-execution-columns.is-dual .daily-habit-content { grid-column:2; grid-row:1; min-height:44px; height:44px; padding:0; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:pan-y; }
+.today-execution-columns.is-dual .daily-habit-name { display:block; min-width:0; font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .today-execution-columns.is-dual .daily-habit-reward { display:none; }
-.today-execution-columns.is-dual .daily-habit-row > .habit-complete-control { grid-column:2; grid-row:1; }
-.today-execution-columns.is-dual .habit-order-handle { grid-column:1/-1; grid-row:2; justify-self:start; width:44px; height:44px; font-size:17px; }
+.today-execution-columns.is-dual .daily-habit-row > .habit-complete-control { grid-column:3; grid-row:1; }
+.today-execution-columns.is-dual .habit-order-handle { grid-column:1; grid-row:1; width:18px; height:44px; font-size:12px; color:var(--color-text-tertiary); }
+.today-execution-columns.is-dual .sprint-hour-row:has(.sprint-hour-status.is-complete) input { text-decoration:line-through; }
+.today-execution-columns.is-dual .sprint-hour-status.is-complete { font-size:0; }
+.today-execution-columns.is-dual .sprint-hour-status.is-complete::before { content:'✓'; font-size:18px; }
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
