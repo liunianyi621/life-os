@@ -44,10 +44,8 @@ function renderProcrastination() {
   const toolbar = document.getElementById("procrastinationToolbar");
   const today = dateKey(), days = procrastinationDays();
   const recorded=Boolean(markerUndo)&&Date.now()-markerLastSubmit>=0&&Date.now()-markerLastSubmit<1000;
-  if (toolbar) toolbar.innerHTML = `<button class="marker-awareness" type="button" data-record-marker aria-label="记录一次拖延觉察">
-    <span class="marker-hand" aria-hidden="true">${actionIcons.hand}</span><span class="marker-copy"><strong>我又在拖延了</strong><span>意识到了，就从现在重新开始</span></span>
-    <span class="marker-record-label" aria-live="polite">${recorded?'已记录 ✓':'记一次'}</span></button>
-    <div class="marker-awareness-footer"><span aria-live="polite">今日觉察 ${procrastinationEvents(today).length} 次</span>${markerUndo && Date.now()<markerUndo.until ? '<button type="button" data-undo-marker>撤回</button>' : ''}</div>`;
+  if (toolbar) toolbar.innerHTML = `<button class="marker-float-button" type="button" data-record-marker aria-label="记录一次拖延" title="记录一次拖延" data-recorded="${recorded}">${actionIcons.hand}</button><span class="marker-float-status" role="status">${recorded?'已记录':''}</span>${markerUndo && Date.now()<markerUndo.until ? '<button class="marker-float-undo" type="button" data-undo-marker>撤回</button>' : ''}`;
+  if(typeof scheduleTodayPolish==='function')scheduleTodayPolish();
   const chart = document.getElementById("procrastinationChart");
   if (!chart) return;
   const week = days.slice(-7).reduce((sum,d)=>sum+d.count,0);

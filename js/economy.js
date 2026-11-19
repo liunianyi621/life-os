@@ -144,8 +144,9 @@
       });
     }
 
+    function formatBalanceAmount(value){const integer=Math.trunc(Number(value)||0);return new Intl.NumberFormat('zh-CN',{maximumFractionDigits:0}).format(integer===0?0:integer);}
     function setCoinReadouts(value) {
-      const formatted = formatCoinAmount(value);
+      const formatted = formatBalanceAmount(value);
       [els.homeCoins, els.badCoins, els.rewardCoins, els.statCoins].forEach(target => {
         if (target) target.textContent = formatted;
       });
@@ -188,7 +189,7 @@
       if (els.todayTaskCount) els.todayTaskCount.textContent = `${activeCount} 项`;
       if (els.statStreak) els.statStreak.textContent = formatNumber(streak);
       if (els.statCompleted) els.statCompleted.textContent = formatNumber(totals.completedTasks);
-      if (els.statCoins) els.statCoins.textContent = formatCoinAmount(state.coins);
+      if (els.statCoins) els.statCoins.textContent = formatBalanceAmount(state.coins);
       if (els.statSpent) els.statSpent.textContent = formatNumber(totals.coinsSpent);
       if (els.statPenalty) els.statPenalty.textContent = formatNumber(totals.coinsPenalty);
     }

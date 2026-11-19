@@ -16,7 +16,7 @@ function renderDayMode(){
   if(mode==='sprint')stopFocusTick();
   const tasks=dailyTasksForToday().filter(t=>t.sprintWindow).sort((a,b)=>Date.parse(a.sprintWindow.startsAt)-Date.parse(b.sprintWindow.startsAt));
   const timeline=document.getElementById('sprintSection');timeline.hidden=holiday || (mode!=='sprint'&&!tasks.some(t=>!dailyTaskSettled(t)));
-  timeline.insertAdjacentElement(mode==='sprint'?'afterend':'beforebegin',document.getElementById('procrastinationToolbar'));
+  document.getElementById('todayModeBar').insertAdjacentElement('afterend',document.querySelector('.home-memo-section'));
   const range=state.dayModes?.sprintRanges?.[dateKey()],rangeButton=document.getElementById('sprintRangeButton');
   rangeButton.hidden=mode!=='sprint';
   rangeButton.innerHTML=`${actionIcons.clock}<span>${range?`${sprintHourLabel(range.startHour)} – ${sprintHourLabel(range.endHour)}`:'设置时间'}</span><span class="sprint-range-chevron" aria-hidden="true">⌄</span>`;
