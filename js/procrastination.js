@@ -41,10 +41,7 @@ function procrastinationDays(now = new Date()) {
 }
 
 function renderProcrastination() {
-  const toolbar = document.getElementById("procrastinationToolbar");
   const today = dateKey(), days = procrastinationDays();
-  const recorded=Boolean(markerUndo)&&Date.now()-markerLastSubmit>=0&&Date.now()-markerLastSubmit<1000;
-  if (toolbar) toolbar.innerHTML = `<button class="marker-float-button" type="button" data-record-marker aria-label="记录一次拖延" title="记录一次拖延" data-recorded="${recorded}">${actionIcons.hand}</button><span class="marker-float-status" role="status">${recorded?'已记录':''}</span>${markerUndo && Date.now()<markerUndo.until ? '<button class="marker-float-undo" type="button" data-undo-marker>撤回</button>' : ''}`;
   if(typeof scheduleTodayPolish==='function')scheduleTodayPolish();
   const chart = document.getElementById("procrastinationChart");
   if (!chart) return;

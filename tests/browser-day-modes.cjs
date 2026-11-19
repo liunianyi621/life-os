@@ -52,11 +52,11 @@ const server = http.createServer((req,res) => {
  assert.equal(await page.locator('#sheetBackdrop').isVisible(),false);
  assert.equal(await page.locator('[data-sprint-hour]').count(),9);
  assert.equal(await page.locator('.sprint-range, #sprintList details, #sprintList select, #sprintList input[placeholder]').count(),0);
- assert.deepEqual(await page.locator('.sprint-hour-row time').allTextContents(),['13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00']);
+ assert.deepEqual(await page.locator('.sprint-hour-short').allTextContents(),['13','14','15','16','17','18','19','20','21']);
  assert.equal(await page.locator('.sprint-hour-empty:disabled').count(),9);
  const heading=await page.locator('#sprintSection h2').boundingBox(),pill=await page.locator('#sprintRangeButton').boundingBox();
- assert.ok(Math.abs(heading.y+heading.height/2-pill.y-pill.height/2)<2);
- assert.ok(pill.x>heading.x+heading.width&&pill.x+pill.width<=width-16);
+ assert.ok(pill.y>=heading.y+heading.height);
+ assert.ok(pill.x+pill.width<=width-16);
  const blank=page.locator('[data-sprint-hour="13"]');await blank.tap();assert.equal(await blank.evaluate(n=>n===document.activeElement),true);
  await blank.fill('剪辑视频与一个很长的中文小时任务名称');await blank.press('Enter');
  await page.locator('[data-sprint-hour="13"]').fill('编辑后直接点完成');
@@ -97,7 +97,7 @@ const server = http.createServer((req,res) => {
  assert.equal(await page.evaluate(()=>dayMode()),'vacation');
  assert.equal(await page.locator('[data-select-day-mode=vacation]').getAttribute('aria-pressed'),'true');
  assert.equal(await page.locator('[data-select-day-mode=normal]').isDisabled(),true);
- for(const selector of ['#currentFocusTask','#procrastinationToolbar','.today-daily-task-section','#sprintSection','.home-memo-section'])assert.equal(await page.locator(selector).isVisible(),false,selector);
+ for(const selector of ['#currentFocusTask','.today-daily-task-section','#sprintSection','.home-memo-section'])assert.equal(await page.locator(selector).isVisible(),false,selector);
  assert.equal(await page.locator('[data-habit-row=n]').count(),0);
  await page.locator('[data-open-habit]').tap();await page.locator('#sheetForm [name=name]').fill('休假积累');await page.locator('#sheetForm [name=coins]').fill('10');await page.locator('#sheetForm button[type=submit]').tap();
  assert.equal(await page.evaluate(()=>state.habits.at(-1).modeScope),'vacation');

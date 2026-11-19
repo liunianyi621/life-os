@@ -1,3 +1,4 @@
+let sprintRendering=false;
 function modeIcon(mode){return {normal:'sun',vacation:'coffee',sprint:'clock'}[mode];}
 function renderDayMode(){
   const mode=dayMode(),holiday=mode==='vacation';
@@ -11,16 +12,24 @@ function renderDayMode(){
   });
   document.getElementById('tomorrowVacationLabel').hidden=!tomorrowVacation;
   document.querySelector('.today-page').dataset.dayMode=mode;
-  for(const selector of ['#currentFocusTask','#procrastinationToolbar','.today-daily-task-section','.home-memo-section'])document.querySelector(selector).hidden=holiday;
+  for(const selector of ['#currentFocusTask','.today-daily-task-section','.home-memo-section'])document.querySelector(selector).hidden=holiday;
   document.getElementById('currentFocusTask').hidden=mode!=='normal';
   if(mode==='sprint')stopFocusTick();
   const tasks=dailyTasksForToday().filter(t=>t.sprintWindow).sort((a,b)=>Date.parse(a.sprintWindow.startsAt)-Date.parse(b.sprintWindow.startsAt));
   const timeline=document.getElementById('sprintSection');timeline.hidden=holiday || (mode!=='sprint'&&!tasks.some(t=>!dailyTaskSettled(t)));
   document.getElementById('todayModeBar').insertAdjacentElement('afterend',document.querySelector('.home-memo-section'));
+  let columns=document.getElementById('todayExecutionColumns');
+  if(!columns){
+    columns=document.createElement('div');columns.id='todayExecutionColumns';columns.className='today-execution-columns';
+    timeline.before(columns);columns.append(timeline,document.querySelector('.today-habit-section'));
+  }
+  columns.classList.toggle('is-dual',!timeline.hidden);
+  const anchor=timeline.hidden?document.querySelector('.today-daily-task-section'):document.getElementById('currentFocusTask');
+  if(anchor.nextElementSibling!==columns)anchor.after(columns);
   const range=state.dayModes?.sprintRanges?.[dateKey()],rangeButton=document.getElementById('sprintRangeButton');
   rangeButton.hidden=mode!=='sprint';
   rangeButton.innerHTML=`${actionIcons.clock}<span>${range?`${sprintHourLabel(range.startHour)} – ${sprintHourLabel(range.endHour)}`:'设置时间'}</span><span class="sprint-range-chevron" aria-hidden="true">⌄</span>`;
-  timeline.querySelector('h2').textContent=mode==='sprint'?'今日时间线':'待处理时间任务';
+  timeline.querySelector('h2').textContent=mode==='sprint'?'时间线':'待处理时间任务';
   if(timeline.hidden)return;
   if(mode==='sprint')document.querySelector('.today-daily-task-section').hidden=!dailyTasksForToday().some(t=>!t.sprintWindow);
   renderSprintHours(tasks,mode);
@@ -41,10 +50,13 @@ function renderSprintHours(tasks,mode){
     const current=new Date().getHours()===hour;
     const window=sprintHourWindow(day,hour),past=window&&Date.parse(window.endsAt)<=Date.now();
     const disabled=settled||!window||(!task&&past);
-    rows.push(`<form class="sprint-hour-row${current?' is-current':''}" data-sprint-hour-form data-day="${day}"><time>${sprintHourLabel(hour)}</time><input data-sprint-hour="${hour}" data-day="${day}" aria-label="${sprintHourLabel(hour)}任务" value="${escapeAttr(task?.name||'')}" ${disabled?'disabled':''} enterkeyhint="done" autocomplete="off">${settled?`<span class="sprint-hour-status ${task.status==='completed'?'is-complete':''}">${task.status==='completed'?'已完成':'已失败'}</span>`:task?`<button type="button" class="habit-complete-control" data-complete-daily-task="${escapeAttr(task.id)}" aria-label="完成 ${escapeAttr(task.name)}"><span class="habit-empty-circle" aria-hidden="true"></span></button>`:'<button class="habit-complete-control sprint-hour-empty" type="button" disabled aria-label="该时段暂无任务"><span class="habit-empty-circle" aria-hidden="true"></span></button>'}</form>`);
+    rows.push(`<form class="sprint-hour-row${current?' is-current':''}" data-sprint-hour-form data-day="${day}"><time aria-label="${sprintHourLabel(hour)}"><span class="sprint-hour-full">${sprintHourLabel(hour)}</span><span class="sprint-hour-short" aria-hidden="true">${String(hour).padStart(2,'0')}</span></time><input data-sprint-hour="${hour}" data-day="${day}" aria-label="${sprintHourLabel(hour)}任务" value="${escapeAttr(task?.name||'')}" ${disabled?'disabled':''} enterkeyhint="done" autocomplete="off">${settled?`<span class="sprint-hour-status ${task.status==='completed'?'is-complete':''}">${task.status==='completed'?'已完成':'已失败'}</span>`:task?`<button type="button" class="habit-complete-control" data-complete-daily-task="${escapeAttr(task.id)}" aria-label="完成 ${escapeAttr(task.name)}"><span class="habit-empty-circle" aria-hidden="true"></span></button>`:'<button class="habit-complete-control sprint-hour-empty" type="button" disabled aria-label="该时段暂无任务"><span class="habit-empty-circle" aria-hidden="true"></span></button>'}</form>`);
   }
   const legacy=tasks.filter(t=>!mapped.has(t.id));
-  list.innerHTML=(rows.length?`<div class="sprint-hours">${rows.join('')}</div>`:'')+(legacy.length?`<div class="sprint-legacy"><h3>已有时间任务</h3>${sprintLegacyRows(legacy)}</div>`:'');
+  // Replacing an input is not a user blur; preserve its draft and keyboard focus.
+  sprintRendering=true;
+  try{list.innerHTML=(rows.length?`<div class="sprint-hours">${rows.join('')}</div>`:'')+(legacy.length?`<div class="sprint-legacy"><h3>已有时间任务</h3>${sprintLegacyRows(legacy)}</div>`:'');}
+  finally{sprintRendering=false;}
   if(focused){const input=list.querySelector(`[data-sprint-hour="${focused.hour}"]`);if(input&&!input.disabled){input.value=focused.value;input.focus({preventScroll:true});input.setSelectionRange(focused.start,focused.end);}}
 }
 function openSprintRangeSheet(){
@@ -98,6 +110,7 @@ document.addEventListener('submit',event=>{
   catch(error){showToast(error.message);}
 });
 document.addEventListener('focusout',event=>{
+  if(sprintRendering)return;
   const input=event.target;if(!input.matches('[data-sprint-hour]'))return;
   try{saveSprintHour(input.dataset.day,Number(input.dataset.sprintHour),input.value);}
   catch(error){showToast(error.message);}
