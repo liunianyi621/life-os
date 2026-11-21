@@ -120,7 +120,7 @@
         amount: historyCoinDelta(item),
         detail: detailParts.join(" · "),
         automatic: dayTimelineIsAutomatic(item),
-        canCorrect: item.type !== "day_record_correction" && (
+        canCorrect: item.type !== "day_record_correction" && !item.reversedSprintFailure && (
           DAY_DETAIL_HISTORY_TYPES.has(item.type)
           || isRewardPageEvent(item)
           || item.coinDelta !== undefined
@@ -276,7 +276,7 @@
           <button class="day-record-correct-button" type="button" data-correct-day-record="${escapeAttr(record.key)}">
             撤销这条历史记录
           </button>
-        ` : `<p class="day-record-readonly">这是一条纠错流水，不能再次直接撤销。</p>`}
+        ` : `<p class="day-record-readonly">${record.raw?.reversedSprintFailure ? "超时失败已纠正为完成，不可再次撤销。" : "这是一条纠错流水，不能再次直接撤销。"}</p>`}
       `;
       openSheet({ position: "top", layer: "above" });
     }

@@ -1099,7 +1099,11 @@
       renderTasks();
       renderHabits();
       renderPriorityTask();
-      renderDailyReview();
+      if (els.reviewDate && els.reviewDailyScore && els.reviewHistoryList) renderDailyReview();
+      refreshCorrectedDayDetail(day);
+    }
+
+    function refreshCorrectedDayDetail(day) {
       if (!els.dayDetailBackdrop.classList.contains("hidden")) {
         if (dayHasEditableRecords(day)) {
           els.dayDetailContent.innerHTML = buildDayDetailHtml(day);
@@ -1138,13 +1142,33 @@
         showToast("找不到这条记录");
         return;
       }
+      if (item.reversedSprintFailure) return;
+      const sprintCorrection = typeof isSprintDeadlineFailure === "function" && isSprintDeadlineFailure(item);
       const day = item.date || dateKey();
       const confirmed = await askForConfirmation({
-        title: "撤销这条记录？",
-        message: "金币和统计数据会同步恢复。",
-        confirmText: "撤销记录"
+        title: sprintCorrection ? "将超时任务纠正为已完成？" : "撤销这条记录？",
+        message: sprintCorrection ? "将返还原扣款，并发放该任务的完成奖励。" : "金币和统计数据会同步恢复。",
+        confirmText: sprintCorrection ? "纠正为已完成" : "撤销记录"
       });
-      if (!confirmed) return;
+      if (!confirmed || !state.history.includes(item)) return;
+
+      if (sprintCorrection) {
+        const before = JSON.stringify(state);
+        try {
+          if (!correctSprintDeadlineFailure(item)) {
+            showToast("无法核对原结算，本次未修改");
+            return;
+          }
+        } catch (error) {
+          state = JSON.parse(before);
+          showToast("纠正未完成，请重试");
+          return;
+        }
+        if (!saveTaskAction(before)) return;
+        render();
+        refreshCorrectedDayDetail(day);
+        return;
+      }
 
       const snapshot = correctionSnapshot(day, item);
       const originalEntries = [cloneForUndo(item)];
@@ -1662,6 +1686,39 @@
           .filter(item => historyIds.has(item.id))
           .map(item => [item.id, item])
       );
+      const corrections = undo.type === "automatic_failures" && typeof isSprintDeadlineFailure === "function"
+        ? [...undoHistoryById.values()].filter(isSprintDeadlineFailure) : [];
+      if (corrections.length) {
+        const before = JSON.stringify(state);
+        try {
+          for (const failure of corrections) {
+            if (!correctSprintDeadlineFailure(failure)) throw Error("无法核对原结算");
+            historyIds.delete(failure.id);
+            undoHistoryById.delete(failure.id);
+          }
+          applyLedgerUndo({
+            ...undo,
+            taskEntries: (undo.taskEntries || []).filter(entry => historyIds.has(entry.historyId))
+          }, historyIds, undoHistoryById);
+        } catch (error) {
+          state = JSON.parse(before);
+          showToast("撤回未完成，请重试");
+          return;
+        }
+        if (!saveTaskAction(before)) return;
+        render();
+        if (undo.date) refreshCorrectedDayDetail(undo.date);
+        if (historyIds.size) showToast("已撤回", 1500);
+        return;
+      }
+      applyLedgerUndo(undo, historyIds, undoHistoryById);
+      saveState();
+      render();
+      if (undo.date) refreshCorrectedDayDetail(undo.date);
+      showToast("已撤回", 1500);
+    }
+
+    function applyLedgerUndo(undo, historyIds, undoHistoryById) {
       removeCoinHistoryByIds(historyIds);
       if (undo.type === "task_failed" || undo.type === "task_auto_failed" || undo.type === "automatic_failures") {
         const entries = undo.taskEntries || undo.entries || (undo.taskId ? [undo] : []);
@@ -1805,14 +1862,4 @@
         restoreCorrectionSnapshot(undo.snapshot, (undo.originalEntries || [])[0] || { date: undo.date });
       }
 
-      saveState();
-      render();
-      if (undo.date && !els.dayDetailBackdrop.classList.contains("hidden")) {
-        if (dayHasEditableRecords(undo.date)) {
-          els.dayDetailContent.innerHTML = buildDayDetailHtml(undo.date);
-        } else {
-          closeDayDetail();
-        }
-      }
-      showToast("已撤回", 1500);
     }

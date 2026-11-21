@@ -54,19 +54,18 @@ test('Sprint timeout / Undo / scanner / complete reuses one canonical task and o
  assert.throws(()=>run("saveDayModes(dateKey(),dateKey(),'normal')"));
  at('2026-10-18T10:59:59');run('completeDailyTask(id)');assert.equal(run('state.coins'),1050);
  run('undoLastAction()');at('2026-10-18T11:00:00');run('runAutomaticChecks()');assert.equal(run('state.coins'),800);
- run('undoLastAction();runAutomaticChecks();state=loadState();runAutomaticChecks()');assert.equal(run('state.coins'),1000);
+ run('undoLastAction();runAutomaticChecks();state=loadState();runAutomaticChecks()');assert.equal(run('state.coins'),1050);
  run('completeDailyTask(id);completeDailyTask(id)');assert.equal(run('state.coins'),1050);
  assert.equal(run('unifiedCompletedRecords(dateKey()).length'),1);
  run("saveDayModes(dateKey(),dateKey(),'normal')");assert.equal(run('dayMode()'),'normal');
  assert.equal(run("state.history[0].dayMode"),'sprint');
 });
-test('New sprint deadline reactivates after reversal; manual failure and deletion remain safe',()=>{
+test('Manual sprint reversal still reactivates a changed deadline and permits deletion',()=>{
  const {run,at}=runtime();
  run("saveDayModes(dateKey(),dateKey(),'sprint');const id=saveSprintTask({name:'A',start:'10:00',end:'11:00'})");
- at('2026-10-18T11:01:00');run('runAutomaticChecks();undoLastAction();saveSprintTask({id,name:"A",start:"11:00",end:"12:00"})');
+ run('failSprintTask(id);undoLastAction();saveSprintTask({id,name:"A",start:"11:00",end:"12:00"})');
  assert.equal(run('state.coins'),1000);
- at('2026-10-18T12:00:00');run('runAutomaticChecks()');assert.equal(run('state.coins'),800);
- run('undoLastAction();failSprintTask(id)');assert.equal(run('state.coins'),800);
+ at('2026-10-18T11:30:00');run('failSprintTask(id)');assert.equal(run('state.coins'),800);
  run('undoLastAction();deleteDailyTask(id)');assert.equal(run('state.coins'),1000);
  run("saveDayModes(dateKey(),dateKey(),'normal')");assert.equal(run('dayMode()'),'normal');
 });
@@ -96,16 +95,75 @@ test('Vacation habit CRUD/order preserve normal definitions; normal and sprint s
  assert.equal(run('state.habits.find(h=>h.id===a).coins'),20);
  assert.equal(run("visibleHabitsToday().map(h=>h.id).join()"),'n');
 });
-test('Previous-day sprint penalty reversal stays idempotent without granting yesterday rewards',()=>{
+test('Previous-day sprint correction grants the reward on its original date exactly once',()=>{
  const {run,at}=runtime();run("saveDayModes(dateKey(),dateKey(),'sprint');const id=saveSprintTask({name:'昨日',start:'10:00',end:'11:00'})");
  at('2026-10-19T10:00:00');run('runAutomaticChecks();undoLastAction();state=loadState();runAutomaticChecks()');
- assert.equal(run('state.coins'),1000);assert.equal(run('completeDailyTask(id)'),false);
- assert.equal(run('state.history.length'),0);
+ assert.equal(run('state.coins'),1050);assert.equal(run('completeDailyTask(id)'),false);
+ assert.equal(run('state.history.length'),1);
+ assert.equal(run('state.history[0].date'),'2026-10-18');
+ assert.equal(run('state.history[0].reversedSprintFailure.refundedCoins'),200);
 });
 test('Settlement itself rejects a completion crossing the deadline, even before the scanner runs',()=>{
  const {run,at}=runtime();run("saveDayModes(dateKey(),dateKey(),'sprint');saveSprintTask({name:'边界',start:'10:00',end:'11:00'})");
  at('2026-10-18T11:00:00');assert.equal(run("settleDailyTask(state.dailyTasks[0],'completed')"),null);
  assert.equal(run('state.coins'),1000);run('runAutomaticChecks();runAutomaticChecks()');assert.equal(run('state.coins'),800);
+});
+
+test('History correction makes one atomic write, uses original debit and task reward, and can retry',async()=>{
+ const {run,at}=runtime();
+ run("saveDayModes(dateKey(),dateKey(),'sprint');saveSprintTask({name:'旧金额任务',start:'10:00',end:'11:00'})");
+ at('2026-10-18T11:00:00');
+ run(`runAutomaticChecks({showToast:false});const failure=state.history[0].id;
+ Object.assign(state.dailyTasks[0],{ruleVersion:1,reward:17.5,penalty:175});saveState();
+ const original=JSON.stringify(state);
+ askForConfirmation=async()=>true;let writes=0;const write=localStorage.setItem;
+ localStorage.setItem=()=>{writes++;throw Error('storage full');};`);
+ await run('deleteHistoryDayRecord(failure)');
+ assert.equal(run('JSON.stringify(state)===original'),true);
+ assert.equal(run('loadState().dailyTasks[0].status'),'failed');
+ assert.equal(run('loadState().coins'),800);
+ run('localStorage.setItem=(...args)=>{writes++;write(...args);};');
+ await run('Promise.all([deleteHistoryDayRecord(failure),deleteHistoryDayRecord(failure)])');
+ assert.equal(run('writes'),2);
+ assert.equal(run('state.coins'),1017.5);
+ assert.equal(run('state.dailyTasks[0].status'),'completed');
+ assert.equal(run('state.history.length'),1);
+ assert.equal(run('state.history[0].coinDelta'),17.5);
+ assert.equal(run('state.history[0].reversedSprintFailure.original.coinDelta'),-200);
+ assert.equal(run('state.totals.coinsPenalty'),0);
+ run('const backup=createLifeOSBackup();restoreLifeOSBackup(backup);state=loadState();runAutomaticChecks()');
+ assert.equal(run('state.coins'),1017.5);
+ assert.equal(run('state.history[0].reversedSprintFailure.original.id'),run('failure'));
+});
+
+test('Old refund with the original result removed is ambiguous and must never issue more coins',()=>{
+ const {run,at}=runtime();
+ run("saveDayModes(dateKey(),dateKey(),'sprint');saveSprintTask({name:'旧记录',start:'10:00',end:'11:00'})");
+ at('2026-10-18T11:00:00');
+ run(`runAutomaticChecks({showToast:false});const oldFailure=state.history[0];
+ recordDeletionCorrection({originalEntries:[oldFailure],amount:200,day:dateKey(),title:'任务失败纠错'});
+ removeHistoryEntry(oldFailure);applyHistoryRecordDeletion(oldFailure,dateKey());saveState();
+ state=loadState();runAutomaticChecks();state=loadState();runAutomaticChecks();`);
+ assert.equal(run('state.coins'),1000);
+ assert.equal(run('state.dailyTasks[0].status'),'failed');
+ assert.equal(run('state.history.length'),1);
+ assert.equal(run('state.history[0].type'),'day_record_correction');
+});
+
+test('Undoing an automatic batch corrects sprint tasks without changing how habits are undone',()=>{
+ const {run,at}=runtime();
+ run(`saveDayModes(dateKey(),dateKey(),'sprint');
+ state.habits=[{id:'h',name:'普通习惯',coins:5,createdDate:dateKey()}];
+ saveSprintTask({name:'跨日冲刺',start:'23:00',end:'24:00'});`);
+ at('2026-10-19T00:00:00');
+ run('runAutomaticChecks()');
+ assert.equal(run('state.coins'),750);
+ assert.equal(run('pendingUndo.habitEntries.length'),1);
+ run('undoLastAction();state=loadState();runAutomaticChecks();');
+ assert.equal(run('state.coins'),1050);
+ assert.equal(run('state.dailyTasks[0].status'),'completed');
+ assert.equal(run('state.history.length'),1);
+ assert.equal(run("Boolean(state.habitFailures['2026-10-18'].h)"),true);
 });
 
 test('Hourly range creates no empty obligations; expansion, shortening and 24:00 retain data',()=>{
@@ -127,7 +185,7 @@ test('Hourly completion, Undo and timeout share stable settlement; settled slots
  run('undoLastAction();completeDailyTask(hourId)');assert.equal(run('state.coins'),1050);
  run("saveSprintHour(dateKey(),11,'后续')");at('2026-10-18T12:00:00');run('runAutomaticChecks();state=loadState();runAutomaticChecks()');
  assert.equal(run('state.coins'),850);assert.equal(run("state.history.filter(h=>h.type==='task_failed').length"),1);
- run('undoLastAction();state=loadState();runAutomaticChecks()');assert.equal(run('state.coins'),1050);
+ run('undoLastAction();state=loadState();runAutomaticChecks()');assert.equal(run('state.coins'),1100);
  run('completeDailyTask(sprintHourTask(dateKey(),11).id)');assert.equal(run('state.coins'),1100);
  run("saveDayModes(dateKey(),dateKey(),'normal');saveDayModes(dateKey(),dateKey(),'sprint')");assert.equal(run('sprintHourTask(dateKey(),11).status'),'completed');
  at('2026-10-19T12:00:00');run('runAutomaticChecks();state=loadState();runAutomaticChecks()');assert.equal(run('state.coins'),1100);assert.equal(run('state.dayModes.sprintRanges[dateKey()]'),undefined);

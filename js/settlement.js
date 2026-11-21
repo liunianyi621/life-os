@@ -288,6 +288,13 @@
         if(sprint && Date.parse(deadline)<=now.getTime() && task.reversedSprintDeadline!==deadline)return null;
       }
       else if(outcome!=='failed' || (sprint ? !options.manual && (Date.parse(deadline)>now.getTime() || task.reversedSprintDeadline===deadline) : task.localDateKey>=day))return null;
+      const entry = recordDailyTaskSettlement(task, outcome, now, options);
+      settledKeys.add(dailyTaskSettlementKey(task));
+      return entry;
+    }
+
+    function recordDailyTaskSettlement(task, outcome, now, options = {}) {
+      const sprint = Boolean(task.sprintWindow), deadline = task.sprintWindow?.endsAt;
       const previousTask = cloneForUndo(task);
       const amount = outcome === "completed" ? task.reward : task.penalty;
       const key = dailyTaskSettlementKey(task);
@@ -298,17 +305,45 @@
           rewardAmount: task.reward, penaltyAmount: task.penalty, penaltyMultiplier: task.ruleVersion===2 ? 4 : 10,
           settlementKey: key, reason: outcome === "failed" ? sprint ? options.manual?'manual':'sprint_deadline' : "day_end" : "completed",
           ...(sprint?{deadline,scheduledStart:task.sprintWindow.startsAt}:{}),
-          ...(outcome === "completed" ? { earnedCoins: amount, durationSeconds: 0, durationMinutes: 0 } : {}) } });
+          ...(outcome === "completed" ? { earnedCoins: amount, durationSeconds: 0, durationMinutes: 0 } : {}),
+          ...(options.reversedSprintFailure ? { reversedSprintFailure: options.reversedSprintFailure } : {}) } });
       Object.assign(task, { status: outcome, settlementKey: key, settlementHistoryId: event.historyId,
         settledAt: timestamp, updatedAt: timestamp });
       if (outcome === "completed") {
         state.totals.completedTasks = (Number(state.totals.completedTasks) || 0) + 1;
         state.totals.earnedTaskCoins = parseCoinAmount((Number(state.totals.earnedTaskCoins) || 0) + amount);
-        updateStreakForCompletion(task.localDateKey);
+        if (!options.reversedSprintFailure || task.localDateKey === dateKey(now)) updateStreakForCompletion(task.localDateKey);
       } else state.totals.coinsPenalty = parseCoinAmount((Number(state.totals.coinsPenalty) || 0) + amount);
-      settledKeys.add(key);
       return { taskKind: "dailyTask", taskId: task.id, date: task.localDateKey, amount, historyId: event.historyId, previousTask,
         ...(sprint?{sprintDeadline:deadline}:{}) };
+    }
+
+    function isSprintDeadlineFailure(entry) {
+      return entry?.type === "task_failed" && entry.taskKind === "dailyTask" && entry.reason === "sprint_deadline";
+    }
+
+    // Only run inside a rollback-protected write. Keep the original debit in
+    // the completion audit, not as an active failure or a second earned event.
+    function correctSprintDeadlineFailure(failure, now = new Date()) {
+      if (!isSprintDeadlineFailure(failure) || !state.history.includes(failure)) return false;
+      const task = state.dailyTasks.find(item => item.id === failure.taskId);
+      const key = task && dailyTaskSettlementKey(task);
+      const refund = -historyCoinDelta(failure);
+      if (!task?.sprintWindow || !dailyTaskValid(task) || task.status !== "failed"
+        || task.settlementHistoryId !== failure.id || task.settlementKey !== key
+        || failure.date !== task.localDateKey || failure.settlementKey !== key
+        || failure.deadline !== task.sprintWindow.endsAt || Date.parse(failure.timestamp) < Date.parse(failure.deadline)
+        || !Number.isFinite(Date.parse(failure.timestamp)) || refund < 0
+        || state.history.some(entry => entry !== failure && (settlementIdentityFromHistory(entry) === key
+          || (entry.type === "day_record_correction" && Array.isArray(entry.correctedHistoryIds)
+            && entry.correctedHistoryIds.includes(failure.id))))) return false;
+      removeCoinHistoryByIds([failure.id]);
+      applyCoinBalanceDelta(refund);
+      state.totals.coinsPenalty = Math.max(0, parseCoinAmount((Number(state.totals.coinsPenalty) || 0) - refund));
+      recordDailyTaskSettlement(task, "completed", now, {
+        reversedSprintFailure: { original: cloneForUndo(failure), refundedCoins: refund }
+      });
+      return true;
     }
 
     function runPendingSettlements(options = {}) {
